@@ -1,0 +1,9 @@
+title: CATsoup Publisher
+# Only pages with explicit front matter should be rendered. Existing static
+# HTML, the verification file and the Meta callback are copied as-is.
+optional_front_matter:
+  enabled: false
+readme_index:
+  enabled: false
+relative_links:
+  enabled: false

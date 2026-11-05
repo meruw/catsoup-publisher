@@ -2,6 +2,8 @@
 
 ## Implemented
 
+- GitHub Pages renders the setup, accounts and Meta callback guides directly from their Markdown sources. The public site links to the setup guide.
+
 - Meta callback hosting starts off. Users may explicitly accept the CATsoup-hosted return or save their own HTTPS return for both languages. Old implicit hosted settings require a new choice; existing independent URLs are preserved.
 
 - Instagram uses a static HTTPS return page, an encrypted handoff to a short-lived local listener, and a desktop-only token exchange. Developer settings accept the Meta client fields directly.

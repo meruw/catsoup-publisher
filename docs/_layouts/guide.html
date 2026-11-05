@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{ page.title | escape }} | CATsoup Publisher</title>
+<link rel="icon" href="/images/paw.png" type="image/png"><link rel="stylesheet" href="/site.css">
+</head><body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="shell mast"><a class="brand" href="/"><img src="/images/paw.png" alt="" width="40" height="40">CATsoup <span>Publisher</span></a>
+<nav aria-label="Project pages"><a href="/guides/setup/">Guides</a><a href="/terms.html">Terms</a><a href="/privacy.html">Privacy</a></nav></header>
+<main class="shell doc-layout guide-page" id="main">
+<nav class="toc" aria-label="Publisher guides"><h2>Publisher guides</h2><ol>
+{% assign guides = site.pages | where: "layout", "guide" | sort: "order" %}
+{% for guide in guides %}<li><a href="{{ guide.url | escape }}"{% if guide.url == page.url %} aria-current="page"{% endif %}>{{ guide.title | escape }}</a></li>{% endfor %}
+</ol></nav>
+<article class="prose">{{ content }}</article></main>
+<footer class="shell"><span>CATsoup Publisher</span><nav aria-label="Footer"><a href="/terms.html">Terms of Service</a><a href="/privacy.html">Privacy Policy</a></nav></footer>
+</body></html>
