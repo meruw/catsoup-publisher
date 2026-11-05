@@ -67,3 +67,15 @@ footer { color: var(--body); border-top: 1px solid var(--line); padding-block: 1
   .mast nav { font-size: .9375rem; }
   .steps li { padding-left: 2.5rem; }
 }
+
+.guide-page {grid-template-columns:minmax(10rem,1fr) minmax(0,3fr)}
+.guide-page .toc a[aria-current] {color:var(--ink);font-weight:600}
+.guide-page article {min-width:0}
+.guide-page h1 {font-size:clamp(2.25rem,4vw,3.5rem);margin-bottom:1.5rem}
+.guide-page article h2 {margin-top:2rem}
+.guide-page article ol,.guide-page article ul {padding-left:1.5rem}
+.guide-page article li {margin-block:.5rem}
+.guide-page pre {padding:1rem;background:var(--cream);overflow:auto}
+.guide-page table {width:100%;border-collapse:collapse;font-size:.94rem}
+.guide-page :is(td,th) {padding:.6rem;text-align:left;vertical-align:top;border-bottom:1px solid var(--line);overflow-wrap:anywhere}
+@media(max-width:46rem){.guide-page {grid-template-columns:minmax(0,1fr)}}

@@ -1,3 +1,9 @@
+---
+layout: guide
+order: 2
+title: Meta callback hosting
+permalink: /guides/meta-callback/
+---
 # Choose a Meta callback
 
 Instagram browser sign-in starts **off**. Saving developer credentials does not enable it. Upgrades from the old CATsoup default require a new choice; existing independent callback URLs keep working.
@@ -6,7 +12,7 @@ To use the optional shared page, open **Settings → Developer credentials → I
 
 For independent hosting:
 
-1. Copy [index.html](../auth/meta/index.html) and [return.js](../auth/meta/return.js) into one directory on a static HTTPS site you control. The stylesheet is optional: copy [site.css](../site.css) and adjust its relative link if needed. Serve the directory itself as the index at its final public URL, without redirects. For example, `https://studio.example.org/tools/meta/`. No build, server API or edits to the script are required.
+1. Copy [index.html](https://raw.githubusercontent.com/meruw/catsoup-publisher/main/docs/auth/meta/index.html) and [return.js](https://raw.githubusercontent.com/meruw/catsoup-publisher/main/docs/auth/meta/return.js) into one directory on a static HTTPS site you control. The stylesheet is optional: copy [site.css](https://raw.githubusercontent.com/meruw/catsoup-publisher/main/docs/site.css) and adjust its relative link if needed. Serve the directory itself as the index at its final public URL, without redirects. For example, `https://studio.example.org/tools/meta/`. No build, server API or edits to the script are required.
 2. In Publisher, open **Settings → Developer credentials → Instagram → Callback hosting**. Select **My HTTPS domain**, enter the full HTTPS directory URL including its trailing slash and click **Save callback**. Use the exact URL displayed after saving in the Meta portal. Do not enter secrets, query parameters or fragments in it.
 3. Register that URL as a redirect in **your** Meta app, then sign in from **Accounts** in the same browser tab on the same computer. A change applies to the next attempt. Select **Off → Save callback** to disable future browser sign-ins. To revoke an existing grant, remove the local connection in Accounts and revoke the app in Meta.
 
