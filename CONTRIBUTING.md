@@ -38,6 +38,7 @@ try { & ..\..\.tools\bin\govulncheck.exe ./... } finally { Pop-Location }
 For browser checks, install Google Chrome and the development-only harness:
 
 ```powershell
+$env:PATH = "$PWD\.tools\node-v24.22.2-win-x64;" + $env:PATH
 npm.cmd install --prefix .tools/visual-qa --save-exact --ignore-scripts --no-audit --no-fund playwright@1.64.1
 .venv/Scripts/python.exe apps/publisher/support/create_demo.py
 node apps/publisher/support/check_ui.mjs

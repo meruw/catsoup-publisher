@@ -6,7 +6,7 @@ permalink: /guides/meta-callback/
 ---
 # Choose a Meta callback
 
-Instagram browser sign-in starts **off**. Saving developer credentials does not enable it. Upgrades from the old CATsoup default require a new choice; existing independent callback URLs keep working.
+Instagram browser sign-in starts **off**. Saving developer credentials does not enable it.
 
 To use the optional shared page, open **Settings → Developer credentials → Instagram → Callback hosting**, select **CATsoup-hosted callback**, read the notice, check the agreement box and click **Save callback**. Register `https://publisher.meruw.dev/auth/meta/` in your own Meta app. GitHub Pages receives the temporary authorization code and state in the return URL and serves the script. The desktop app exchanges that code for tokens on the user's PC. New sign-ins depend on the shared host.
 

@@ -12,6 +12,10 @@ $env:GOCACHE = Join-Path $repoRoot '.tools\gocache'
 $env:GOTOOLCHAIN = 'local'
 $env:npm_config_cache = Join-Path $repoRoot '.tools\npm-cache'
 $env:PATH = (Join-Path $repoRoot '.tools\go\bin') + ';' + $env:PATH
+$nodeDir = Join-Path $repoRoot '.tools\node-v24.22.2-win-x64'
+$npm = Join-Path $nodeDir 'npm.cmd'
+if (-not (Test-Path -LiteralPath $npm)) { throw 'Local Node is missing. Run setup.ps1 first.' }
+$env:PATH = $nodeDir + ';' + $env:PATH
 Push-Location $appRoot
 try {
     New-Item -ItemType Directory -Path 'bin' -Force | Out-Null
@@ -35,9 +39,9 @@ try {
     }
     Push-Location frontend
     try {
-        & npm.cmd ci --ignore-scripts --no-fund --no-audit
+        & $npm ci --ignore-scripts --no-fund --no-audit
         if ($LASTEXITCODE -ne 0) { throw 'Frontend dependency installation failed.' }
-        & npm.cmd run build
+        & $npm run build
         if ($LASTEXITCODE -ne 0) { throw 'Frontend build failed.' }
     } finally { Pop-Location }
     & $go test ./...

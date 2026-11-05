@@ -8,10 +8,21 @@
 <header class="shell mast"><a class="brand" href="/"><img src="/images/paw.png" alt="" width="40" height="40">CATsoup <span>Publisher</span></a>
 <nav aria-label="Project pages"><a href="/guides/setup/">Guides</a><a href="/terms.html">Terms</a><a href="/privacy.html">Privacy</a></nav></header>
 <main class="shell doc-layout guide-page" id="main">
-<nav class="toc" aria-label="Publisher guides"><h2>Publisher guides</h2><ol>
 {% assign guides = site.pages | where: "layout", "guide" | sort: "order" %}
-{% for guide in guides %}<li><a href="{{ guide.url | escape }}"{% if guide.url == page.url %} aria-current="page"{% endif %}>{{ guide.title | escape }}</a></li>{% endfor %}
-</ol></nav>
+{% capture guide_menu %}
+<nav class="guide-nav" aria-label="Guide directory">
+  {% assign groups = "Guides,Services" | split: "," %}
+  {% for group in groups %}
+  <div><h2>{{ group }}</h2><ul>
+    {% for guide in guides %}{% assign section = guide.section | default: "Guides" %}
+    {% if section == group %}<li><a href="{{ guide.url | escape }}"{% if guide.url == page.url %} aria-current="page"{% endif %}>{{ guide.title | escape }}</a></li>{% endif %}
+    {% endfor %}
+  </ul></div>
+  {% endfor %}
+</nav>
+{% endcapture %}
+<div class="desktop-guides">{{ guide_menu }}</div>
+<details class="mobile-guides"><summary>Browse guides</summary>{{ guide_menu }}</details>
 <article class="prose">{{ content }}</article></main>
 <footer class="shell"><span>CATsoup Publisher</span><nav aria-label="Footer"><a href="/terms.html">Terms of Service</a><a href="/privacy.html">Privacy Policy</a></nav></footer>
 </body></html>
