@@ -114,3 +114,19 @@ func (s *UploadService) access(ctx context.Context, platform, language, id strin
 func (s *UploadService) ConfigureClient(platform, raw string) error {
 	return uploads.Configure(platform, raw)
 }
+
+func (s *UploadService) GoogleClientReady() bool { return uploads.GoogleClientReady() }
+
+// Only these setup pages may be opened by the account manager.
+func (s *UploadService) OpenGoogleSetup(step string) error {
+	switch step {
+	case "api":
+		return s.openBrowser("https://console.cloud.google.com/apis/library/youtube.googleapis.com")
+	case "audience":
+		return s.openBrowser("https://console.cloud.google.com/auth/audience")
+	case "client":
+		return s.openBrowser("https://console.cloud.google.com/auth/clients")
+	default:
+		return errors.New("unknown Google setup page")
+	}
+}

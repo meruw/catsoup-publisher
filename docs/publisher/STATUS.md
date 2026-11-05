@@ -2,6 +2,9 @@
 
 ## Implemented
 
+- Accounts shows first-time YouTube setup before offering Google sign-in.
+  Import a Desktop client JSON or enter its ID and secret once for both languages.
+
 - Accounts module with independent ES/EN destinations, system-browser sign-in,
   protected Windows credentials and verified upload routing across restarts.
   X supports a manual handle per language. See [account setup](UPLOADS.md).

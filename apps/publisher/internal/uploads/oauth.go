@@ -56,7 +56,7 @@ func desktopConfig(platform string) (desktopOAuth, error) {
 	path := filepath.Join(configDir, "CATsoup Publisher", "google-desktop.json")
 	raw, err := os.ReadFile(path)
 	if err != nil {
-		return desktopOAuth{}, errors.New("save your Google Desktop app credentials in %APPDATA%/CATsoup Publisher/google-desktop.json")
+		return desktopOAuth{}, errors.New("set up the YouTube connection in Accounts and import your Google Desktop app client")
 	}
 	var cfg struct {
 		Installed struct {
@@ -64,11 +64,16 @@ func desktopConfig(platform string) (desktopOAuth, error) {
 			Secret string `json:"client_secret"`
 		}
 	}
-	if err = json.Unmarshal(raw, &cfg); err != nil || cfg.Installed.ID == "" {
+	if err = json.Unmarshal(raw, &cfg); err != nil || cfg.Installed.ID == "" || cfg.Installed.Secret == "" {
 		return desktopOAuth{}, errors.New("Google desktop client configuration is invalid")
 	}
 	return desktopOAuth{"https://accounts.google.com/o/oauth2/v2/auth", "https://oauth2.googleapis.com/token", "client_id", cfg.Installed.ID, cfg.Installed.Secret, "https://www.googleapis.com/auth/youtube.upload https://www.googleapis.com/auth/youtube.readonly", "/"}, nil
 }
+func GoogleClientReady() bool {
+	_, err := desktopConfig("youtube")
+	return err == nil
+}
+
 func (c *Client) SignIn(ctx context.Context, platform string, open func(string) error) (Token, error) {
 	cfg, err := desktopConfig(platform)
 	if err != nil {

@@ -37,6 +37,13 @@ const server = await createServer({
       const none = {state:'',reference:'',retryAllowed:false};
       const receipts = new Map(); const profiles = () => JSON.parse(localStorage.getItem('account-fixture') || '[]');
       export const uploads = {
+        googleReady: async () => localStorage.getItem('google-client-fixture') === 'ready',
+        googleSetup: async step => { window.__googleSetupStep=step; },
+        configure: async (platform,raw) => {
+          const client=JSON.parse(raw).installed;
+          if(platform!=='youtube'||!client?.client_id||!client.client_secret) throw Error('select Google Desktop app JSON');
+          localStorage.setItem('google-client-fixture','ready');
+        },
         accounts: async () => profiles(),
         link: async (platform,language) => {const p={platform,language,id:platform+'-'+language,name:'Fixture '+language};const rows=profiles().filter(row=>row.platform!==platform||row.language!==language);localStorage.setItem('account-fixture',JSON.stringify([...rows,p]));return p;},
         unlink: async (platform,language) => localStorage.setItem('account-fixture',JSON.stringify(profiles().filter(row=>row.platform!==platform||row.language!==language))),
@@ -233,6 +240,16 @@ try {
     await page.getByRole('button',{name:lang==='es'?'Spanish accounts':'English accounts',exact:true}).click();
     const row=page.getByRole('region',{name:platform,exact:true});
     await row.getByRole('button',{name:platform==='X'?'Set handle':'Connect',exact:true}).click();
+    if (platform==='YouTube' && lang==='es') {
+      await row.getByText('Set up YouTube once').waitFor();
+      assert.equal(await row.getByRole('button',{name:signIn}).count(),0);
+      await row.getByRole('button',{name:'Open Google clients'}).click();
+      assert.equal(await page.evaluate(()=>window.__googleSetupStep),'client');
+      const picker=row.getByLabel('Import Google client JSON');
+      await picker.setInputFiles({name:'wrong.json',mimeType:'application/json',buffer:Buffer.from('{}')});
+      await page.getByRole('alert').filter({hasText:'select Google Desktop app JSON'}).waitFor();
+      await picker.setInputFiles({name:'download.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify({installed:{client_id:'fixture',client_secret:'fixture'}}))});
+    }
     if(platform==='Instagram'||platform==='X') await row.getByLabel(platform+' username').fill('fixture');
     await row.getByRole('button',{name:signIn,exact:true}).click();
     await row.getByText('Fixture '+lang,{exact:true}).waitFor();

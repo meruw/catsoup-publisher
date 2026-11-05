@@ -21,8 +21,19 @@ export function ConfigureClient(platform: string, raw: string): $CancellableProm
     return $Call.ByID(693010183, platform, raw);
 }
 
+export function GoogleClientReady(): $CancellablePromise<boolean> {
+    return $Call.ByID(456363275);
+}
+
 export function LinkAccount(platform: string, language: string, expectedID: string, handle: string, pageToken: string): $CancellablePromise<drafts$0.Profile> {
     return $Call.ByID(1236098195, platform, language, expectedID, handle, pageToken);
+}
+
+/**
+ * Only these setup pages may be opened by the account manager.
+ */
+export function OpenGoogleSetup(step: string): $CancellablePromise<void> {
+    return $Call.ByID(1173914444, step);
 }
 
 export function OpenXComposer(key: drafts$0.Key, revision: number): $CancellablePromise<void> {
