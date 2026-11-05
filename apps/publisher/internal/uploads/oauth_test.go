@@ -52,6 +52,18 @@ func TestBrowserSignInChecksStateAndPKCE(t *testing.T) {
 			if ClientStatus(tc.platform) != "saved" {
 				t.Fatal("expected locally valid client")
 			}
+			if tc.platform == "instagram" {
+				if _, err := SetMetaCallbackURL(""); err != nil {
+					t.Fatal(err)
+				}
+				_, err := New().SignIn(context.Background(), tc.platform, func(string) error { t.Fatal("opened browser without a callback choice"); return nil })
+				if err == nil || !strings.Contains(err.Error(), "callback hosting") {
+					t.Fatal("expected setup error", err)
+				}
+				if _, err := SetMetaCallbackURL(customURL); err != nil {
+					t.Fatal(err)
+				}
+			}
 			var challenge, redirect string
 			c := New()
 			c.HTTP.Transport = transport(func(r *http.Request) (*http.Response, error) {

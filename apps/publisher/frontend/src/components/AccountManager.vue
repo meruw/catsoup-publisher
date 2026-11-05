@@ -18,13 +18,14 @@ const handle=ref('');
 const pageToken=ref('');
 const message=ref('');
 const error=ref('');
+const metaCallbackReady=ref(false);
 const configured=ref<Partial<Record<SetupPlatform,boolean>>>({});
 const langName=computed(()=>language.value==='es'?'Spanish':'English');
 function account(p:Platform){return rows.value.find(a=>a.language===language.value && a.platform===p);}
 function reset(){editing.value=null;remove.value=null;pageToken.value='';handle.value='';advanced.value=false;message.value='';error.value='';}
 function edit(p:Platform){
  reset();
- if(p!=='x' && configured.value[p]===false) {
+ if(p!=='x' && (configured.value[p]===false || (p==='instagram' && !metaCallbackReady.value))) {
    emit('settings',p,language.value);
    return;
  }
@@ -50,6 +51,7 @@ onMounted(()=>{void run(async()=>{
  await load();
  await Promise.all((['youtube','tiktok','instagram'] as const).map(async p=>{
    configured.value[p]=await uploads.clientReady(p);
+   if(p==='instagram') metaCallbackReady.value=Boolean(await uploads.metaCallback());
  }));
 });});
 </script>
@@ -64,16 +66,16 @@ onMounted(()=>{void run(async()=>{
     <h3>{{ name }}</h3>
     <div class="destination" :class="{assigned:account(p)}">
      <span class="account-name"><span v-if="account(p)" class="status-dot" aria-hidden="true"></span>{{ account(p)?.name || (p==='x'?'No handle assigned':'Not connected') }}</span>
-     <details v-if="editing!==p && remove!==p && (account(p) || (p==='instagram' && configured.instagram===false))" :key="language">
+     <details v-if="editing!==p && remove!==p && (account(p) || (p==='instagram' && (!configured.instagram || !metaCallbackReady)))" :key="language">
       <summary>{{ account(p)?'Account details':'Other sign-in options' }}</summary>
-      <small v-if="account(p) && p!=='x'" class="mono">ID · {{ account(p)?.id }}</small>
+      <small v-if="account(p) && p!=='x'" class="mono">ID Â· {{ account(p)?.id }}</small>
       <div class="draft-actions">
-       <UiButton v-if="p==='instagram' && configured.instagram===false" size="compact" variant="quiet" :disabled="pending" @click="reset(); editing=p; advanced=true; handle=account(p)?.name||''">Use Page token</UiButton>
+       <UiButton v-if="p==='instagram' && (!configured.instagram || !metaCallbackReady)" size="compact" variant="quiet" :disabled="pending" @click="reset(); editing=p; advanced=true; handle=account(p)?.name||''">Use Page token</UiButton>
        <UiButton v-if="account(p)" size="compact" variant="quiet" :disabled="pending" @click="reset(); remove=p">Remove</UiButton>
       </div>
      </details>
     </div>
-    <UiButton v-if="editing!==p && remove!==p" class="row-action" :disabled="pending || (p!=='x' && configured[p]===undefined)" @click="edit(p)">{{ p!=='x' && configured[p]===false?'Set up credentials':account(p)?'Change':p==='x'?'Set handle':'Connect' }}</UiButton>
+    <UiButton v-if="editing!==p && remove!==p" class="row-action" :disabled="pending || (p!=='x' && configured[p]===undefined)" @click="edit(p)">{{ p!=='x' && configured[p]===false?'Set up credentials':p==='instagram' && !metaCallbackReady?'Set up callback':account(p)?'Change':p==='x'?'Set handle':'Connect' }}</UiButton>
    </div>
    <div v-if="remove===p" class="draft-fields"><p>Remove {{ account(p)?.name }} from {{ langName }} uploads?</p>
     <div class="draft-actions"><UiButton :disabled="pending" @click="unlink(p)">Remove account</UiButton><UiButton variant="quiet" :disabled="pending" @click="reset">Cancel</UiButton></div>
@@ -85,10 +87,10 @@ onMounted(()=>{void run(async()=>{
      <label><input type="checkbox" v-model="advanced" :disabled="pending"> Use an existing Facebook Page token</label>
      <input v-if="advanced" type="password" class="ui-field" v-model="pageToken" aria-label="Facebook Page access token" autocomplete="off" :disabled="pending">
     </details>
-    <div class="draft-actions"><UiButton v-if="p==='x'||configured[p]||(p==='instagram'&&advanced)" variant="primary" :busy="pending" :disabled="advanced && !pageToken.trim()" @click="link(p)">{{ p==='x'?'Save handle':p==='instagram'?(advanced?'Connect Page':'Sign in with Facebook'):p==='youtube'?'Sign in with Google':'Sign in with TikTok' }}</UiButton><UiButton variant="quiet" :disabled="pending" @click="reset">Cancel</UiButton></div>
+    <div class="draft-actions"><UiButton v-if="p==='x'||(configured[p] && (p!=='instagram'||metaCallbackReady))||(p==='instagram'&&advanced)" variant="primary" :busy="pending" :disabled="advanced && !pageToken.trim()" @click="link(p)">{{ p==='x'?'Save handle':p==='instagram'?(advanced?'Connect Page':'Sign in with Facebook'):p==='youtube'?'Sign in with Google':'Sign in with TikTok' }}</UiButton><UiButton variant="quiet" :disabled="pending" @click="reset">Cancel</UiButton></div>
    </div>
   </section>
-  <p v-if="pending && editing" role="status">Waiting for {{ platforms[editing] }}…</p>
+  <p v-if="pending && editing" role="status">Waiting for {{ platforms[editing] }}â€¦</p>
   <p v-if="message" role="status">{{ message }}</p>
   <p v-if="error" class="notice error" role="alert">{{ error }}</p>
  </main>

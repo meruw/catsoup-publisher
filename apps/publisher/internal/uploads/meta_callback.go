@@ -11,7 +11,11 @@ import (
 	"strings"
 )
 
-const defaultMetaCallback = "https://publisher.meruw.dev/auth/meta/"
+const hostedMetaCallback = "https://publisher.meruw.dev/auth/meta/"
+
+// A legacy URL alone does not record acceptance of the hosted callback notice.
+const hostedConsentV1 = "catsoup-hosted:consent-v1"
+const callbackOff = "off"
 const callbackFile = "meta-callback.txt"
 
 var dnsLabel = regexp.MustCompile("^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$")
@@ -71,17 +75,48 @@ func MetaCallbackURL() (string, error) {
 	}
 	raw, err := os.ReadFile(filepath.Join(dir, "CATsoup Publisher", callbackFile))
 	if errors.Is(err, os.ErrNotExist) {
-		return defaultMetaCallback, nil
+		return "", nil
 	}
 	if err != nil {
 		return "", errors.New("could not read the Meta callback setting")
 	}
-	return validateMetaCallback(string(raw))
+	switch string(raw) {
+	case hostedConsentV1:
+		return hostedMetaCallback, nil
+	case callbackOff:
+		return "", nil
+	}
+	value, err := validateMetaCallback(string(raw))
+	if err != nil {
+		return "", err
+	}
+	if publisherDomain(value) {
+		return "", nil
+	}
+	return value, nil
 }
+func EnableHostedMetaCallback() (string, error) {
+	if err := saveConfiguration(callbackFile, hostedConsentV1); err != nil {
+		return "", err
+	}
+	return hostedMetaCallback, nil
+}
+func publisherDomain(value string) bool {
+	u, err := url.Parse(value)
+	return err == nil && u.Hostname() == "publisher.meruw.dev"
+}
+
+// SetMetaCallbackURL selects independent hosting, or disables browser sign-in.
 func SetMetaCallbackURL(raw string) (string, error) {
+	if raw == "" {
+		return "", saveConfiguration(callbackFile, callbackOff)
+	}
 	value, err := validateMetaCallback(strings.TrimSpace(raw))
 	if err != nil {
 		return "", err
+	}
+	if publisherDomain(value) {
+		return "", errors.New("choose the CATsoup-hosted option and accept its notice to use publisher.meruw.dev")
 	}
 	if err = saveConfiguration(callbackFile, value); err != nil {
 		return "", err

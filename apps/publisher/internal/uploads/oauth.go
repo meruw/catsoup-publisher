@@ -134,6 +134,9 @@ func (c *Client) SignIn(ctx context.Context, platform string, open func(string) 
 		if err != nil {
 			return Token{}, err
 		}
+		if redirect == "" {
+			return Token{}, errors.New("choose callback hosting in Settings before signing in with Facebook")
+		}
 		bridge, err = newMetaReturn()
 		if err != nil {
 			return Token{}, err

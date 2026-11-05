@@ -29,6 +29,10 @@ export function CredentialStatuses(): $CancellablePromise<{ [_ in string]?: stri
     return $Call.ByID(4184223391);
 }
 
+export function EnableHostedMetaCallback(): $CancellablePromise<string> {
+    return $Call.ByID(438845082);
+}
+
 export function GoogleClientReady(): $CancellablePromise<boolean> {
     return $Call.ByID(456363275);
 }

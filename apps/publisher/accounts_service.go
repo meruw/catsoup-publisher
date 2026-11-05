@@ -128,6 +128,9 @@ func (s *UploadService) CredentialStatuses() map[string]string {
 }
 
 func (s *UploadService) MetaCallbackURL() (string, error) { return uploads.MetaCallbackURL() }
+func (s *UploadService) EnableHostedMetaCallback() (string, error) {
+	return uploads.EnableHostedMetaCallback()
+}
 func (s *UploadService) SetMetaCallbackURL(raw string) (string, error) {
 	return uploads.SetMetaCallbackURL(raw)
 }
