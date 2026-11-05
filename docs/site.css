@@ -101,3 +101,9 @@ footer { color: var(--body); border-top: 1px solid var(--line); padding-block: 1
   .guide-page :is(td, th) { padding: .7rem .55rem; }
   .guide-page :is(td, th):first-child { width: max(28%, 5.75rem); }
 }
+
+.service-index { list-style: none; padding: 0; margin: 0; }
+.service-index li { display: grid; grid-template-columns: minmax(5.5rem, 1fr) 3fr; gap: 1rem; padding-block: 1rem; border-top: 1px solid var(--line); }
+.service-index li:first-child { border: 0; padding-top: 0; }
+.service-index a { font-weight: 600; }
+.service-index p { color: var(--body); }
