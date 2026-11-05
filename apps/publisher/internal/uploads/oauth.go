@@ -9,54 +9,66 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"time"
 )
 
 type desktopOAuth struct{ authURL, tokenURL, keyField, id, secret, scope, callback string }
+
+var errMissingClient = errors.New("set up the provider credentials in Settings")
+
+func fieldsPresent(values ...string) bool {
+	for _, v := range values {
+		if strings.TrimSpace(v) == "" {
+			return false
+		}
+	}
+	return true
+}
 
 func desktopConfig(platform string) (desktopOAuth, error) {
 	configDir, err := os.UserConfigDir()
 	if err != nil {
 		return desktopOAuth{}, err
 	}
+	file := map[string]string{"instagram": "meta-desktop.json", "youtube": "google-desktop.json", "tiktok": "tiktok-desktop.json"}[platform]
+	if file == "" {
+		return desktopOAuth{}, errors.New("unsupported provider")
+	}
+	raw, err := os.ReadFile(filepath.Join(configDir, "CATsoup Publisher", file))
+	if errors.Is(err, os.ErrNotExist) {
+		return desktopOAuth{}, errMissingClient
+	}
+	if err != nil {
+		return desktopOAuth{}, errors.New("could not read the credentials saved in Settings")
+	}
 	if platform == "instagram" {
-		raw, err := os.ReadFile(filepath.Join(configDir, "CATsoup Publisher", "meta-desktop.json"))
-		if err != nil {
-			return desktopOAuth{}, errors.New("configure meta-desktop.json for Facebook Login, or use a Page token")
-		}
 		var cfg struct {
 			ID     string `json:"app_id"`
 			Secret string `json:"app_secret"`
 			Config string `json:"config_id"`
 		}
-		if json.Unmarshal(raw, &cfg) != nil || cfg.ID == "" || cfg.Secret == "" || cfg.Config == "" {
+		if json.Unmarshal(raw, &cfg) != nil || !fieldsPresent(cfg.ID, cfg.Secret, cfg.Config) {
 			return desktopOAuth{}, errors.New("invalid Meta app configuration")
 		}
 		return desktopOAuth{"https://www.facebook.com/v25.0/dialog/oauth", graph + "oauth/access_token", "client_id", cfg.ID, cfg.Secret, cfg.Config, "/callback/"}, nil
 	}
 	if platform == "tiktok" {
-		raw, err := os.ReadFile(filepath.Join(configDir, "CATsoup Publisher", "tiktok-desktop.json"))
-		if err != nil {
-			return desktopOAuth{}, errors.New("save your TikTok Login Kit credentials in %APPDATA%/CATsoup Publisher/tiktok-desktop.json")
-		}
 		var cfg struct {
 			Key    string `json:"client_key"`
 			Secret string `json:"client_secret"`
 		}
-		if json.Unmarshal(raw, &cfg) != nil || cfg.Key == "" || cfg.Secret == "" {
+		if json.Unmarshal(raw, &cfg) != nil || !fieldsPresent(cfg.Key, cfg.Secret) {
 			return desktopOAuth{}, errors.New("invalid TikTok desktop configuration")
 		}
 		return desktopOAuth{"https://www.tiktok.com/v2/auth/authorize/", tik + "oauth/token/", "client_key", cfg.Key, cfg.Secret, "user.info.basic,video.upload", "/callback/"}, nil
-	}
-	path := filepath.Join(configDir, "CATsoup Publisher", "google-desktop.json")
-	raw, err := os.ReadFile(path)
-	if err != nil {
-		return desktopOAuth{}, errors.New("set up the YouTube connection in Accounts and import your Google Desktop app client")
 	}
 	var cfg struct {
 		Installed struct {
@@ -64,13 +76,43 @@ func desktopConfig(platform string) (desktopOAuth, error) {
 			Secret string `json:"client_secret"`
 		}
 	}
-	if err = json.Unmarshal(raw, &cfg); err != nil || cfg.Installed.ID == "" || cfg.Installed.Secret == "" {
+	if err = json.Unmarshal(raw, &cfg); err != nil || !fieldsPresent(cfg.Installed.ID, cfg.Installed.Secret) {
 		return desktopOAuth{}, errors.New("Google desktop client configuration is invalid")
 	}
 	return desktopOAuth{"https://accounts.google.com/o/oauth2/v2/auth", "https://oauth2.googleapis.com/token", "client_id", cfg.Installed.ID, cfg.Installed.Secret, "https://www.googleapis.com/auth/youtube.upload https://www.googleapis.com/auth/youtube.readonly", "/"}, nil
 }
-func GoogleClientReady() bool {
-	_, err := desktopConfig("youtube")
+
+// The receipt identifies the client used in a successful exchange, not an active account.
+func (cfg desktopOAuth) fingerprint() string {
+	data, _ := json.Marshal([]string{cfg.authURL, cfg.id, cfg.secret, cfg.scope})
+	return fmt.Sprintf("%x", sha256.Sum256(data))
+}
+func receiptPath(platform string) (string, error) {
+	dir, err := os.UserConfigDir()
+	return filepath.Join(dir, "CATsoup Publisher", platform+"-client.receipt"), err
+}
+func ClientStatus(platform string) string {
+	cfg, err := desktopConfig(platform)
+	if errors.Is(err, errMissingClient) {
+		return "missing"
+	}
+	if err != nil {
+		return "invalid"
+	}
+	if path, err := receiptPath(platform); err == nil {
+		receipt, _ := os.ReadFile(path)
+		if string(receipt) == cfg.fingerprint() {
+			return "confirmed"
+		}
+	}
+	return "saved"
+}
+
+func ClientReady(platform string) bool {
+	if platform != "youtube" && platform != "tiktok" && platform != "instagram" {
+		return false
+	}
+	_, err := desktopConfig(platform)
 	return err == nil
 }
 
@@ -79,32 +121,30 @@ func (c *Client) SignIn(ctx context.Context, platform string, open func(string) 
 	if err != nil {
 		return Token{}, err
 	}
-	addr := "127.0.0.1:0"
-	if platform == "instagram" {
-		addr = "127.0.0.1:48172"
-	}
-	ln, err := net.Listen("tcp4", addr)
+	ln, err := net.Listen("tcp4", "127.0.0.1:0")
 	if err != nil {
 		return Token{}, errors.New("could not start local sign-in")
 	}
 	defer ln.Close()
 	host := ln.Addr().String()
-	if platform == "instagram" {
-		host = "localhost:48172"
-	}
 	redirect := "http://" + host + cfg.callback
+	var bridge *metaReturn
+	if platform == "instagram" {
+		redirect, err = MetaCallbackURL()
+		if err != nil {
+			return Token{}, err
+		}
+		bridge, err = newMetaReturn()
+		if err != nil {
+			return Token{}, err
+		}
+	}
 	state, verifier := rand.Text(), rand.Text()+rand.Text()
 	sum := sha256.Sum256([]byte(verifier))
 	params := url.Values{cfg.keyField: {cfg.id}, "response_type": {"code"}, "redirect_uri": {redirect}, "state": {state}, "scope": {cfg.scope}, "code_challenge": {base64.RawURLEncoding.EncodeToString(sum[:])}, "code_challenge_method": {"S256"}}
 	if platform == "tiktok" {
 		params.Set("code_challenge", hex.EncodeToString(sum[:]))
-	} else if platform == "instagram" {
-		params.Del("scope")
-		params.Del("code_challenge")
-		params.Del("code_challenge_method")
-		params.Set("config_id", cfg.scope)
-		params.Set("override_default_response_type", "true")
-	} else {
+	} else if platform != "instagram" {
 		params.Set("prompt", "select_account consent")
 		params.Set("access_type", "offline")
 	}
@@ -115,15 +155,28 @@ func (c *Client) SignIn(ctx context.Context, platform string, open func(string) 
 			http.Error(w, "Invalid callback", 400)
 			return
 		}
+		result := r.URL.Query().Get("code")
+		if bridge != nil {
+			var ok bool
+			result, ok = bridge.code(r.URL.Query().Get("reply"), state)
+			if !ok {
+				http.Error(w, "Invalid return to Publisher", 400)
+				return
+			}
+		}
 		select {
-		case code <- r.URL.Query().Get("code"):
+		case code <- result:
 		default:
 		}
 		w.Write([]byte("You can close this tab and return to CATsoup Publisher."))
 	})}
 	defer srv.Close()
 	go srv.Serve(ln)
-	if err = open(cfg.authURL + "?" + params.Encode()); err != nil {
+	launch := cfg.authURL + "?" + params.Encode()
+	if bridge != nil {
+		launch = bridge.launch(redirect, strconv.Itoa(ln.Addr().(*net.TCPAddr).Port), state, cfg)
+	}
+	if err = open(launch); err != nil {
 		return Token{}, errors.New("could not open the browser for sign-in")
 	}
 	var authCode string
@@ -139,5 +192,12 @@ func (c *Client) SignIn(ctx context.Context, platform string, open func(string) 
 	if platform == "instagram" {
 		form.Del("code_verifier")
 	}
-	return c.exchange(ctx, cfg.tokenURL, form)
+	token, err := c.exchange(ctx, cfg.tokenURL, form)
+	if err == nil {
+		// A status indicator must not prevent a successful sign-in.
+		if path, e := receiptPath(platform); e == nil {
+			_ = os.WriteFile(path, []byte(cfg.fingerprint()), 0600)
+		}
+	}
+	return token, err
 }

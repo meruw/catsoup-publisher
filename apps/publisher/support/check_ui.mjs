@@ -37,12 +37,27 @@ const server = await createServer({
       const none = {state:'',reference:'',retryAllowed:false};
       const receipts = new Map(); const profiles = () => JSON.parse(localStorage.getItem('account-fixture') || '[]');
       export const uploads = {
-        googleReady: async () => localStorage.getItem('google-client-fixture') === 'ready',
+        metaCallback: async () => localStorage.getItem('meta-callback-fixture') || 'https://publisher.meruw.dev/auth/meta/',
+        setMetaCallback: async url => {localStorage.setItem('meta-callback-fixture',url);return url;},
+        credentialStatuses: async () => Object.fromEntries(['youtube','tiktok','instagram'].map(p=>[p,localStorage.getItem(p+'-client-fixture')==='ready'?'saved':'missing'])),
+        clientReady: async p => localStorage.getItem(p+'-client-fixture')==='ready',
         googleSetup: async step => { window.__googleSetupStep=step; },
         configure: async (platform,raw) => {
+          if(platform==='tiktok') {
+            const data=JSON.parse(raw);
+            if(data.client_key!=='fixture-key' || data.client_secret!=='fixture-secret') throw Error('Invalid fixture credentials');
+            localStorage.setItem('tiktok-client-fixture','ready');
+            return;
+          }
+          if(platform==='instagram') {
+            const data=JSON.parse(raw);
+            if(!data.app_id || !data.app_secret || !data.config_id) throw Error('Invalid Meta fixture');
+            localStorage.setItem('instagram-client-fixture','ready');
+            return;
+          }
           const client=JSON.parse(raw).installed;
           if(platform!=='youtube'||!client?.client_id||!client.client_secret) throw Error('select Google Desktop app JSON');
-          localStorage.setItem('google-client-fixture','ready');
+          localStorage.setItem('youtube-client-fixture','ready');
         },
         accounts: async () => profiles(),
         link: async (platform,language) => {const p={platform,language,id:platform+'-'+language,name:'Fixture '+language};const rows=profiles().filter(row=>row.platform!==platform||row.language!==language);localStorage.setItem('account-fixture',JSON.stringify([...rows,p]));return p;},
@@ -236,23 +251,91 @@ try {
   });
   assert(await upload.isDisabled());
   await page.getByRole('button',{name:'Accounts',exact:true}).click();
-  for (const [lang,platform,signIn] of [['es','YouTube','Sign in with Google'],['es','TikTok','Sign in with TikTok'],['es','Instagram','Sign in with Facebook'],['es','X','Save handle'],['en','YouTube','Sign in with Google']]) {
+  await page.getByRole('button',{name:'Settings',exact:true}).click();
+  await page.getByRole('heading',{name:'Settings',exact:true}).waitFor();
+  assert.equal(await page.getByText('Not configured',{exact:true}).count(),0);
+  const overview=page.getByRole('region',{name:'Developer credentials',exact:true});
+  const headerBox=await page.getByRole('heading',{name:'Settings',exact:true}).locator('..').boundingBox();
+  const titleBox=await overview.getByRole('heading').boundingBox();
+  assert(titleBox.y-(headerBox.y+headerBox.height)>=20,'settings section needs space below divider');
+  await page.screenshot({path:path.join(output,'settings-credentials.png')});
+  assert.equal(await page.getByLabel('Client secret',{exact:true}).count(),0);
+  await page.getByRole('button',{name:'Manage credentials'}).click();
+  await page.getByRole('group',{name:'Provider settings'}).getByText('Not configured',{exact:true}).first().waitFor();
+  await page.getByRole('button',{name:'Back to Settings'}).click();
+  await page.getByRole('button',{name:'Accounts',exact:true}).click();
+  for (const [lang,platform,signIn] of [['es','YouTube','Sign in with Google'],['es','TikTok','Sign in with TikTok'],['es','Instagram','Sign in with Facebook'],['es','X','Save handle'],['en','YouTube','Sign in with Google'],['en','TikTok','Sign in with TikTok']]) {
     await page.getByRole('button',{name:lang==='es'?'Spanish accounts':'English accounts',exact:true}).click();
     const row=page.getByRole('region',{name:platform,exact:true});
-    await row.getByRole('button',{name:platform==='X'?'Set handle':'Connect',exact:true}).click();
-    if (platform==='YouTube' && lang==='es') {
-      await row.getByText('Set up YouTube once').waitFor();
-      assert.equal(await row.getByRole('button',{name:signIn}).count(),0);
-      await row.getByRole('button',{name:'Open Google clients'}).click();
-      assert.equal(await page.evaluate(()=>window.__googleSetupStep),'client');
-      const picker=row.getByLabel('Import Google client JSON');
-      await picker.setInputFiles({name:'wrong.json',mimeType:'application/json',buffer:Buffer.from('{}')});
-      await page.getByRole('alert').filter({hasText:'select Google Desktop app JSON'}).waitFor();
-      await picker.setInputFiles({name:'download.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify({installed:{client_id:'fixture',client_secret:'fixture'}}))});
+    if(lang==='es' && platform==='YouTube'){
+      const divider=await page.locator('.account-manager .page-header').boundingBox();
+      const toggle=await page.getByRole('button',{name:'Spanish accounts',exact:true}).boundingBox();
+      assert(toggle.y-(divider.y+divider.height)>=16,'language toggle needs space below divider');
+      await page.screenshot({path:path.join(output,'accounts-spacing.png')});
     }
+    if (lang==='es' && platform!=='X') {
+      if(platform==='Instagram') {
+        await row.getByText('Other sign-in options',{exact:true}).click();
+        await row.getByRole('button',{name:'Use Page token'}).click();
+        await row.getByLabel('Facebook Page access token').waitFor();
+        await row.getByRole('button',{name:'Cancel'}).click();
+      }
+      await row.getByRole('button',{name:'Set up credentials'}).click();
+      await page.getByRole('heading',{name:'Developer credentials',exact:true}).waitFor();
+      const setup=page.getByRole('region',{name:platform+' settings'});
+      if(platform==='YouTube') {
+        await setup.getByText('Google Cloud setup').click();
+        await setup.getByRole('button',{name:'Open Google clients'}).click();
+        assert.equal(await page.evaluate(()=>window.__googleSetupStep),'client');
+        const picker=setup.getByLabel('Import YouTube client JSON');
+        const chooserEvent=page.waitForEvent('filechooser');
+        await setup.getByRole('button',{name:'Import JSON…'}).focus();
+        await page.keyboard.press('Enter');
+        const chooser=await chooserEvent;
+        await chooser.setFiles({name:'wrong.json',mimeType:'application/json',buffer:Buffer.from('{}')});
+        await page.getByRole('alert').filter({hasText:'select Google Desktop app JSON'}).waitFor();
+        await picker.setInputFiles({name:'download.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify({installed:{client_id:'fixture',client_secret:'fixture'}}))});
+      } else if(platform==='TikTok') {
+        const save=setup.getByRole('button',{name:'Save TikTok credentials'});
+        await setup.getByLabel('Client key',{exact:true}).fill(' fixture-key ');
+        assert(await save.isDisabled());
+        const secret=setup.getByLabel('Client secret',{exact:true});
+        assert.equal(await secret.getAttribute('type'),'password');
+        await secret.fill(' fixture-secret ');
+        await save.click();
+        await setup.getByRole('status').waitFor();
+        assert.equal(await secret.inputValue(),'');
+      } else {
+        await setup.getByText('Callback hosting').click();
+        const field=setup.getByLabel('HTTPS callback URL');
+        assert.equal(await field.inputValue(),'https://publisher.meruw.dev/auth/meta/');
+        await field.fill('https://reels.example.org/team/meta/');
+        await setup.getByRole('button',{name:'Save callback'}).click();
+        await setup.getByText('https://reels.example.org/team/meta/',{exact:true}).waitFor();
+        await setup.getByRole('button',{name:'Use Publisher default'}).click();
+        await setup.getByText('https://publisher.meruw.dev/auth/meta/',{exact:true}).waitFor();
+        await setup.getByLabel('App ID',{exact:true}).fill('123');
+        await setup.getByLabel('App secret',{exact:true}).fill('fixture');
+        const save=setup.getByRole('button',{name:'Save Instagram credentials'});
+        assert(await save.isDisabled());
+        await setup.getByLabel('Configuration ID',{exact:true}).fill('456');
+        await save.click();
+      }
+      await setup.getByRole('status').waitFor();
+      await page.getByRole('group',{name:'Provider settings'}).getByRole('button',{pressed:true}).getByText('Saved · unverified',{exact:true}).waitFor();
+      if(platform==='YouTube') await page.screenshot({path:path.join(output,'developer-credentials.png')});
+      await page.getByRole('button',{name:'Accounts',exact:true}).click();
+    }
+    await row.getByRole('button',{name:platform==='X'?'Set handle':'Connect',exact:true}).click();
     if(platform==='Instagram'||platform==='X') await row.getByLabel(platform+' username').fill('fixture');
     await row.getByRole('button',{name:signIn,exact:true}).click();
     await row.getByText('Fixture '+lang,{exact:true}).waitFor();
+    if(platform==='YouTube' && lang==='es') {
+      await page.screenshot({path:path.join(output,'accounts-connected.png')});
+      await row.getByText('Account details').click();
+      await row.getByRole('button',{name:'Remove',exact:true}).waitFor();
+      await row.getByText('Account details').click();
+    }
   }
   await page.getByRole('button',{name:'Publisher',exact:true}).click();
   await page.getByRole('button',{name:'English',exact:true}).click();

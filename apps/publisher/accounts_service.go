@@ -115,7 +115,22 @@ func (s *UploadService) ConfigureClient(platform, raw string) error {
 	return uploads.Configure(platform, raw)
 }
 
-func (s *UploadService) GoogleClientReady() bool { return uploads.GoogleClientReady() }
+func (s *UploadService) GoogleClientReady() bool { return uploads.ClientReady("youtube") }
+
+func (s *UploadService) ClientReady(platform string) bool { return uploads.ClientReady(platform) }
+
+func (s *UploadService) CredentialStatuses() map[string]string {
+	result := make(map[string]string, 3)
+	for _, platform := range []string{"youtube", "tiktok", "instagram"} {
+		result[platform] = uploads.ClientStatus(platform)
+	}
+	return result
+}
+
+func (s *UploadService) MetaCallbackURL() (string, error) { return uploads.MetaCallbackURL() }
+func (s *UploadService) SetMetaCallbackURL(raw string) (string, error) {
+	return uploads.SetMetaCallbackURL(raw)
+}
 
 // Only these setup pages may be opened by the account manager.
 func (s *UploadService) OpenGoogleSetup(step string) error {

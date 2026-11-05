@@ -2,10 +2,19 @@
 
 ## Implemented
 
+- Meta callback hosting defaults to Publisher. An installation can set its own HTTPS return page independently of credentials and reuse it across languages.
+
+- Instagram uses a static HTTPS return page, an encrypted handoff to a short-lived local listener, and a desktop-only token exchange. Developer settings accept the Meta client fields directly.
+
+- Developer credentials uses a shared Import JSON button for the system file picker and groups Google Cloud guidance below the form.
+- Developer credentials shows missing, locally valid, unreadable/incomplete and previously confirmed client credentials per provider. Confirmation follows a successful browser token exchange with the same credentials.
+- Settings has a dedicated Developer credentials section. Accounts checks the saved provider configuration on entry and offers a direct setup button for each missing client.
+- TikTok developer setup accepts a client key and masked secret directly for both languages. JSON import remains available.
+
 - GitHub Pages uses the CATsoup paw and shared static styles across its bilingual
   workflow guide, terms and privacy pages. No JavaScript or external assets.
 
-- Accounts shows first-time YouTube setup before offering Google sign-in.
+- Settings includes Google Cloud setup instructions for YouTube.
   Import a Desktop client JSON or enter its ID and secret once for both languages.
 
 - Accounts module with independent ES/EN destinations, system-browser sign-in,
@@ -77,5 +86,4 @@ Legacy PoC handling remains for compatibility, but private PoC assets are not in
 
 ## Next action
 
-Verify the custom domain over HTTPS and complete sandbox URL verification before
-testing TikTok sign-in for the ES and EN accounts.
+Complete a real Instagram login with the registered callback and confirm the ES and EN destinations.
