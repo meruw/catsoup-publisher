@@ -109,6 +109,28 @@ func (s *DraftService) OpenVideoFolder(episodeID, videoID string) error {
 	}
 	return s.reveal(path)
 }
+
+func (s *DraftService) CopyUploadPath(key drafts.Key, revision int64, accountConfirmed bool) error {
+	if !accountConfirmed {
+		return errors.New("confirm the account open on the platform")
+	}
+	d, err := s.GetDraft(key)
+	if err != nil {
+		return err
+	}
+	if d.Revision == 0 || d.Revision != revision {
+		return errors.New("open the latest saved draft before preparing an upload")
+	}
+	path, err := s.reader.UploadPath(key.Episode, key.Language, d.VideoID, d.DeliveryFingerprint, d.VideoHash)
+	if err != nil {
+		return err
+	}
+	if s.copyText == nil || !s.copyText(path) {
+		return errors.New("clipboard unavailable; try again")
+	}
+	return nil
+}
+
 func (s *DraftService) EnableCloseGuard() {
 	if s.enableCloseGuard != nil {
 		s.enableCloseGuard()

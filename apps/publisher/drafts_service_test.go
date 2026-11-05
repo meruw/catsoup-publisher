@@ -97,6 +97,15 @@ func TestDraftServicePreservesApprovalAndSource(t *testing.T) {
 		t.Fatal("arbitrary path reached desktop")
 	}
 	after, _ := os.ReadFile(path)
+	copied = ""
+	for _, attempt := range []struct {
+		revision  int64
+		confirmed bool
+	}{{d.Revision, false}, {d.Revision - 1, true}, {d.Revision, true}} {
+		if err := svc.CopyUploadPath(input.Key, attempt.revision, attempt.confirmed); err == nil || copied != "" {
+			t.Fatal("unauthorized handoff reached the clipboard")
+		}
+	}
 	if string(after) != string(changed) {
 		t.Fatal("draft actions changed the manifest")
 	}

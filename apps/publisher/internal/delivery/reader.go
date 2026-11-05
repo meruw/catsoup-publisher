@@ -221,7 +221,7 @@ func (r *Reader) Inspect(id string) (Episode, error) {
 	}
 	digest := sha256.Sum256(raw)
 	episode = Episode{ID: id, Title: man.Title, Version: man.Version, Status: man.Status, Reason: man.Reason,
-		Ready: verdict.Publishable && id != "catsoup-poc-streetlight", Languages: man.Languages, Videos: man.Videos,
+		Ready: verdict.Publishable && id != "catsoup-poc-streetlight" && id != "catsoup-demo", Languages: man.Languages, Videos: man.Videos,
 		Fingerprint: hex.EncodeToString(digest[:]), Warnings: verdict.Warnings}
 	if episode.Title == "" {
 		episode.Title = id
@@ -256,13 +256,37 @@ func (r *Reader) Media(id, videoID string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	path, err := r.manifestPath(id)
+	return r.mediaPath(episode, videoID)
+}
+
+// UploadPath checks the current approval and the exact source saved with the draft.
+func (r *Reader) UploadPath(id, language, videoID, fingerprint, hash string) (string, error) {
+	episode, err := r.Inspect(id)
+	if err != nil {
+		return "", err
+	}
+	if !episode.Ready || episode.Status != "approved_for_publishing" {
+		return "", errors.New("manual upload requires an approved delivery")
+	}
+	if episode.Fingerprint != fingerprint {
+		return "", errors.New("delivery changed; refresh and relink the draft")
+	}
+	for _, v := range episode.Videos {
+		if v.ID == videoID && v.Kind == "final" && v.Lang != nil && *v.Lang == language && v.SHA256 == hash {
+			return r.mediaPath(episode, v.ID)
+		}
+	}
+	return "", errors.New("link the current final video for this language")
+}
+
+func (r *Reader) mediaPath(episode Episode, videoID string) (string, error) {
+	path, err := r.manifestPath(episode.ID)
 	if err != nil {
 		return "", err
 	}
 	for _, v := range episode.Videos {
 		if v.ID == videoID {
-			return r.resolve(filepath.Dir(path), id, v.Path)
+			return r.resolve(filepath.Dir(path), episode.ID, v.Path)
 		}
 	}
 	return "", errors.New("unknown video identifier")

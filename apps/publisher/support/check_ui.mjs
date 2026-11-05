@@ -58,7 +58,7 @@ try {
   await page.route('**/media?**', async route => {
     const url = new URL(route.request().url());
     const video = manifest.videos.find(v => v.id === url.searchParams.get('video'));
-    if (!video || url.searchParams.get('episode') !== manifest.episode_id) return route.fulfill({ status: 404 });
+    if (!video || ![manifest.episode_id, 'catsoup-handoff-fixture'].includes(url.searchParams.get('episode'))) return route.fulfill({ status: 404 });
     const data = await readFile(path.resolve(deliveryFolder, video.path));
     const range = /^bytes=(\d+)-(\d*)$/.exec(route.request().headers().range || '');
     if (range) {
@@ -122,6 +122,8 @@ try {
   assert.equal(await page.evaluate(() => window.__copied), 'La luz se apagó. ¿Qué pasó después?\n\n#catsoup #animación');
   await page.getByRole('button', { name: 'Open video folder', exact: true }).click();
   assert.equal((await page.evaluate(() => window.__revealed)).episode, 'catsoup-demo');
+  await page.getByText('Available after the delivery is approved for publishing.').waitFor();
+  assert.equal(await page.getByRole('button', { name: 'Copy upload file path' }).count(), 0);
   // Change language before the debounce fires: leaving must flush the ES draft.
   await page.getByLabel('Title', { exact: true }).fill('Guardado antes de cambiar');
   await page.getByRole('button', { name: 'English', exact: true }).click();
@@ -194,6 +196,24 @@ try {
   await page.setViewportSize({ width: 820, height: 650 });
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'draft horizontal overflow');
   await page.getByRole('region', { name: 'Publication', exact: true }).screenshot({ path: path.join(output, 'publication-820.png') });
+  // Exercise the account confirmation using a separate in-memory episode.
+  await page.evaluate(() => Object.assign(window.__fixtureEpisode, {
+    id: 'catsoup-handoff-fixture', ready: true, status: 'approved_for_publishing', reason: '',
+  }));
+  await page.getByRole('button', { name: 'Refresh', exact: true }).click();
+  await page.getByLabel('Account label', { exact: true }).fill('@handoff_es');
+  await page.getByRole('button', { name: 'Open draft', exact: true }).click();
+  await page.getByLabel('Title', { exact: true }).fill('Ready for manual upload');
+  await page.getByText('Saved locally', { exact: true }).waitFor();
+  const upload = page.getByRole('button', { name: 'Copy upload file path' });
+  assert(await upload.isDisabled());
+  await page.getByRole('checkbox', { name: /@handoff_es/ }).check();
+  await upload.click();
+  await page.getByText(/Video path copied/).waitFor();
+  assert.deepEqual(await page.evaluate(() => window.__uploadPathRequest), {
+    key: { episode: 'catsoup-handoff-fixture', language: 'es', platform: 'youtube', account: '@handoff_es' }, revision: 1, confirmed: true,
+  });
+  assert(await upload.isDisabled());
   await page.evaluate(() => { window.__empty = true; });
   await page.getByRole('button', { name: 'Refresh', exact: true }).click();
   await page.getByRole('heading', { name: 'No delivery to preview' }).waitFor();

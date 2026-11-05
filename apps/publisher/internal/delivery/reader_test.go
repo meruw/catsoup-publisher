@@ -64,6 +64,53 @@ func TestRejectsIdentifierTraversal(t *testing.T) {
 		}
 	}
 }
+
+func TestManualUploadRequiresCurrentApprovedFinal(t *testing.T) {
+	for _, tc := range []struct {
+		name, id, status, lang, kind   string
+		valid, stale, wrongHash, allow bool
+	}{
+		{"approved", "catsoup-test", "approved_for_publishing", "es", "final", true, false, false, true},
+		{"validator refused", "catsoup-test", "approved_for_publishing", "es", "final", false, false, false, false},
+		{"exported", "catsoup-test", "exported", "es", "final", true, false, false, false},
+		{"clean", "catsoup-test", "approved_for_publishing", "es", "clean", true, false, false, false},
+		{"wrong language", "catsoup-test", "approved_for_publishing", "en", "final", true, false, false, false},
+		{"changed manifest", "catsoup-test", "approved_for_publishing", "es", "final", true, true, false, false},
+		{"changed video", "catsoup-test", "approved_for_publishing", "es", "final", true, false, true, false},
+		{"demo", "catsoup-demo", "approved_for_publishing", "es", "final", true, false, false, false},
+		{"pilot", "catsoup-poc-streetlight", "approved_for_publishing", "es", "final", true, false, false, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			reader, base, man := fixture(t, tc.id, validatorFunc(func(context.Context, string) (Verdict, error) {
+				return Verdict{Publishable: tc.valid}, nil
+			}))
+			man.Status = tc.status
+			man.Videos[0].Kind = tc.kind
+			man.Videos[0].SHA256 = "saved-hash"
+			saveFixture(t, base, man)
+			episode, err := reader.Inspect(tc.id)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if tc.stale {
+				man.Version = "v2"
+				saveFixture(t, base, man)
+			}
+			hash := man.Videos[0].SHA256
+			if tc.wrongHash {
+				hash = "another-hash"
+			}
+			path, err := reader.UploadPath(tc.id, tc.lang, "es-final", episode.Fingerprint, hash)
+			if tc.allow {
+				if err != nil || path != filepath.Join(base, "test.mp4") {
+					t.Fatalf("path=%q err=%v", path, err)
+				}
+			} else if err == nil || path != "" {
+				t.Fatal("unexpected upload path", path)
+			}
+		})
+	}
+}
 func TestRejectsPathEscapeBeforeValidator(t *testing.T) {
 	called := false
 	v := validatorFunc(func(context.Context, string) (Verdict, error) { called = true; return Verdict{}, nil })

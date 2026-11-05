@@ -69,6 +69,10 @@ must have the validator and `.venv` layout too. Close the app before rebuilding.
    typing, or with **Save draft**. Wait for **Saved locally** before force-quitting.
 4. Use **Copy title**, **Copy caption** (description plus hashtags), or **Open video
    folder** to prepare a manual upload. These controls do not publish anything.
+5. For an approved delivery, open the platform in your browser and check which
+   account is active. Under **Manual upload**, confirm the account and click
+   **Copy upload file path**. Paste it into the file picker to select the linked
+   final MP4 for that language. Complete the upload on the platform.
 
 Switching episode/language/destination or closing normally flushes pending edits.
 A failed save blocks navigation/closing and keeps the text visible. Conflicts with

@@ -25,6 +25,7 @@ export const draftFixture = `
   },
   copy: async (key,part) => {const d=storage()[keyOf(key)];window.__copied=part==='title'?d.title:(d.description+'\\n\\n'+d.hashtags).trim();},
   reveal: async (episode,video) => {window.__revealed = {episode,video};},
+  copyUploadPath: async (key,revision,confirmed) => {window.__uploadPathRequest = {key,revision,confirmed};},
   onCloseRequested: callback => {window.__requestClose=callback;return()=>{delete window.__requestClose;};},
   enableCloseGuard: async () => {},
   confirmClose: async () => {window.__closeConfirmed=true;},

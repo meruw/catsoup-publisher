@@ -24,6 +24,10 @@ export function CopyDraft(key: drafts$0.Key, part: string): $CancellablePromise<
     return $Call.ByID(3905008594, key, part);
 }
 
+export function CopyUploadPath(key: drafts$0.Key, revision: number, accountConfirmed: boolean): $CancellablePromise<void> {
+    return $Call.ByID(4215872553, key, revision, accountConfirmed);
+}
+
 export function EnableCloseGuard(): $CancellablePromise<void> {
     return $Call.ByID(1686982004);
 }

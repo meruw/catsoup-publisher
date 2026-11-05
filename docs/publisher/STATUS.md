@@ -11,6 +11,8 @@
   autosave, manual save, revision conflicts, source-change warnings and explicit rebind.
 - Saved-title/caption copying and validated video-folder access. Native close guard
   flushes pending edits; failures retain the form. No platform posting or approval.
+- Manual upload preparation copies the linked final video's path after an account
+  check and fresh validation of the delivery, approval, language and source hashes.
 
 ## Verification
 
@@ -38,12 +40,18 @@ copy/reveal. Layout inspected at 1200/820px; design checks passed. Executable:
 `govulncheck v1.9.0` reported no known vulnerabilities on 2026-11-04. SQLite v1.61.1
 release/security notes were reviewed and libc is pinned to its required v1.79.0.
 
+Manual handoff passed the Go tests, strict frontend build and browser fixture
+for account confirmation and the approved final. The fixture uses a separate
+in-memory episode. Selecting an MP4 in a live platform file picker remains a
+native check for the first approved episode.
+
 ## Limits
 
 Native accessibility inspection confirms the actual Publication section and the
 account field accepts edits. Native click/keyboard automation is still unreliable;
-owner confirmation of draft restart, clipboard, folder access and close flushing
-is pending. The initial owner attempt opened the older private-workspace executable;
+the owner confirmed that drafts persist on reopening the current app. Native
+clipboard, folder access and close flushing still need separate confirmation.
+The initial owner attempt opened the older private-workspace executable;
 the independent build has now been opened and its header includes a direct
 Publication button. Browser fixtures do not establish those native outcomes.
 
@@ -54,6 +62,6 @@ Legacy PoC handling remains for compatibility, but private PoC assets are not in
 
 ## Next action
 
-Complete the pending native draft workflow check with the owner, then define the
-next small manual-publication workflow. Account connections and upload scheduling
-remain separate milestones. Do not publish test media.
+With the first owner-approved episode, check the manual handoff end to end:
+confirm the active account, paste the copied path into the platform's file picker
+and verify the selected language and file before uploading.
