@@ -8,24 +8,21 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
 import * as drafts$0 from "./internal/drafts/models.js";
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore: Unused imports
-import * as uploads$0 from "./internal/uploads/models.js";
+
+export function Accounts(): $CancellablePromise<drafts$0.Profile[] | null> {
+    return $Call.ByID(1307383184);
+}
 
 export function ClearUncertain(key: drafts$0.Key, id: string, expectedHash: string, checked: boolean): $CancellablePromise<void> {
     return $Call.ByID(2058715088, key, id, expectedHash, checked);
 }
 
-export function Connect(key: drafts$0.Key, token: string): $CancellablePromise<uploads$0.Account> {
-    return $Call.ByID(3449220930, key, token);
+export function ConfigureClient(platform: string, raw: string): $CancellablePromise<void> {
+    return $Call.ByID(693010183, platform, raw);
 }
 
-export function Connected(key: drafts$0.Key): $CancellablePromise<uploads$0.Account> {
-    return $Call.ByID(2234388371, key);
-}
-
-export function Disconnect(key: drafts$0.Key): $CancellablePromise<void> {
-    return $Call.ByID(1869480582, key);
+export function LinkAccount(platform: string, language: string, expectedID: string, handle: string, pageToken: string): $CancellablePromise<drafts$0.Profile> {
+    return $Call.ByID(1236098195, platform, language, expectedID, handle, pageToken);
 }
 
 export function OpenXComposer(key: drafts$0.Key, revision: number): $CancellablePromise<void> {
@@ -38,4 +35,8 @@ export function Receipt(key: drafts$0.Key, id: string): $CancellablePromise<draf
 
 export function Send(key: drafts$0.Key, revision: number, id: string, confirmed: boolean): $CancellablePromise<drafts$0.Receipt> {
     return $Call.ByID(3695715954, key, revision, id, confirmed);
+}
+
+export function UnlinkAccount(platform: string, language: string, id: string): $CancellablePromise<void> {
+    return $Call.ByID(2312004710, platform, language, id);
 }

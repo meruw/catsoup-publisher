@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import UiButton from './UiButton.vue';
+import {uploads,type Profile} from '../services/uploads';
 import DirectUpload from './DirectUpload.vue';
 import { drafts, type Draft, type DraftKey } from '../services/drafts';
 import type { Episode, Video } from '../services/publisher';
@@ -8,6 +9,9 @@ import type { Episode, Video } from '../services/publisher';
 const props = defineProps<{ episode: Episode; language: string; video: Video; locked: boolean }>();
 const region = ref<HTMLElement | null>(null);
 const platforms = { youtube: 'YouTube', tiktok: 'TikTok', instagram: 'Instagram', x: 'X' };
+const emit=defineEmits<{accounts:[]}>();
+const profiles=ref<Profile[]>([]);
+const suggestedAccount=computed(()=>profiles.value.find(p=>p.platform===platform.value && p.language===props.language)?.name || '');
 const platform = ref('youtube');
 const account = ref('');
 const saved = ref<Draft[]>([]);
@@ -101,8 +105,9 @@ async function open(key: DraftKey, initial = false) {
   finally { loading.value = false; }
 }
 function openDestination() {
-  if (!account.value.trim()) { error.value = 'Enter an account label first.'; return; }
-  void open({ episode: props.episode.id, language: props.language, platform: platform.value, account: account.value.trim() });
+  const label=account.value.trim() || suggestedAccount.value;
+  if (!label) { error.value = 'Enter an account label first.'; return; }
+  void open({ episode: props.episode.id, language: props.language, platform: platform.value, account: label });
 }
 function selectSaved(event: Event) {
   const select = event.target as HTMLSelectElement;
@@ -150,9 +155,11 @@ async function reloadSaved() {
 }
 onMounted(async () => {
   try {
+    profiles.value = await uploads.accounts() || [];
     saved.value = await drafts.list(props.episode.id, props.language) || [];
     loading.value = false;
     if (saved.value[0]) await open(saved.value[0].key, true);
+    else { const p=profiles.value.find(p=>p.language===props.language && p.platform==='youtube') || profiles.value.find(p=>p.language===props.language); if(p) await open({episode:props.episode.id,language:props.language,platform:p.platform,account:p.name},true); }
   } catch (e) { error.value = `Could not load saved destinations. ${String(e)}`; }
   finally { loading.value = false; }
 });
@@ -178,8 +185,8 @@ defineExpose({ flush: beforeLeaving, focusEditor });
         <select id="saved-destination" class="ui-field" @change="selectSaved"><option value="">Choose a draft…</option><option v-for="(draft, index) in saved" :key="JSON.stringify(draft.key)" :value="index">{{ name(draft.key) }}</option></select>
       </div>
       <form class="destination-row" @submit.prevent="openDestination">
-        <div class="field-group"><label for="draft-platform">Platform</label><select id="draft-platform" v-model="platform" class="ui-field"><option v-for="(label, value) in platforms" :value="value" :key="value">{{ label }}</option></select></div>
-        <div class="field-group"><label for="draft-account">Account label</label><input id="draft-account" v-model="account" class="ui-field" maxlength="100" placeholder="@catsoup_es" autocomplete="off"></div>
+        <div class="field-group"><label for="draft-platform">Platform</label><select id="draft-platform" v-model="platform" @change="account=''" class="ui-field"><option v-for="(label, value) in platforms" :value="value" :key="value">{{ label }}</option></select></div>
+        <div class="field-group"><label for="draft-account">Account label</label><input id="draft-account" v-model="account" class="ui-field" maxlength="100" :placeholder="suggestedAccount || (language==='es'?'@catsoup_es':'@catsoup_en')" autocomplete="off"></div>
         <UiButton type="submit" :busy="loading">Open draft</UiButton>
       </form>
       <template v-if="form">
@@ -200,7 +207,7 @@ defineExpose({ flush: beforeLeaving, focusEditor });
           <UiButton variant="quiet" @click="reveal">Open video folder</UiButton>
         </div>
         <p class="publication-hint">Changes save after you pause typing. Caption copies description and hashtags. Check platform limits before uploading.</p>
-        <DirectUpload :key="JSON.stringify([form.key, form.videoHash])" :draft="form" :hint="uploadHint" :flush="flush" @busy="platformBusy = $event" />
+        <DirectUpload :key="JSON.stringify([form.key, form.videoHash])" :draft="form" :hint="uploadHint" :flush="flush" @busy="platformBusy = $event" @accounts="emit('accounts')" />
         <h3>Manual upload</h3>
         <p v-if="uploadHint" class="publication-hint">{{ uploadHint }}</p>
         <template v-else>

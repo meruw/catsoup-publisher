@@ -35,14 +35,15 @@ const server = await createServer({
     if (id.replaceAll('\\', '/').endsWith('/src/services/drafts.ts')) return draftFixture;
     if (id.replaceAll('\\', '/').endsWith('/src/services/uploads.ts')) return `
       const none = {state:'',reference:'',retryAllowed:false};
-      let receipt = none;
+      const receipts = new Map(); const profiles = () => JSON.parse(localStorage.getItem('account-fixture') || '[]');
       export const uploads = {
-        connected: async () => ({id:'',name:''}),
-        connect: async () => {receipt = none; return {id:'connected-id',name:'Fixture channel'};},
-        receipt: async () => receipt,
+        accounts: async () => profiles(),
+        link: async (platform,language) => {const p={platform,language,id:platform+'-'+language,name:'Fixture '+language};const rows=profiles().filter(row=>row.platform!==platform||row.language!==language);localStorage.setItem('account-fixture',JSON.stringify([...rows,p]));return p;},
+        unlink: async (platform,language) => localStorage.setItem('account-fixture',JSON.stringify(profiles().filter(row=>row.platform!==platform||row.language!==language))),
+        receipt: async (_,id) => receipts.get(id)||none,
         send: async (key, revision, id, confirmed) => {
-          if (!confirmed || id !== 'connected-id' || key.episode !== 'catsoup-handoff-fixture' || revision < 1) throw Error('unsafe fixture upload');
-          return receipt = {state:'sent',reference:'fixture-post',retryAllowed:false};
+          if (!confirmed || id !== key.platform+'-'+key.language || key.episode !== 'catsoup-handoff-fixture' || revision < 1) throw Error('unsafe fixture upload');
+          const receipt = {state:'sent',reference:'fixture-post',retryAllowed:false};receipts.set(id,receipt);return receipt;
         },
         openX: async key => {window.__xComposer=key.platform;},
       };`;
@@ -227,6 +228,19 @@ try {
     key: { episode: 'catsoup-handoff-fixture', language: 'es', platform: 'youtube', account: '@handoff_es' }, revision: 1, confirmed: true,
   });
   assert(await upload.isDisabled());
+  await page.getByRole('button',{name:'Accounts',exact:true}).click();
+  for (const [lang,platform,signIn] of [['es','YouTube','Sign in with Google'],['es','TikTok','Sign in with TikTok'],['es','Instagram','Sign in with Facebook'],['es','X','Save handle'],['en','YouTube','Sign in with Google']]) {
+    await page.getByRole('button',{name:lang==='es'?'Spanish accounts':'English accounts',exact:true}).click();
+    const row=page.getByRole('region',{name:platform,exact:true});
+    await row.getByRole('button',{name:platform==='X'?'Set handle':'Connect',exact:true}).click();
+    if(platform==='Instagram'||platform==='X') await row.getByLabel(platform+' username').fill('fixture');
+    await row.getByRole('button',{name:signIn,exact:true}).click();
+    await row.getByText('Fixture '+lang,{exact:true}).waitFor();
+  }
+  await page.getByRole('button',{name:'Publisher',exact:true}).click();
+  await page.getByRole('button',{name:'English',exact:true}).click();
+  await page.getByText('Fixture en',{exact:true}).last().waitFor();
+  await page.getByRole('button',{name:'Spanish',exact:true}).click();
   for (const [platform, login, action, result] of [
     ['youtube','Sign in with Google','Upload privately to YouTube','Private video uploaded'],
     ['tiktok','Sign in with TikTok','Send to TikTok inbox','Sent to TikTok inbox'],
@@ -244,12 +258,10 @@ try {
       assert.equal(await page.evaluate(()=>window.__xComposer),'x');
       continue;
     }
-    if (platform === 'instagram') await page.getByLabel('Facebook Page access token').fill('test-only');
-    await page.getByRole('button',{name:login,exact:true}).click();
     const send=page.getByRole('button',{name:action,exact:true});
     await send.waitFor();
     assert(await send.isDisabled());
-    await page.getByRole('checkbox',{name:'Send the ES video to Fixture channel.'}).check();
+    await page.getByRole('checkbox',{name:'Send the ES video to Fixture es.'}).check();
     await send.click();
     await page.getByText(result+' · fixture-post',{exact:true}).waitFor();
   }

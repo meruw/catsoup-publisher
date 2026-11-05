@@ -25,7 +25,7 @@ func (s *Store) Receipt(platform, account, hash string) (Receipt, error) {
 func (s *Store) Reserve(d Draft, account string) error {
 	res, err := s.db.Exec(`INSERT OR IGNORE INTO upload_attempts
  SELECT platform,?,video_hash,'sending','',? FROM drafts
- WHERE episode=? AND language=? AND platform=? AND account=? AND revision=? AND video_hash=?`, account, time.Now().Unix(), d.Key.Episode, d.Key.Language, d.Key.Platform, d.Key.Account, d.Revision, d.VideoHash)
+ WHERE episode=? AND language=? AND platform=? AND account=? AND revision=? AND video_hash=? AND EXISTS(SELECT 1 FROM accounts a WHERE a.platform=drafts.platform AND a.language=drafts.language AND a.account_id=?)`, account, time.Now().Unix(), d.Key.Episode, d.Key.Language, d.Key.Platform, d.Key.Account, d.Revision, d.VideoHash, account)
 	if err != nil {
 		return err
 	}
@@ -34,7 +34,7 @@ func (s *Store) Reserve(d Draft, account string) error {
 		return err
 	}
 	if n != 1 {
-		return errors.New("draft changed or an upload already exists; check its receipt before retrying")
+		return errors.New("draft or destination changed, or an upload already exists; check its receipt before retrying")
 	}
 	return nil
 }

@@ -9,7 +9,6 @@ import (
 	"net/url"
 	"os"
 	"strings"
-	"sync"
 	"time"
 
 	"catsoup/publisher/internal/delivery"
@@ -17,57 +16,13 @@ import (
 	"catsoup/publisher/internal/uploads"
 )
 
-type connection struct {
-	account uploads.Account
-	token   string
-}
 type UploadService struct {
 	store       *drafts.Store
 	reader      *delivery.Reader
 	client      *uploads.Client
 	openBrowser func(string) error
-	mu          sync.Mutex
-	sessions    map[drafts.Key]connection
 }
 
-func (s *UploadService) Connect(key drafts.Key, token string) (uploads.Account, error) {
-	if err := drafts.ValidateKey(key); err != nil {
-		return uploads.Account{}, err
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
-	defer cancel()
-	var err error
-	if key.Platform == "youtube" || key.Platform == "tiktok" {
-		token, err = s.client.SignIn(ctx, key.Platform, s.openBrowser)
-		if err != nil {
-			return uploads.Account{}, err
-		}
-	}
-	if len(token) == 0 || len(token) > 8192 || strings.ContainsAny(token, " \r\n\t") {
-		return uploads.Account{}, errors.New("enter the authorized access token")
-	}
-	account, err := s.client.Identify(ctx, key.Platform, token)
-	if err != nil {
-		return account, err
-	}
-	s.mu.Lock()
-	key.Episode = ""
-	s.sessions[key] = connection{account, token}
-	s.mu.Unlock()
-	return account, nil
-}
-func (s *UploadService) Disconnect(key drafts.Key) {
-	s.mu.Lock()
-	key.Episode = ""
-	delete(s.sessions, key)
-	s.mu.Unlock()
-}
-func (s *UploadService) Connected(key drafts.Key) uploads.Account {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	key.Episode = ""
-	return s.sessions[key].account
-}
 func (s *UploadService) OpenXComposer(key drafts.Key, revision int64) error {
 	if key.Platform != "x" {
 		return errors.New("select an X draft")
@@ -85,18 +40,8 @@ func (s *UploadService) OpenXComposer(key drafts.Key, revision int64) error {
 	text := strings.TrimSpace(d.Title + "\n\n" + d.Description + "\n\n" + d.Hashtags)
 	return s.openBrowser("https://x.com/intent/tweet?" + url.Values{"text": {text}}.Encode())
 }
-func (s *UploadService) session(key drafts.Key, id string) (connection, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	key.Episode = ""
-	con, ok := s.sessions[key]
-	if !ok || id == "" || con.account.ID != id {
-		return connection{}, errors.New("connect and confirm the destination account first")
-	}
-	return con, nil
-}
 func (s *UploadService) Receipt(key drafts.Key, id string) (drafts.Receipt, error) {
-	if _, err := s.session(key, id); err != nil {
+	if _, err := s.store.Credential(key.Platform, key.Language, id); err != nil {
 		return drafts.Receipt{}, err
 	}
 	d, err := s.store.Get(context.Background(), key)
@@ -109,7 +54,7 @@ func (s *UploadService) ClearUncertain(key drafts.Key, id, expectedHash string, 
 	if !checked {
 		return errors.New("check the platform before allowing another attempt")
 	}
-	if _, err := s.session(key, id); err != nil {
+	if _, err := s.store.Credential(key.Platform, key.Language, id); err != nil {
 		return err
 	}
 	d, err := s.store.Get(context.Background(), key)
@@ -147,7 +92,7 @@ func (s *UploadService) Send(key drafts.Key, revision int64, id string, confirme
 	if !confirmed {
 		return drafts.Receipt{}, errors.New("confirm the destination and upload action")
 	}
-	con, err := s.session(key, id)
+	_, err := s.store.Credential(key.Platform, key.Language, id)
 	if err != nil {
 		return drafts.Receipt{}, err
 	}
@@ -178,7 +123,11 @@ func (s *UploadService) Send(key drafts.Key, revision int64, id string, confirme
 	if err = uploads.Validate(key.Platform, m); err != nil {
 		return drafts.Receipt{}, err
 	}
-	current, err := s.client.Identify(ctx, key.Platform, con.token)
+	token, err := s.access(ctx, key.Platform, key.Language, id)
+	if err != nil {
+		return drafts.Receipt{}, err
+	}
+	current, err := s.client.Identify(ctx, key.Platform, token)
 	if err != nil {
 		return drafts.Receipt{}, err
 	}
@@ -188,7 +137,7 @@ func (s *UploadService) Send(key drafts.Key, revision int64, id string, confirme
 	if err = s.store.Reserve(d, id); err != nil {
 		return drafts.Receipt{}, err
 	}
-	ref, sendErr := s.client.Send(ctx, key.Platform, con.token, current, m, func(ref string) error { return s.store.SaveReceipt(d, id, "sending", ref) })
+	ref, sendErr := s.client.Send(ctx, key.Platform, token, current, m, func(ref string) error { return s.store.SaveReceipt(d, id, "sending", ref) })
 	state := "sent"
 	if sendErr != nil {
 		state = "check"

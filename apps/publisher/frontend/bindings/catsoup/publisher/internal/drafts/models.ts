@@ -20,6 +20,13 @@ export interface Key {
     "account": string;
 }
 
+export interface Profile {
+    "platform": string;
+    "language": string;
+    "id": string;
+    "name": string;
+}
+
 export interface Receipt {
     "state": string;
     "reference": string;

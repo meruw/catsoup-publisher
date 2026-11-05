@@ -4,10 +4,15 @@ import VideoPreview from './components/VideoPreview.vue';
 import UiButton from './components/UiButton.vue';
 import UiSegmented from './components/UiSegmented.vue';
 import WindowBar from './components/WindowBar.vue';
+import AccountManager from './components/AccountManager.vue';
 import PublicationDraft from './components/PublicationDraft.vue';
 import { drafts } from './services/drafts';
 import { publisher, mediaURL, type Entry, type Episode } from './services/publisher';
 
+const module = ref<'publisher'|'accounts'>('publisher');
+const accountBusy = ref(false);
+const accountLanguage = ref('es');
+function showAccounts() { void navigate(() => { accountLanguage.value=language.value;module.value='accounts'; }); }
 const entries = ref<Entry[]>([]);
 const episode = ref<Episode | null>(null);
 const busy = ref(false);
@@ -55,7 +60,7 @@ async function refresh() {
   }
 }
 async function navigate(action: () => void | Promise<void>) {
-  if (navigating.value || busy.value) return;
+  if (navigating.value || busy.value || accountBusy.value) return;
   navigating.value = true;
   try { await editor.value?.flush(); error.value = ''; await action(); }
   catch (e) { error.value = `Could not leave Publication. ${String(e)}`; }
@@ -67,7 +72,10 @@ function switchVideo(event: Event) {
   void navigate(() => { videoID.value = next; });
 }
 onMounted(async () => {
-  stopCloseListener = drafts.onCloseRequested(() => { void navigate(async () => { await drafts.confirmClose(); }); });
+  stopCloseListener = drafts.onCloseRequested(() => {
+    if (module.value==='accounts') void drafts.confirmClose();
+    else void navigate(async () => { await drafts.confirmClose(); });
+  });
   try { await drafts.enableCloseGuard(); }
   catch { error.value = 'Close protection is unavailable. Save your draft before closing.'; }
   await refresh();
@@ -81,14 +89,15 @@ onUnmounted(() => stopCloseListener?.());
     <aside class="sidebar" aria-label="Modules and episodes">
       <div class="module-label">Modules</div>
       <nav class="module-nav" aria-label="Modules">
-        <button class="module-item" aria-current="page" :disabled="busy || navigating" @click="navigate(refresh)">Publisher</button>
+        <button class="module-item" :aria-current="module==='publisher'?'page':undefined" :disabled="busy || navigating || accountBusy" @click="navigate(async () => { module='publisher'; await refresh(); })">Publisher</button>
+        <button class="module-item" :aria-current="module==='accounts'?'page':undefined" :disabled="navigating || accountBusy" @click="showAccounts">Accounts</button>
         <button class="module-item" disabled title="Trends is not available yet">Trends<span>Planned</span></button>
       </nav>
       <div class="library-label"><span>Episodes</span><span class="mono">{{ entries.length }}</span></div>
       <nav aria-label="Publisher episodes">
         <button v-for="entry in entries" :key="entry.id" class="episode-button"
           :aria-current="episode?.id === entry.id ? 'true' : undefined"
-          :disabled="busy || navigating" @click="navigate(() => select(entry.id))">
+          :disabled="busy || navigating || accountBusy" @click="navigate(async () => { module='publisher'; await select(entry.id); })">
           <span>{{ entry.title }}</span>
           <small>{{ entry.valid ? 'Available to preview' : 'Needs attention' }}</small>
         </button>
@@ -96,7 +105,8 @@ onUnmounted(() => stopCloseListener?.());
       <p v-if="!entries.length && !busy" class="muted">No deliveries yet</p>
       <div class="workspace-note"><span>Local workspace</span><small>Spanish + English</small></div>
     </aside>
-    <main :aria-busy="busy">
+    <AccountManager v-if="module==='accounts'" :initial-language="accountLanguage" @busy="accountBusy=$event"/>
+    <main v-else :aria-busy="busy">
       <header class="page-header">
         <div><h1>Publisher</h1><p>Review deliveries in Spanish and English</p></div>
         <div class="page-actions">
@@ -153,7 +163,7 @@ onUnmounted(() => stopCloseListener?.());
           </aside>
         </div>
         <PublicationDraft v-if="video" :key="episode.id + ':' + language" ref="editor"
-          :episode="episode" :language="language" :video="video" :locked="navigating" />
+          :episode="episode" :language="language" :video="video" :locked="navigating" @accounts="showAccounts" />
       </section>
       <section v-if="!episode && !busy && !error" class="empty">
         <h2>No delivery to preview</h2><p>Add a production delivery, then refresh</p>

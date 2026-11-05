@@ -2,6 +2,10 @@
 
 ## Implemented
 
+- Accounts module with independent ES/EN destinations, system-browser sign-in,
+  protected Windows credentials and verified upload routing across restarts.
+  X supports a manual handle per language. See [account setup](UPLOADS.md).
+
 - Private YouTube uploads, TikTok inbox transfers, Instagram Reel publishing and
   X web composition. Account verification, approved-file snapshots and durable
   receipts protect against sending the wrong file or repeating an uncertain upload.
@@ -67,7 +71,7 @@ Legacy PoC handling remains for compatibility, but private PoC assets are not in
 
 ## Next action
 
-Configure a Google desktop client, connect a channel and send the first
+Import the Google desktop client in Accounts, connect the ES and EN channels, and send the first
 owner-approved episode privately to that channel. The Go protocol tests and Vue
 browser fixtures use simulated providers. Real account permissions and live
 uploads still require verification on each platform.

@@ -26,7 +26,7 @@ func TestBrowserSignInChecksStateAndPKCE(t *testing.T) {
 	if err := os.Mkdir(dir, 0700); err != nil {
 		t.Fatal(err)
 	}
-	for _, tc := range []struct{ platform, file, config string }{{"youtube", "google-desktop.json", `{"installed":{"client_id":"test-client","client_secret":"test-secret"}}`}, {"tiktok", "tiktok-desktop.json", `{"client_key":"test-client","client_secret":"test-secret"}`}} {
+	for _, tc := range []struct{ platform, file, config string }{{"youtube", "google-desktop.json", `{"installed":{"client_id":"test-client","client_secret":"test-secret"}}`}, {"tiktok", "tiktok-desktop.json", `{"client_key":"test-client","client_secret":"test-secret"}`}, {"instagram", "meta-desktop.json", `{"app_id":"test-client","app_secret":"test-secret","config_id":"test-config"}`}} {
 		t.Run(tc.platform, func(t *testing.T) {
 			if err := os.WriteFile(filepath.Join(dir, tc.file), []byte(tc.config), 0600); err != nil {
 				t.Fatal(err)
@@ -47,6 +47,12 @@ func TestBrowserSignInChecksStateAndPKCE(t *testing.T) {
 				if tc.platform == "tiktok" {
 					expected = hex.EncodeToString(sum[:])
 				}
+				if tc.platform == "instagram" {
+					expected = ""
+					if p.Get("code_verifier") != "" {
+						t.Fatal("unexpected Meta verifier")
+					}
+				}
 				if challenge != expected || p.Get("redirect_uri") != redirect || p.Get("code") != "test-code" {
 					t.Fatal("invalid token exchange")
 				}
@@ -60,6 +66,9 @@ func TestBrowserSignInChecksStateAndPKCE(t *testing.T) {
 					return err
 				}
 				p := u.Query()
+				if tc.platform == "instagram" && p.Get("config_id") != "test-config" {
+					t.Fatal("missing Business Login configuration")
+				}
 				redirect = p.Get("redirect_uri")
 				challenge = p.Get("code_challenge")
 				for _, trial := range []struct {
@@ -77,7 +86,7 @@ func TestBrowserSignInChecksStateAndPKCE(t *testing.T) {
 				}
 				return nil
 			})
-			if err != nil || token != "fixture-token" {
+			if err != nil || token.Access != "fixture-token" {
 				t.Fatal(token, err)
 			}
 		})

@@ -20,7 +20,7 @@ Browser-rendered preview using the generated demo; no private episode assets.
 - SQLite drafts per episode, language, platform and account label, with autosave,
   conflict detection, copyable metadata and access to the selected video's folder.
 
-The Windows executable is about 16.8 MiB; it uses the installed WebView2 runtime.
+The Windows executable is about 16.9 MiB; it uses the installed WebView2 runtime.
 That size excludes WebView2, Python, FFmpeg and development tools. RAM/CPU usage
 has not yet been benchmarked. This is a source preview, not an installer release.
 
@@ -59,6 +59,10 @@ producer or its source files. Keep all media inside its delivery folder.
 The executable finds this workspace above its own directory. To review an
 existing compatible workspace, use `--root C:\path\to\workspace`; that workspace
 must have the validator and `.venv` layout too. Close the app before rebuilding.
+
+## Connect accounts
+
+Open **Accounts**, select **ES** and connect the channel for each platform you use. Repeat under **EN** for your English channels. Google, TikTok and Facebook sign-in start in Publisher and open the provider in your browser. First-time operators can import their own app credentials under **Developer setup**. X stores a handle for manual posting. Each draft uses the assigned destination for its language. See [account setup](docs/publisher/UPLOADS.md).
 
 ## Prepare a publication draft
 

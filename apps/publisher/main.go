@@ -88,7 +88,7 @@ func main() {
 	}
 	defer store.Close()
 	draftService := &DraftService{store: store, reader: reader}
-	uploadService := &UploadService{store: store, reader: reader, client: uploads.New(), sessions: make(map[drafts.Key]connection)}
+	uploadService := &UploadService{store: store, reader: reader, client: uploads.New()}
 	app := application.New(application.Options{Name: "CATsoup Publisher", Description: "Local release preparation",
 		Icon:     appIcon,
 		Services: []application.Service{application.NewService(&PublisherService{reader: reader}), application.NewService(draftService), application.NewService(uploadService)},

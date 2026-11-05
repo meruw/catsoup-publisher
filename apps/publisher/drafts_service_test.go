@@ -12,7 +12,6 @@ import (
 
 	"catsoup/publisher/internal/delivery"
 	"catsoup/publisher/internal/drafts"
-	"catsoup/publisher/internal/uploads"
 )
 
 type draftTestValidator struct{ calls int }
@@ -113,9 +112,10 @@ func TestDraftServicePreservesApprovalAndSource(t *testing.T) {
 	}
 	// No provider client is attached: even a confirmed, connected demo draft
 	// must fail locally before a provider is contacted.
-	linked := input.Key
-	linked.Episode = ""
-	upload := UploadService{store: store, reader: reader, sessions: map[drafts.Key]connection{linked: {account: uploads.Account{ID: "test-channel"}}}}
+	if err := store.PutProfile(drafts.Profile{Platform: input.Key.Platform, Language: input.Key.Language, ID: "test-channel", Name: "test"}, []byte("unreadable"), ""); err != nil {
+		t.Fatal(err)
+	}
+	upload := UploadService{store: store, reader: reader}
 	if _, err := upload.Send(input.Key, d.Revision, "test-channel", true); err == nil || !strings.Contains(err.Error(), "approved delivery") {
 		t.Fatalf("demo was not blocked by approval: %v", err)
 	}

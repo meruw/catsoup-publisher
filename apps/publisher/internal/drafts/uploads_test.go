@@ -13,13 +13,16 @@ func TestV1MigrationAndUploadReconciliation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = s.db.Exec("DROP TABLE upload_attempts; UPDATE schema_version SET version=1"); err != nil {
+	if _, err = s.db.Exec("DROP TABLE accounts; DROP TABLE upload_attempts; UPDATE schema_version SET version=1"); err != nil {
 		t.Fatal(err)
 	}
 	s.Close()
 	s = openTest(t, path)
 	if got, err := s.Get(context.Background(), d.Key); err != nil || got != d {
 		t.Fatal("lost v1 draft")
+	}
+	if err = s.PutProfile(Profile{Platform: d.Key.Platform, Language: d.Key.Language, ID: "channel", Name: "Channel"}, []byte("fixture"), ""); err != nil {
+		t.Fatal(err)
 	}
 	if err = s.Reserve(d, "channel"); err != nil {
 		t.Fatal(err)

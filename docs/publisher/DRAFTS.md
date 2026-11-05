@@ -45,8 +45,9 @@ anything; copy/reveal are also usable with non-publishable test material.
 
 ## Migrations, backup and recovery
 
-Schema version 2 adds upload receipts in a transaction and preserves existing
-version-1 drafts. Unsupported newer versions and invalid/corrupt databases fail explicitly.
+Schema version 3 adds language-specific accounts and encrypted credentials,
+preserving version-1 drafts and version-2 upload receipts. Restored credentials
+require the Windows user and DPAPI keys that protected them. Unsupported newer versions and invalid/corrupt databases fail explicitly.
 The app never silently deletes or resets a database. Future migrations must add
 versioned transactional steps and tests preserving existing drafts.
 
