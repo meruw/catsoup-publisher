@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 import VideoPreview from './components/VideoPreview.vue';
 import UiButton from './components/UiButton.vue';
 import UiSegmented from './components/UiSegmented.vue';
 import WindowBar from './components/WindowBar.vue';
+import PublicationDraft from './components/PublicationDraft.vue';
+import { drafts } from './services/drafts';
 import { publisher, mediaURL, type Entry, type Episode } from './services/publisher';
 
 const entries = ref<Entry[]>([]);
@@ -12,6 +14,9 @@ const busy = ref(false);
 const error = ref('');
 const language = ref('es');
 const videoID = ref('');
+const editor = ref<InstanceType<typeof PublicationDraft> | null>(null);
+const navigating = ref(false);
+let stopCloseListener: (() => void) | undefined;
 const variants = computed(() => (episode.value?.videos || []).filter(v => v.lang === language.value || v.lang === null));
 const video = computed(() => variants.value.find(v => v.id === videoID.value));
 const source = computed(() => episode.value && video.value ? mediaURL(episode.value.id, video.value.id) : '');
@@ -49,7 +54,25 @@ async function refresh() {
     busy.value = false;
   }
 }
-onMounted(refresh);
+async function navigate(action: () => void | Promise<void>) {
+  if (navigating.value || busy.value) return;
+  navigating.value = true;
+  try { await editor.value?.flush(); error.value = ''; await action(); }
+  catch { error.value = 'Your draft could not be saved. Resolve the error in Publication before leaving.'; }
+  finally { navigating.value = false; }
+}
+function switchVideo(event: Event) {
+  const select = event.target as HTMLSelectElement;
+  const next = select.value; select.value = videoID.value;
+  void navigate(() => { videoID.value = next; });
+}
+onMounted(async () => {
+  stopCloseListener = drafts.onCloseRequested(() => { void navigate(async () => { await drafts.confirmClose(); }); });
+  try { await drafts.enableCloseGuard(); }
+  catch { error.value = 'Close protection is unavailable. Save your draft before closing.'; }
+  await refresh();
+});
+onUnmounted(() => stopCloseListener?.());
 </script>
 
 <template>
@@ -58,14 +81,14 @@ onMounted(refresh);
     <aside class="sidebar" aria-label="Modules and episodes">
       <div class="module-label">Modules</div>
       <nav class="module-nav" aria-label="Modules">
-        <button class="module-item" aria-current="page" @click="refresh">Publisher</button>
+        <button class="module-item" aria-current="page" :disabled="busy || navigating" @click="navigate(refresh)">Publisher</button>
         <button class="module-item" disabled title="Trends is not available yet">Trends<span>Planned</span></button>
       </nav>
       <div class="library-label"><span>Episodes</span><span class="mono">{{ entries.length }}</span></div>
       <nav aria-label="Publisher episodes">
         <button v-for="entry in entries" :key="entry.id" class="episode-button"
           :aria-current="episode?.id === entry.id ? 'true' : undefined"
-          :disabled="busy" @click="select(entry.id)">
+          :disabled="busy || navigating" @click="navigate(() => select(entry.id))">
           <span>{{ entry.title }}</span>
           <small>{{ entry.valid ? 'Available to preview' : 'Needs attention' }}</small>
         </button>
@@ -76,7 +99,10 @@ onMounted(refresh);
     <main :aria-busy="busy">
       <header class="page-header">
         <div><h1>Publisher</h1><p>Review deliveries in Spanish and English</p></div>
-        <UiButton :busy="busy" @click="refresh">{{ busy ? 'Checking…' : 'Refresh' }}</UiButton>
+        <div class="page-actions">
+          <UiButton variant="primary" :disabled="busy || navigating || !editor" @click="editor?.focusEditor()">Publication</UiButton>
+          <UiButton :busy="busy" :disabled="navigating" @click="navigate(refresh)">{{ busy ? 'Checking…' : 'Refresh' }}</UiButton>
+        </div>
       </header>
       <div v-if="error" class="notice error" role="alert">{{ error }}</div>
       <div v-if="busy" class="notice" role="status">Checking delivery files…</div>
@@ -94,14 +120,14 @@ onMounted(refresh);
           <section class="preview-panel" aria-label="Video preview">
             <div class="section-header">
               <h3>Video preview</h3>
-              <UiSegmented :model-value="language" label="Preview language"
+              <UiSegmented :model-value="language" label="Preview language" :disabled="navigating"
                 :options="(episode.languages || []).map(lang => ({ value: lang, label: lang.toUpperCase(), accessibleLabel: languageName(lang) }))"
-                @update:model-value="chooseLanguage" />
+                @update:model-value="lang => navigate(() => chooseLanguage(lang))" />
             </div>
             <VideoPreview v-if="source" :key="source" :source="source" :language="languageName(language)" />
             <div class="variant-control">
               <label for="variant">Version</label>
-              <select id="variant" v-model="videoID" class="ui-field">
+              <select id="variant" :value="videoID" :disabled="navigating" class="ui-field" @change="switchVideo">
                 <option v-for="v in variants" :key="v.id" :value="v.id">{{ v.kind === 'final' ? 'Final' : 'Clean' }} · {{ v.narration ? 'with narration' : 'no narration' }}</option>
               </select>
             </div>
@@ -126,11 +152,13 @@ onMounted(refresh);
             <p class="read-only-note">Previewing leaves the review status unchanged</p>
           </aside>
         </div>
+        <PublicationDraft v-if="video" :key="episode.id + ':' + language" ref="editor"
+          :episode="episode" :language="language" :video="video" :locked="navigating" />
       </section>
       <section v-if="!episode && !busy && !error" class="empty">
         <h2>No delivery to preview</h2><p>Add a production delivery, then refresh</p>
       </section>
-      <footer><span>CATsoup Publisher</span><span>Delivery review · Local only</span></footer>
+      <footer><span>CATsoup Publisher</span><span>Review and drafts · Local only</span></footer>
     </main>
   </div>
 </template>

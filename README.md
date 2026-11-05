@@ -3,8 +3,8 @@
 A lightweight, local Windows desktop workspace for reviewing bilingual video
 deliveries and preparing them for publication. Built with Go, Wails and Vue.
 
-**Early development:** delivery validation and ES/EN video previews work. Drafts,
-account connections, uploads and scheduling are not implemented yet. No paid
+**Early development:** delivery validation, ES/EN previews and local publication
+drafts work. Account connections, uploads and scheduling are not implemented yet. No paid
 service, hosted backend, Blender installation or AI subscription is required.
 
 ![Publisher with a synthetic test video](docs/images/publisher.png)
@@ -17,8 +17,10 @@ Browser-rendered preview using the generated demo; no private episode assets.
 - Spanish/English previews with playback, audio, seeking and version selection.
 - Clear separation between a valid delivery and permission to publish it.
 - Custom desktop title bar, keyboard focus and reusable CATsoup design tokens.
+- SQLite drafts per episode, language, platform and account label, with autosave,
+  conflict detection, copyable metadata and access to the selected video's folder.
 
-The Windows executable is about 11 MiB; it uses the installed WebView2 runtime.
+The Windows executable is about 14.6 MiB; it uses the installed WebView2 runtime.
 That size excludes WebView2, Python, FFmpeg and development tools. RAM/CPU usage
 has not yet been benchmarked. This is a source preview, not an installer release.
 
@@ -57,6 +59,27 @@ producer or its source files. Keep all media inside its delivery folder.
 The executable finds this workspace above its own directory. To review an
 existing compatible workspace, use `--root C:\path\to\workspace`; that workspace
 must have the validator and `.venv` layout too. Close the app before rebuilding.
+
+## Prepare a publication draft
+
+1. Select an episode, ES/EN and the video version to preview.
+2. Click **Publication** beside Refresh, choose a platform, enter an account label and click
+   **Open draft**. Labels identify destinations; they do not connect to accounts.
+3. Edit the title, description and hashtags. Changes save after 600ms without
+   typing, or with **Save draft**. Wait for **Saved locally** before force-quitting.
+4. Use **Copy title**, **Copy caption** (description plus hashtags), or **Open video
+   folder** to prepare a manual upload. These controls do not publish anything.
+
+Switching episode/language/destination or closing normally flushes pending edits.
+A failed save blocks navigation/closing and keeps the text visible. Conflicts with
+another instance require an explicit reload decision; they are not silently overwritten.
+If the delivery changed, review the video and choose **Use selected video** to
+update the draft's link. Ordinary text edits never update that link automatically.
+
+Drafts live at `data/publisher/drafts.sqlite` in the selected workspace, outside
+Git. They do not change manifests, reviews or approvals. See
+[storage and recovery](docs/publisher/DRAFTS.md). Text limits are local storage
+bounds, not guarantees about what each platform accepts.
 
 ## Development
 

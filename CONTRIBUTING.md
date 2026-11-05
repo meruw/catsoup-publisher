@@ -24,6 +24,17 @@ For the optional real-validator/media integration test, generate the demo first,
 then set `$env:CATSOUP_TEST_ROOT = "$PWD"` before running Go tests. The test reads
 the synthetic sample and never approves it.
 
+After dependency changes, review upstream release/security notes and run a pinned
+Go vulnerability scanner (development tool only):
+
+```powershell
+$env:GOBIN = "$PWD\.tools\bin"
+& .tools/go/bin/go.exe install golang.org/x/vuln/cmd/govulncheck@v1.9.0
+$env:PATH = "$PWD\.tools\go\bin;" + $env:PATH
+Push-Location apps/publisher
+try { & ..\..\.tools\bin\govulncheck.exe ./... } finally { Pop-Location }
+```
+
 For browser checks, install Google Chrome and the development-only harness:
 
 ```powershell

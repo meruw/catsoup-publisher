@@ -10,9 +10,12 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 
 	"catsoup/publisher/internal/delivery"
+	"catsoup/publisher/internal/drafts"
 	"github.com/wailsapp/wails/v3/pkg/application"
+	"github.com/wailsapp/wails/v3/pkg/events"
 )
 
 //go:embed all:frontend/dist
@@ -78,11 +81,17 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	store, err := drafts.Open(filepath.Join(root, "data", "publisher", "drafts.sqlite"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer store.Close()
+	draftService := &DraftService{store: store, reader: reader}
 	app := application.New(application.Options{Name: "CATsoup Publisher", Description: "Local release preparation",
 		Icon:     appIcon,
-		Services: []application.Service{application.NewService(&PublisherService{reader: reader})},
+		Services: []application.Service{application.NewService(&PublisherService{reader: reader}), application.NewService(draftService)},
 		Assets:   application.AssetOptions{Handler: assetHandler(reader, assets)}})
-	app.Window.NewWithOptions(application.WebviewWindowOptions{
+	window := app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Title: "CATsoup Publisher", Width: 1200, Height: 840, MinWidth: 820, MinHeight: 650, URL: "/", Frameless: true,
 		BackgroundColour: application.NewRGB(255, 252, 247), DevToolsEnabled: false,
 		Permissions: map[application.PermissionType]application.Permission{
@@ -92,6 +101,17 @@ func main() {
 			application.PermissionNotifications: application.PermissionDeny,
 			application.PermissionClipboardRead: application.PermissionDeny,
 		},
+	})
+	draftService.copyText = app.Clipboard.SetText
+	draftService.reveal = func(path string) error { return app.Env.OpenFileManager(path, true) }
+	var guarded, closing atomic.Bool
+	draftService.enableCloseGuard = func() { guarded.Store(true) }
+	draftService.confirmClose = func() { closing.Store(true); window.Close() }
+	window.RegisterHook(events.Common.WindowClosing, func(event *application.WindowEvent) {
+		if guarded.Load() && !closing.Load() {
+			event.Cancel()
+			app.Event.Emit("publisher:close-requested")
+		}
 	})
 	if err := app.Run(); err != nil {
 		log.Fatal(err)

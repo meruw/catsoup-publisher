@@ -109,6 +109,13 @@ loaded by the Publisher page.
 
 ## Source of truth and preview
 
+Publication uses a separate open section below delivery review. Destination labels
+are distinct from the active draft heading; changing a label does not silently
+switch the edited draft. Fields use `.ui-field`, visible labels and shared buttons.
+Saved/unsaved/error states are text, not color alone. Copy title and caption are
+separate operations. Failed saves retain the form, and replacing edits with a saved
+version requires an inline confirmation. No cards or new icon framework.
+
 - `frontend/src/design/tokens.css`: colors, typography, spacing, dimensions, motion.
 - `frontend/src/design/primitives.css`: shared styles and interaction states.
 - `frontend/src/components/UiButton.vue`, `UiSegmented.vue`: reusable behavior.

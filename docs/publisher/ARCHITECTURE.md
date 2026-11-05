@@ -84,6 +84,15 @@ distribution, run dependency audits and test the actual packaged executable.
 
 ## Growth path
 
+SQLite drafts are implemented through `database/sql` and pinned
+`modernc.org/sqlite v1.61.1`. This keeps builds free of a C toolchain; the measured
+Windows executable grows from 10.68 to 14.63 MiB. No frontend dependency was added.
+The framework-independent store uses optimistic revisions and an initial
+transactional migration. The desktop DraftService exposes typed metadata operations,
+saved-text copying and validated video reveal; it does not expose SQL or paths.
+Ordinary autosaves do not run the media validator. Native close events ask the
+frontend to flush before acknowledging closure. Details: [DRAFTS.md](DRAFTS.md).
+
 Desktop shell update: a small Vue title bar uses Wails' existing Window runtime
 adapter and two maximize-state event subscriptions. The window is frameless; the
 shell adds no Go service methods, timers or runtime package dependencies. Sidebar

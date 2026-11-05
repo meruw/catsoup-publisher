@@ -4,6 +4,7 @@ import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import assert from 'node:assert/strict';
+import { draftFixture } from './draft_fixture.mjs';
 import { createServer } from '../frontend/node_modules/vite/dist/node/index.js';
 import vue from '../frontend/node_modules/@vitejs/plugin-vue/dist/index.mjs';
 import { chromium } from '../../../.tools/visual-qa/node_modules/playwright/index.mjs';
@@ -21,6 +22,7 @@ const episode = {
 };
 const fixture = `
  const episode = ${JSON.stringify(episode)};
+ window.__fixtureEpisode = episode;
  export const publisher = {
   list: async () => window.__empty ? [] : [{id:episode.id,title:episode.title,valid:true,problem:''}],
   get: async () => episode,
@@ -30,6 +32,7 @@ const fixture = `
 const server = await createServer({
   configFile: false, root: frontend,
   plugins: [{ name: 'test-only-bridge', enforce: 'pre', load(id) {
+    if (id.replaceAll('\\', '/').endsWith('/src/services/drafts.ts')) return draftFixture;
     if (id.replaceAll('\\', '/').endsWith('/src/services/publisher.ts')) return fixture;
     if (id.replaceAll('\\', '/').endsWith('/src/services/window.ts')) return `
       let max = false, listener;
@@ -104,14 +107,105 @@ try {
     assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'horizontal overflow');
     await page.screenshot({ path: path.join(output, `publisher-${width}.png`), fullPage: true });
   }
+  await page.setViewportSize({ width: 1200, height: 808 });
+  await page.getByRole('button', { name: 'Publication', exact: true }).click();
+  assert.equal(await page.evaluate(() => document.activeElement.id), 'draft-account');
+  await page.getByLabel('Account label', { exact: true }).fill('@catsoup_es');
+  await page.getByRole('button', { name: 'Open draft', exact: true }).click();
+  await page.getByLabel('Title', { exact: true }).fill('Un pequeño misterio');
+  await page.getByLabel('Description', { exact: true }).fill('La luz se apagó. ¿Qué pasó después?');
+  await page.getByLabel('Hashtags', { exact: true }).fill('#catsoup #animación');
+  await page.getByText('Saved locally', { exact: true }).waitFor();
+  await page.getByRole('button', { name: 'Copy title', exact: true }).click();
+  assert.equal(await page.evaluate(() => window.__copied), 'Un pequeño misterio');
+  await page.getByRole('button', { name: 'Copy caption', exact: true }).click();
+  assert.equal(await page.evaluate(() => window.__copied), 'La luz se apagó. ¿Qué pasó después?\n\n#catsoup #animación');
+  await page.getByRole('button', { name: 'Open video folder', exact: true }).click();
+  assert.equal((await page.evaluate(() => window.__revealed)).episode, 'catsoup-demo');
+  // Change language before the debounce fires: leaving must flush the ES draft.
+  await page.getByLabel('Title', { exact: true }).fill('Guardado antes de cambiar');
+  await page.getByRole('button', { name: 'English', exact: true }).click();
+  await page.getByLabel('Account label', { exact: true }).fill('@catsoup_en');
+  await page.getByRole('button', { name: 'Open draft', exact: true }).click();
+  await page.getByLabel('Title', { exact: true }).fill('A tiny mystery');
+  await page.getByText('Saved locally', { exact: true }).waitFor();
+  let persisted = await page.evaluate(() => Object.values(JSON.parse(localStorage.getItem('draft-fixture'))));
+  assert.equal(persisted.length, 2);
+  assert.equal(persisted.find(d => d.key.language === 'es').title, 'Guardado antes de cambiar');
+  assert.equal(persisted.find(d => d.key.language === 'en').title, 'A tiny mystery');
+  // A destination change also flushes; a separate account/platform stays isolated.
+  await page.getByLabel('Platform', { exact: true }).selectOption('tiktok');
+  await page.getByLabel('Account label', { exact: true }).fill('@catsoup_second');
+  await page.getByRole('button', { name: 'Open draft', exact: true }).click();
+  await page.getByLabel('Title', { exact: true }).fill('TikTok draft');
+  await page.getByRole('button', { name: 'Spanish', exact: true }).click();
+  await page.getByText('Saved locally', { exact: true }).waitFor();
+  assert.equal(await page.getByLabel('Title', { exact: true }).inputValue(), 'Guardado antes de cambiar');
+  // Type while a write is in flight: the response must not replace the newer text.
+  await page.evaluate(() => { window.__draftDelay = 1000; });
+  await page.getByLabel('Description', { exact: true }).fill('First edit');
+  await page.getByText('Saving…', { exact: true }).waitFor();
+  await page.getByLabel('Description', { exact: true }).fill('Latest edit while saving');
+  await page.getByText('Saved locally', { exact: true }).waitFor();
+  assert.equal(await page.getByLabel('Description', { exact: true }).inputValue(), 'Latest edit while saving');
+  await page.evaluate(() => { window.__draftDelay = 0; window.__draftFail = true; });
+  await page.getByLabel('Title', { exact: true }).fill('Keep this unsaved edit');
+  await page.getByRole('button', { name: 'English', exact: true }).click();
+  await page.getByText(/Could not save\. Your edits are still here/).waitFor();
+  assert.equal(await page.getByRole('button', { name: 'Spanish', exact: true }).getAttribute('aria-pressed'), 'true');
+  assert.equal(await page.getByLabel('Title', { exact: true }).inputValue(), 'Keep this unsaved edit');
+  await page.evaluate(() => window.__requestClose());
+  await page.waitForTimeout(100);
+  assert.equal(await page.evaluate(() => !!window.__closeConfirmed), false);
+  await page.evaluate(() => { window.__draftFail = false; });
+  await page.getByRole('button', { name: 'Save draft', exact: true }).click();
+  await page.getByText('Saved locally', { exact: true }).waitFor();
+  // A stale revision preserves edits until an explicit reload decision.
+  await page.evaluate(() => { window.__draftConflict = true; });
+  await page.getByLabel('Description', { exact: true }).fill('My conflicting edit');
+  await page.getByText(/draft changed in another window/).waitFor();
+  await page.getByRole('button', { name: 'Reload saved draft', exact: true }).click();
+  await page.getByRole('button', { name: 'Keep editing', exact: true }).click();
+  assert.equal(await page.getByLabel('Description', { exact: true }).inputValue(), 'My conflicting edit');
+  await page.evaluate(() => { window.__draftConflict = false; });
+  await page.getByRole('button', { name: 'Reload saved draft', exact: true }).click();
+  await page.getByRole('button', { name: 'Reload and replace edits', exact: true }).click();
+  assert.equal(await page.getByLabel('Description', { exact: true }).inputValue(), 'Latest edit while saving');
+  await page.evaluate(() => { window.__fixtureEpisode.fingerprint = 'changed-fixture'; });
+  await page.getByRole('button', { name: 'Refresh', exact: true }).click();
+  await page.getByText(/The delivery changed since this draft was linked/).waitFor();
+  await page.getByRole('button', { name: 'Use selected video', exact: true }).click();
+  await page.getByText('Saved locally', { exact: true }).waitFor();
+  assert.equal(await page.getByText(/The delivery changed since this draft was linked/).count(), 0);
+  // Reload the page: the fixture persists data, while production persistence is tested in Go.
+  await page.reload();
+  await page.getByText('Saved locally', { exact: true }).waitFor();
+  assert.equal(await page.getByLabel('Title', { exact: true }).inputValue(), 'Keep this unsaved edit');
+  await page.getByLabel('Title', { exact: true }).fill('Final saved draft');
+  await page.evaluate(() => window.__requestClose());
+  await page.waitForFunction(() => window.__closeConfirmed === true);
+  persisted = await page.evaluate(() => Object.values(JSON.parse(localStorage.getItem('draft-fixture'))));
+  assert.equal(persisted.find(d => d.key.language === 'es').title, 'Final saved draft');
+  assert.equal(persisted.length, 3);
+  await page.getByRole('button', { name: 'Use selected video', exact: true }).click();
+  await page.getByText('Saved locally', { exact: true }).waitFor();
+  // Capture the open, populated section separately from the video review.
+  await page.getByRole('region', { name: 'Publication', exact: true }).screenshot({ path: path.join(output, 'publication-1200.png') });
+  await page.setViewportSize({ width: 820, height: 650 });
+  assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'draft horizontal overflow');
+  await page.getByRole('region', { name: 'Publication', exact: true }).screenshot({ path: path.join(output, 'publication-820.png') });
   await page.evaluate(() => { window.__empty = true; });
   await page.getByRole('button', { name: 'Refresh', exact: true }).click();
   await page.getByRole('heading', { name: 'No delivery to preview' }).waitFor();
   assert.equal(await page.locator('video').count(), 0);
   assert.deepEqual(errors, []);
-  const report = { passed: true, checks: ['ES/EN decode and playback', 'seek', 'variant selection', 'refresh keeps language', 'non-publishable state', 'empty state', '1200/820px layout', 'module navigation', 'window controls with fixture adapter', 'no JS errors'], native: false };
+  const report = { passed: true, checks: ['ES/EN decode and playback', 'seek', 'variant selection', 'refresh keeps language', 'non-publishable state', 'empty state', '1200/820px layout', 'module navigation', 'window controls with fixture adapter', 'draft autosave and reload', 'language/platform/account isolation', 'typing during save', 'failed saves block navigation and close', 'conflict recovery', 'delivery change and explicit rebind', 'copy/reveal adapters', 'close flush', 'no JS errors'], native: false };
   await writeFile(path.join(output, 'report.json'), JSON.stringify(report, null, 2));
   console.log(JSON.stringify(report));
+} catch (error) {
+  const page = browser?.contexts()[0]?.pages()[0];
+  if (page) console.error((await page.locator('body').innerText()).slice(-4500));
+  throw error;
 } finally {
   await browser?.close();
   await server.close();
