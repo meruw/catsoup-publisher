@@ -37,7 +37,8 @@ const server = await createServer({
       const none = {state:'',reference:'',retryAllowed:false};
       const receipts = new Map(); const profiles = () => JSON.parse(localStorage.getItem('account-fixture') || '[]');
       export const uploads = {
-        metaCallback: async () => localStorage.getItem('meta-callback-fixture') || 'https://publisher.meruw.dev/auth/meta/',
+        metaCallback: async () => localStorage.getItem('meta-callback-fixture') || '',
+        enableHostedMetaCallback: async () => {const url='https://publisher.meruw.dev/auth/meta/';localStorage.setItem('meta-callback-fixture',url);return url;},
         setMetaCallback: async url => {localStorage.setItem('meta-callback-fixture',url);return url;},
         credentialStatuses: async () => Object.fromEntries(['youtube','tiktok','instagram'].map(p=>[p,localStorage.getItem(p+'-client-fixture')==='ready'?'saved':'missing'])),
         clientReady: async p => localStorage.getItem(p+'-client-fixture')==='ready',
@@ -307,13 +308,18 @@ try {
         assert.equal(await secret.inputValue(),'');
       } else {
         await setup.getByText('Callback hosting').click();
+        assert(await setup.getByLabel('Off',{exact:true}).isChecked());
+        await setup.getByLabel('My HTTPS domain').check();
         const field=setup.getByLabel('HTTPS callback URL');
-        assert.equal(await field.inputValue(),'https://publisher.meruw.dev/auth/meta/');
+        assert.equal(await field.inputValue(),'');
         await field.fill('https://reels.example.org/team/meta/');
         await setup.getByRole('button',{name:'Save callback'}).click();
         await setup.getByText('https://reels.example.org/team/meta/',{exact:true}).waitFor();
-        await setup.getByRole('button',{name:'Use Publisher default'}).click();
-        await setup.getByText('https://publisher.meruw.dev/auth/meta/',{exact:true}).waitFor();
+        await setup.getByLabel('CATsoup-hosted callback',{exact:true}).check();
+        assert(await setup.getByRole('button',{name:'Save callback'}).isDisabled());
+        await setup.getByLabel('I agree to use the CATsoup-hosted callback.').check();
+        await setup.getByRole('button',{name:'Save callback'}).click();
+        await setup.getByText('CATsoup hosting is on.',{exact:false}).waitFor();
         await setup.getByLabel('App ID',{exact:true}).fill('123');
         await setup.getByLabel('App secret',{exact:true}).fill('fixture');
         const save=setup.getByRole('button',{name:'Save Instagram credentials'});
@@ -324,6 +330,20 @@ try {
       await setup.getByRole('status').waitFor();
       await page.getByRole('group',{name:'Provider settings'}).getByRole('button',{pressed:true}).getByText('Saved · unverified',{exact:true}).waitFor();
       if(platform==='YouTube') await page.screenshot({path:path.join(output,'developer-credentials.png')});
+      if(platform==='Instagram') {
+        await setup.getByLabel('Off',{exact:true}).check();
+        await setup.getByRole('button',{name:'Save callback'}).click();
+        await setup.getByText('Meta browser sign-in is off.').waitFor();
+        await page.getByRole('button',{name:'Accounts',exact:true}).click();
+        await row.getByRole('button',{name:'Set up callback'}).click();
+        await setup.getByText('Callback hosting').click();
+        await setup.getByLabel('CATsoup-hosted callback',{exact:true}).check();
+        const agree=setup.getByLabel('I agree to use the CATsoup-hosted callback.');
+        assert(!await agree.isChecked());
+        await agree.check();
+        await setup.getByRole('button',{name:'Save callback'}).click();
+        await setup.getByText('CATsoup hosting is on.',{exact:false}).waitFor();
+      }
       await page.getByRole('button',{name:'Accounts',exact:true}).click();
     }
     await row.getByRole('button',{name:platform==='X'?'Set handle':'Connect',exact:true}).click();

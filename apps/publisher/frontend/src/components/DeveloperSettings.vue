@@ -14,9 +14,17 @@ const fileInput = ref<HTMLInputElement | null>(null);
 const identifier = ref('');
 const secret = ref('');
 const configID = ref('');
-const defaultCallback = 'https://publisher.meruw.dev/auth/meta/';
+const hostedCallback = 'https://publisher.meruw.dev/auth/meta/';
 const callback = ref('');
 const callbackDraft = ref('');
+const hosting = ref<'off'|'hosted'|'custom'>('off');
+const accepted = ref(false);
+function showHosting(value:string) {
+  callback.value=value;
+  hosting.value=value===hostedCallback?'hosted':value?'custom':'off';
+  callbackDraft.value=hosting.value==='custom'?value:'';
+  accepted.value=value===hostedCallback;
+}
 const message = ref('');
 const error = ref('');
 
@@ -61,15 +69,19 @@ function importFile(event: Event) {
 }
 function loadCallback() {
   void run(async () => {
-    callback.value = callbackDraft.value = '';
-    callback.value = callbackDraft.value = await uploads.metaCallback();
+    showHosting('');
+    showHosting(await uploads.metaCallback());
   });
 }
 watch(provider, p => { if (p==='instagram') loadCallback(); }, { immediate: true });
-function saveCallback(value: string) {
+function saveCallback() {
   void run(async () => {
-    callback.value = callbackDraft.value = await uploads.setMetaCallback(value);
-    message.value = 'Callback URL saved. Register this exact URL in your Meta app.';
+    if(hosting.value==='hosted' && !accepted.value) throw Error('Accept the hosting notice to continue.');
+    if(hosting.value==='custom' && !callbackDraft.value.trim()) throw Error('Enter your HTTPS callback URL.');
+    const value = hosting.value==='hosted' ? await uploads.enableHostedMetaCallback()
+      : await uploads.setMetaCallback(hosting.value==='custom'?callbackDraft.value.trim():'');
+    showHosting(value);
+    message.value = value?'Callback saved. Register this exact URL in your Meta app.':'Meta browser sign-in is off.';
   });
 }
 function openGoogleSetup(step: string) { void run(() => uploads.googleSetup(step)); }
@@ -93,13 +105,24 @@ function openGoogleSetup(step: string) { void run(() => uploads.googleSetup(step
     <CredentialState :state="statuses[provider]" detail/>
     <div v-if="provider==='instagram'" class="return-url">
      <p v-if="callback">Redirect URI for Meta: <code>{{ callback }}</code></p>
+     <p v-if="callback===hostedCallback">CATsoup hosting is on. GitHub Pages receives the temporary sign-in code; your tokens stay on this PC.</p>
+     <p v-if="!callback && !pending">Browser sign-in is off until you choose a callback.</p>
      <details>
       <summary>Callback hosting</summary>
-      <form @submit.prevent="saveCallback(callbackDraft)">
-       <label class="field-group">HTTPS callback URL<input v-model="callbackDraft" type="url" class="ui-field" autocomplete="off" spellcheck="false" :placeholder="defaultCallback" :disabled="pending" required></label>
-       <p>Use the Publisher-hosted page, or host the return page on a domain you control. Register the same URL in Meta.</p>
-       <div class="draft-actions"><UiButton type="submit" :disabled="pending || !callbackDraft.trim() || callbackDraft===callback">Save callback</UiButton>
-        <UiButton variant="quiet" :disabled="pending || (callback===defaultCallback && callbackDraft===defaultCallback)" @click="saveCallback(defaultCallback)">Use Publisher default</UiButton></div>
+      <form @submit.prevent="saveCallback">
+       <fieldset :disabled="pending" class="hosting-options">
+        <legend>Where should Meta return after sign-in?</legend>
+        <label><input v-model="hosting" type="radio" value="off"> Off</label>
+        <label><input v-model="hosting" type="radio" value="custom"> My HTTPS domain</label>
+        <label><input v-model="hosting" type="radio" value="hosted"> CATsoup-hosted callback</label>
+       </fieldset>
+       <label v-if="hosting==='custom'" class="field-group">HTTPS callback URL<input v-model="callbackDraft" type="url" class="ui-field" autocomplete="off" spellcheck="false" placeholder="https://studio.example.org/auth/meta/" :disabled="pending" required></label>
+       <p v-if="hosting==='custom'">Host the return page on a domain you control and register its exact URL in Meta.</p>
+       <div v-if="hosting==='hosted'" class="hosting-notice">
+        <p>During Facebook sign-in, GitHub Pages serves the return page at <code>{{ hostedCallback }}</code> and receives the temporary authorization code and state in the URL. Publisher exchanges the code on your PC. Tokens and your app secret stay on your PC. New sign-ins require this site to be available.</p>
+        <label><input v-model="accepted" type="checkbox" :disabled="pending"> I agree to use the CATsoup-hosted callback.</label>
+       </div>
+       <UiButton type="submit" :disabled="pending || (hosting==='hosted' && !accepted) || (hosting==='custom' && !callbackDraft.trim())">Save callback</UiButton>
       </form>
      </details>
     </div>
@@ -136,7 +159,11 @@ function openGoogleSetup(step: string) { void run(() => uploads.googleSetup(step
 .return-url details {margin-top:var(--space-2)}
 .return-url summary {cursor:pointer;width:fit-content}
 .return-url form {margin-block:var(--space-3)}
-.return-url .draft-actions {margin-top:var(--space-2)}
+.hosting-options {display:grid;gap:var(--space-2);padding:0;border:0;margin-bottom:var(--space-3)}
+.hosting-options legend {margin-bottom:var(--space-2)}
+.hosting-notice {max-width:60ch;margin-block:var(--space-3)}
+.hosting-notice label {display:block;margin-top:var(--space-2)}
+.return-url form>.ui-button {margin-top:var(--space-3)}
 .credential-form {margin-top:var(--space-5)}
 .fields {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--space-4)}
 .return-url {margin-top:var(--space-3);overflow-wrap:anywhere}

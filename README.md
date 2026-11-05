@@ -24,6 +24,8 @@ The Windows executable is about 16.9 MiB; it uses the installed WebView2 runtime
 That size excludes WebView2, Python, FFmpeg and development tools. RAM/CPU usage
 has not yet been benchmarked. This is a source preview, not an installer release.
 
+New installation? Follow the [first-run setup guide](docs/publisher/FIRST_RUN.md) for installation, developer credentials and ES/EN sign-in.
+
 ## Build and run (Windows x64)
 
 Install Python 3.10 or newer, Node.js 24 LTS with npm, Git and Microsoft WebView2.
