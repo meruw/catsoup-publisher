@@ -99,7 +99,7 @@ footer { color: var(--body); border-top: 1px solid var(--line); padding-block: 1
   .mobile-guides summary { cursor: pointer; color: var(--link); padding: .5rem 0 1rem; }
   .mobile-guides nav { display: flex; gap: 1.25rem; flex-wrap: wrap; }
   .guide-page :is(td, th) { padding: .7rem .55rem; }
-  .guide-page :is(td, th):first-child { width: max(28%, 5.75rem); }
+  .guide-page :is(td, th):first-child { width: 6.25rem; }
 }
 
 .service-index { list-style: none; padding: 0; margin: 0; }
