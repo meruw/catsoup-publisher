@@ -19,3 +19,9 @@ export interface Key {
     "platform": string;
     "account": string;
 }
+
+export interface Receipt {
+    "state": string;
+    "reference": string;
+    "retryAllowed": boolean;
+}

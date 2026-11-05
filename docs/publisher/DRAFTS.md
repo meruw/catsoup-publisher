@@ -45,8 +45,8 @@ anything; copy/reveal are also usable with non-publishable test material.
 
 ## Migrations, backup and recovery
 
-Schema version 1 is created in a transaction. Existing version-1 stores are left
-intact; unsupported newer versions and invalid/corrupt databases fail explicitly.
+Schema version 2 adds upload receipts in a transaction and preserves existing
+version-1 drafts. Unsupported newer versions and invalid/corrupt databases fail explicitly.
 The app never silently deletes or resets a database. Future migrations must add
 versioned transactional steps and tests preserving existing drafts.
 

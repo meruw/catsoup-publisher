@@ -3,9 +3,9 @@
 A lightweight, local Windows desktop workspace for reviewing bilingual video
 deliveries and preparing them for publication. Built with Go, Wails and Vue.
 
-**Early development:** delivery validation, ES/EN previews and local publication
-drafts work. Account connections, uploads and scheduling are not implemented yet. No paid
-service, hosted backend, Blender installation or AI subscription is required.
+Publisher prepares bilingual drafts and sends approved videos to YouTube privately,
+the TikTok inbox, or Instagram Reels. X uses the browser composer. Bring your own
+authorized accounts and provider configuration. [Connection setup and upload guide](docs/publisher/UPLOADS.md)
 
 ![Publisher with a synthetic test video](docs/images/publisher.png)
 
@@ -20,7 +20,7 @@ Browser-rendered preview using the generated demo; no private episode assets.
 - SQLite drafts per episode, language, platform and account label, with autosave,
   conflict detection, copyable metadata and access to the selected video's folder.
 
-The Windows executable is about 14.6 MiB; it uses the installed WebView2 runtime.
+The Windows executable is about 16.8 MiB; it uses the installed WebView2 runtime.
 That size excludes WebView2, Python, FFmpeg and development tools. RAM/CPU usage
 has not yet been benchmarked. This is a source preview, not an installer release.
 

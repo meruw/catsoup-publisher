@@ -14,6 +14,7 @@ import (
 
 	"catsoup/publisher/internal/delivery"
 	"catsoup/publisher/internal/drafts"
+	"catsoup/publisher/internal/uploads"
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
 )
@@ -87,9 +88,10 @@ func main() {
 	}
 	defer store.Close()
 	draftService := &DraftService{store: store, reader: reader}
+	uploadService := &UploadService{store: store, reader: reader, client: uploads.New(), sessions: make(map[drafts.Key]connection)}
 	app := application.New(application.Options{Name: "CATsoup Publisher", Description: "Local release preparation",
 		Icon:     appIcon,
-		Services: []application.Service{application.NewService(&PublisherService{reader: reader}), application.NewService(draftService)},
+		Services: []application.Service{application.NewService(&PublisherService{reader: reader}), application.NewService(draftService), application.NewService(uploadService)},
 		Assets:   application.AssetOptions{Handler: assetHandler(reader, assets)}})
 	window := app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Title: "CATsoup Publisher", Width: 1200, Height: 840, MinWidth: 820, MinHeight: 650, URL: "/", Frameless: true,
@@ -103,6 +105,7 @@ func main() {
 		},
 	})
 	draftService.copyText = app.Clipboard.SetText
+	uploadService.openBrowser = app.Browser.OpenURL
 	draftService.reveal = func(path string) error { return app.Env.OpenFileManager(path, true) }
 	var guarded, closing atomic.Bool
 	draftService.enableCloseGuard = func() { guarded.Store(true) }

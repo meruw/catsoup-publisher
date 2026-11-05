@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import UiButton from './UiButton.vue';
+import DirectUpload from './DirectUpload.vue';
 import { drafts, type Draft, type DraftKey } from '../services/drafts';
 import type { Episode, Video } from '../services/publisher';
 
@@ -19,6 +20,7 @@ const feedback = ref('');
 const reloadPrompt = ref(false);
 const accountConfirmed = ref(false);
 const preparingUpload = ref(false);
+const platformBusy = ref(false);
 const uploadError = ref('');
 let generation = 0;
 let attachVideo = false;
@@ -159,14 +161,18 @@ function focusEditor() {
   region.value?.scrollIntoView({ block: 'start' });
   region.value?.querySelector<HTMLElement>(form.value ? '#draft-title' : '#draft-account')?.focus({ preventScroll: true });
 }
-defineExpose({ flush, focusEditor });
+async function beforeLeaving() {
+  if (platformBusy.value) throw new Error('Wait for the platform request to finish.');
+  await flush();
+}
+defineExpose({ flush: beforeLeaving, focusEditor });
 </script>
 
 <template>
   <section ref="region" class="publication" aria-label="Publication">
     <div class="section-header"><h2>Publication</h2><span class="publication-language">{{ languageName }}</span></div>
-    <p class="section-description">Prepare a local draft. Account labels do not connect or publish to an account.</p>
-    <fieldset :disabled="locked || loading || preparingUpload" class="draft-fields">
+    <p class="section-description">Choose a destination to edit its draft and upload the approved video.</p>
+    <fieldset :disabled="locked || loading || preparingUpload || platformBusy" class="draft-fields">
       <div v-if="saved.length" class="field-group saved-destinations">
         <label for="saved-destination">Saved destinations</label>
         <select id="saved-destination" class="ui-field" @change="selectSaved"><option value="">Choose a draft…</option><option v-for="(draft, index) in saved" :key="JSON.stringify(draft.key)" :value="index">{{ name(draft.key) }}</option></select>
@@ -194,6 +200,7 @@ defineExpose({ flush, focusEditor });
           <UiButton variant="quiet" @click="reveal">Open video folder</UiButton>
         </div>
         <p class="publication-hint">Changes save after you pause typing. Caption copies description and hashtags. Check platform limits before uploading.</p>
+        <DirectUpload :key="JSON.stringify([form.key, form.videoHash])" :draft="form" :hint="uploadHint" :flush="flush" @busy="platformBusy = $event" />
         <h3>Manual upload</h3>
         <p v-if="uploadHint" class="publication-hint">{{ uploadHint }}</p>
         <template v-else>

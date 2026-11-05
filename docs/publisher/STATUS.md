@@ -2,6 +2,11 @@
 
 ## Implemented
 
+- Private YouTube uploads, TikTok inbox transfers, Instagram Reel publishing and
+  X web composition. Account verification, approved-file snapshots and durable
+  receipts protect against sending the wrong file or repeating an uncertain upload.
+  See [connection setup and upload workflows](UPLOADS.md).
+
 - Local Go/Wails/Vue desktop app, custom title bar and CATsoup design system.
 - Read-only contract-v2 validation, ES/EN playback, seeking and version selection.
 - Path containment, hash validation, bounded validator process and restricted CSP.
@@ -56,12 +61,13 @@ the independent build has now been opened and its header includes a direct
 Publication button. Browser fixtures do not establish those native outcomes.
 
 Windows x64 only; WebView2 and Python/imageio-ffmpeg required. No installer/signing,
-OAuth, uploads, queue or scheduling. No RAM/CPU benchmark or independent
+background queue or scheduling. No RAM/CPU benchmark or independent
 security audit. Trends is a disabled placeholder. The demo is not publishable.
 Legacy PoC handling remains for compatibility, but private PoC assets are not included.
 
 ## Next action
 
-With the first owner-approved episode, check the manual handoff end to end:
-confirm the active account, paste the copied path into the platform's file picker
-and verify the selected language and file before uploading.
+Configure a Google desktop client, connect a channel and send the first
+owner-approved episode privately to that channel. The Go protocol tests and Vue
+browser fixtures use simulated providers. Real account permissions and live
+uploads still require verification on each platform.

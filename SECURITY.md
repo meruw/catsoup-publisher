@@ -8,9 +8,11 @@ The app uses a narrow typed bridge, canonical path boundaries, file integrity
 checks, a bounded validator process and a restricted content security policy.
 It never loads social sites into the privileged application webview.
 
-Do not commit tokens, credentials, private media or real account data. Future
-authentication must use the system browser and OS credential store. Preview/import
-must not create a review or approval; any future posting must recheck current hashes.
+Keep tokens, client credentials, private media and account data outside Git.
+Google and TikTok use system-browser OAuth with state and PKCE. Bearer tokens
+stay in process memory. Uploads revalidate approval and stage the exact hashed
+bytes; the HTTP client restricts transfer hosts and rejects redirects. Local
+receipts preserve uncertain outcomes across restarts. See [uploads](docs/publisher/UPLOADS.md).
 
 Please avoid posting credentials or exploit details in public issues. Use GitHub's
 private vulnerability reporting for this repository when available; otherwise open

@@ -136,7 +136,7 @@ func (s *Store) migrate() error {
 	if err = tx.QueryRowContext(ctx, "SELECT version FROM schema_version WHERE id=1").Scan(&version); err != nil {
 		return err
 	}
-	if version > 1 || version < 0 {
+	if version > 2 || version < 0 {
 		return errors.New("unsupported schema version; use a compatible Publisher build")
 	}
 	if version == 0 {
@@ -147,6 +147,16 @@ func (s *Store) migrate() error {
    revision INTEGER NOT NULL CHECK(revision>0), updated_at TEXT NOT NULL,
    PRIMARY KEY(episode,language,platform,account));
    UPDATE schema_version SET version=1 WHERE id=1;`)
+		if err != nil {
+			return err
+		}
+	}
+	if version < 2 {
+		_, err = tx.ExecContext(ctx, `CREATE TABLE upload_attempts (
+ platform TEXT NOT NULL, account_id TEXT NOT NULL, video_hash TEXT NOT NULL,
+ state TEXT NOT NULL, reference TEXT NOT NULL, started INTEGER NOT NULL,
+ PRIMARY KEY(platform,account_id,video_hash));
+ UPDATE schema_version SET version=2 WHERE id=1;`)
 		if err != nil {
 			return err
 		}

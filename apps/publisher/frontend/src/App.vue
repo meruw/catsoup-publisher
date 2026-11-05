@@ -58,7 +58,7 @@ async function navigate(action: () => void | Promise<void>) {
   if (navigating.value || busy.value) return;
   navigating.value = true;
   try { await editor.value?.flush(); error.value = ''; await action(); }
-  catch { error.value = 'Your draft could not be saved. Resolve the error in Publication before leaving.'; }
+  catch (e) { error.value = `Could not leave Publication. ${String(e)}`; }
   finally { navigating.value = false; }
 }
 function switchVideo(event: Event) {

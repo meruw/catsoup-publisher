@@ -66,7 +66,8 @@ implement a second incompatible contract. No contract changes in this milestone.
 - Do not expose shell commands, arbitrary URLs or generic read/write functions.
 - Read-only integrity checks never approve content. Publishing must recheck current
   hashes and approvals in Go, not just disable a button in Vue.
-- Future connector credentials use the OS credential store; no tokens exist yet.
+- Upload sessions keep bearer tokens in Go memory. A persistent token cache
+  would require OS credential storage. See [upload setup](UPLOADS.md).
 - A local malicious process running as the same Windows user is outside this app's
   isolation guarantee. A desktop bridge is not a full sandbox.
 

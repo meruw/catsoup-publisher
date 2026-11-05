@@ -3,5 +3,6 @@
 
 export type {
     Draft,
-    Key
+    Key,
+    Receipt
 } from "./models.js";

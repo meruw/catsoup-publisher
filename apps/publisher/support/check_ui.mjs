@@ -33,6 +33,19 @@ const server = await createServer({
   configFile: false, root: frontend,
   plugins: [{ name: 'test-only-bridge', enforce: 'pre', load(id) {
     if (id.replaceAll('\\', '/').endsWith('/src/services/drafts.ts')) return draftFixture;
+    if (id.replaceAll('\\', '/').endsWith('/src/services/uploads.ts')) return `
+      const none = {state:'',reference:'',retryAllowed:false};
+      let receipt = none;
+      export const uploads = {
+        connected: async () => ({id:'',name:''}),
+        connect: async () => {receipt = none; return {id:'connected-id',name:'Fixture channel'};},
+        receipt: async () => receipt,
+        send: async (key, revision, id, confirmed) => {
+          if (!confirmed || id !== 'connected-id' || key.episode !== 'catsoup-handoff-fixture' || revision < 1) throw Error('unsafe fixture upload');
+          return receipt = {state:'sent',reference:'fixture-post',retryAllowed:false};
+        },
+        openX: async key => {window.__xComposer=key.platform;},
+      };`;
     if (id.replaceAll('\\', '/').endsWith('/src/services/publisher.ts')) return fixture;
     if (id.replaceAll('\\', '/').endsWith('/src/services/window.ts')) return `
       let max = false, listener;
@@ -214,6 +227,32 @@ try {
     key: { episode: 'catsoup-handoff-fixture', language: 'es', platform: 'youtube', account: '@handoff_es' }, revision: 1, confirmed: true,
   });
   assert(await upload.isDisabled());
+  for (const [platform, login, action, result] of [
+    ['youtube','Sign in with Google','Upload privately to YouTube','Private video uploaded'],
+    ['tiktok','Sign in with TikTok','Send to TikTok inbox','Sent to TikTok inbox'],
+    ['instagram','Connect account','Publish Reel on Instagram','Reel published'],
+    ['x','','Open X composer',''],
+  ]) {
+    if (platform !== 'youtube') {
+      await page.getByLabel('Platform', {exact:true}).selectOption(platform);
+      await page.getByRole('button', {name:'Open draft',exact:true}).click();
+      await page.getByLabel('Title',{exact:true}).fill('Platform fixture');
+      await page.getByText('Saved locally', {exact:true}).waitFor();
+    }
+    if (platform === 'x') {
+      await page.getByRole('button', {name:action,exact:true}).click();
+      assert.equal(await page.evaluate(()=>window.__xComposer),'x');
+      continue;
+    }
+    if (platform === 'instagram') await page.getByLabel('Facebook Page access token').fill('test-only');
+    await page.getByRole('button',{name:login,exact:true}).click();
+    const send=page.getByRole('button',{name:action,exact:true});
+    await send.waitFor();
+    assert(await send.isDisabled());
+    await page.getByRole('checkbox',{name:'Send the ES video to Fixture channel.'}).check();
+    await send.click();
+    await page.getByText(result+' · fixture-post',{exact:true}).waitFor();
+  }
   await page.evaluate(() => { window.__empty = true; });
   await page.getByRole('button', { name: 'Refresh', exact: true }).click();
   await page.getByRole('heading', { name: 'No delivery to preview' }).waitFor();

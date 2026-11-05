@@ -3,9 +3,11 @@
 
 import * as DraftService from "./draftservice.js";
 import * as PublisherService from "./publisherservice.js";
+import * as UploadService from "./uploadservice.js";
 export {
     DraftService,
-    PublisherService
+    PublisherService,
+    UploadService
 };
 
 export type {

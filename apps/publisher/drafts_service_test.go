@@ -7,10 +7,12 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"catsoup/publisher/internal/delivery"
 	"catsoup/publisher/internal/drafts"
+	"catsoup/publisher/internal/uploads"
 )
 
 type draftTestValidator struct{ calls int }
@@ -108,5 +110,13 @@ func TestDraftServicePreservesApprovalAndSource(t *testing.T) {
 	}
 	if string(after) != string(changed) {
 		t.Fatal("draft actions changed the manifest")
+	}
+	// No provider client is attached: even a confirmed, connected demo draft
+	// must fail locally before a provider is contacted.
+	linked := input.Key
+	linked.Episode = ""
+	upload := UploadService{store: store, reader: reader, sessions: map[drafts.Key]connection{linked: {account: uploads.Account{ID: "test-channel"}}}}
+	if _, err := upload.Send(input.Key, d.Revision, "test-channel", true); err == nil || !strings.Contains(err.Error(), "approved delivery") {
+		t.Fatalf("demo was not blocked by approval: %v", err)
 	}
 }
