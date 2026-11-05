@@ -33,6 +33,8 @@ Open **Settings → Manage credentials** and choose a provider. One set of devel
 | Instagram | Link each professional Instagram to its Facebook Page. In the Meta app, configure Facebook Login for Business with a user access token. Enable `pages_show_list`, `pages_read_engagement`, `instagram_basic` and `instagram_content_publish` on the use cases and in the login configuration. | Enter the Meta App ID, app secret and configuration ID. Continue to step 3. |
 | X | Publisher uses the browser composer for manual posting. | In Accounts, save the handle for each language. |
 
+**Return addresses on desktop.** Publisher opens the system browser for all three providers. Google returns to a free port on this computer. TikTok also returns locally and accepts the wildcard port registered above. Only Instagram requires a choice of HTTPS return host in Publisher. [Google desktop OAuth](https://developers.google.com/identity/protocols/oauth2/native-app) · [TikTok Desktop Login Kit](https://developers.tiktok.com/docs/en/login-kit-desktop).
+
 ## 3. Choose the Instagram return page
 
 Under **Settings → Manage credentials → Instagram**, expand **Callback hosting**:
