@@ -28,7 +28,7 @@ New installation? Follow the [first-run setup guide](https://publisher.meruw.dev
 
 ## Build and run (Windows x64)
 
-Install Python 3.10 or newer, Node.js 24 LTS with npm, Git and Microsoft WebView2.
+Install Python 3.10 or newer, Git and Microsoft WebView2.
 Run these commands in PowerShell from the repository root:
 
 ```powershell
@@ -39,7 +39,7 @@ powershell -ExecutionPolicy Bypass -File apps/publisher/build.ps1
 apps/publisher/bin/CATsoupPublisher.exe
 ```
 
-Setup downloads pinned Go/Wails tools into `.tools/`; build installs locked npm
+Setup downloads pinned Node.js (with npm), Go and Wails build tools into `.tools/`; build installs locked npm
 packages, generates native resources and bindings, type-checks and runs Go tests.
 Initial setup requires internet. Review/import/playback run locally afterward.
 The Python environment is used for the shared delivery validator, not a server.

@@ -128,7 +128,7 @@ Run `node apps/publisher/support/check_design.mjs` after the visual test prerequ
 in README. It checks token contrasts, disabled/busy controls, keyboard focus, language
 selection and font availability; it renders `work/publisher-ui-check/design-system.png`.
 Run `check_ui.mjs` for delivery playback regression and responsive app screenshots.
-The original native playback was owner-verified; browser fixtures are not native QA.
+Check playback and seeking in the Windows executable as part of native QA.
 
 New screens must use these foundations. Add a token or variant only for a repeated
 semantic need, not to accommodate arbitrary one-off styling. A broad brand change

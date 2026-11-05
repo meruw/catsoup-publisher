@@ -46,16 +46,16 @@ Publisher reads delivery contract v2. Production remains Python/Blender. Trends 
 independent; Python is the proposed research implementation. Neither Trends nor a
 running Claude session is required by Publisher.
 
-Initially, the existing Python validator remains the authoritative technical
+The Python validator supplies the authoritative technical
 check through a fixed, timeout-bounded adapter. Python and imageio-ffmpeg are thus
 still needed for importing deliveries, even though Publisher's backend is Go.
 Removing that dependency later requires shared conformance fixtures; do not silently
-implement a second incompatible contract. No contract changes in this milestone.
+implement a second incompatible contract.
 
 ## Security design
 
 - Bundle only our own UI. Never load social websites or untrusted iframes in the
-  window with Go bindings. Future authentication uses the system browser.
+  window with Go bindings. Authentication uses the system browser.
 - Restrict CSP; no remote scripts, raw HTML rendering or untrusted Vue templates.
 - Go validates each bridge argument. Access files through episode/video identifiers,
   canonical paths and root containment checks (including symlinks/junctions).

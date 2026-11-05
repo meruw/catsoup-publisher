@@ -8,7 +8,7 @@ permalink: /guides/setup/
 
 ## 1. Install and launch on Windows
 
-Install Git, Python 3.10 or newer, Node.js 24 LTS with npm, and the Microsoft WebView2 runtime on Windows x64. In PowerShell, open the folder where you keep your repositories and run:
+Install Git, Python 3.10 or newer, and the Microsoft WebView2 runtime on Windows x64. In PowerShell, open the folder where you keep your repositories and run:
 
 ```powershell
 git clone https://github.com/meruw/catsoup-publisher.git
@@ -26,14 +26,14 @@ An empty episode library is normal. The [optional synthetic demo](https://github
 
 Open **Settings → Manage credentials** and choose a provider. One set of developer credentials serves both languages.
 
-| Platform | Create or select in the provider portal | Save in Publisher |
-|---|---|---|
-| YouTube | Enable YouTube Data API v3, configure the consent screen and test users, and create a Desktop OAuth client. | Import the Google client JSON or enter its ID and secret. |
-| TikTok | Configure a desktop app with Login Kit and Content Posting API. For sandbox testing, add both target users. Register `http://127.0.0.1:*/callback/` and request `user.info.basic` and `video.upload`. | Paste the client key and secret from the same environment. |
-| Instagram | Link each professional Instagram to its Facebook Page. In the Meta app, configure Facebook Login for Business with a user access token. Enable `pages_show_list`, `pages_read_engagement`, `instagram_basic` and `instagram_content_publish` on the use cases and in the login configuration. | Enter the Meta App ID, app secret and configuration ID. Continue to step 3. |
-| X | Publisher uses the browser composer for manual posting. | In Accounts, save the handle for each language. |
+| Service guide | What you need |
+| --- | --- |
+| [YouTube](https://publisher.meruw.dev/guides/youtube/) | A Google Desktop OAuth client and access to your channels. |
+| [TikTok](https://publisher.meruw.dev/guides/tiktok/) | Desktop Login Kit credentials and the target accounts. |
+| [Meta](https://publisher.meruw.dev/guides/meta/) | A Meta app and professional Instagram accounts linked to Facebook Pages. |
+| [X](https://publisher.meruw.dev/guides/x/) | The ES and EN handles and a browser session on X. |
 
-**Return addresses on desktop.** Publisher opens the system browser for all three providers. Google returns to a free port on this computer. TikTok also returns locally and accepts the wildcard port registered above. Only Instagram requires a choice of HTTPS return host in Publisher. [Google desktop OAuth](https://developers.google.com/identity/protocols/oauth2/native-app) · [TikTok Desktop Login Kit](https://developers.tiktok.com/docs/en/login-kit-desktop).
+**Return addresses on desktop.** Publisher opens the system browser for all three providers. Google returns to a free port on this computer. TikTok also returns locally and accepts a registered wildcard port. Only Instagram requires a choice of HTTPS return host in Publisher. [Google desktop OAuth](https://developers.google.com/identity/protocols/oauth2/native-app) · [TikTok Desktop Login Kit](https://developers.tiktok.com/docs/en/login-kit-desktop).
 
 ## 3. Choose the Instagram return page
 
