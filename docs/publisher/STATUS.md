@@ -2,6 +2,9 @@
 
 ## Implemented
 
+- GitHub Pages uses the CATsoup paw and shared static styles across its bilingual
+  workflow guide, terms and privacy pages. No JavaScript or external assets.
+
 - Accounts shows first-time YouTube setup before offering Google sign-in.
   Import a Desktop client JSON or enter its ID and secret once for both languages.
 
@@ -74,7 +77,5 @@ Legacy PoC handling remains for compatibility, but private PoC assets are not in
 
 ## Next action
 
-Import the Google desktop client in Accounts, connect the ES and EN channels, and send the first
-owner-approved episode privately to that channel. The Go protocol tests and Vue
-browser fixtures use simulated providers. Real account permissions and live
-uploads still require verification on each platform.
+Verify the custom domain over HTTPS and complete sandbox URL verification before
+testing TikTok sign-in for the ES and EN accounts.
