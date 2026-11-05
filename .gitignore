@@ -1,0 +1,17 @@
+.venv/
+.tools/
+work/
+data/
+deliveries/
+__pycache__/
+*.pyc
+*.log
+.env
+.env.*
+*.pem
+*.key
+*.pfx
+apps/publisher/bin/
+apps/publisher/rsrc_windows_*.syso
+apps/publisher/frontend/node_modules/
+apps/publisher/frontend/dist/

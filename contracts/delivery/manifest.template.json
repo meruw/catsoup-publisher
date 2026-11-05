@@ -1,0 +1,38 @@
+{
+  "contract": "catsoup-delivery",
+  "contract_version": 2,
+  "episode_id": "catsoup-SERIES-NN-SLUG",
+  "internal_title": "",
+  "version": "v1",
+  "exported_on": "YYYY-MM-DD",
+  "languages": ["es", "en"],
+  "status": "exported",
+  "publishable": false,
+  "not_publishable_reason": "Pending review and approval.",
+  "review": {"by": null, "date": null, "notes": "", "files": {}},
+  "approval": {"by": null, "date": null, "files": {}},
+  "videos": [
+    {"id": "es_final", "lang": "es", "kind": "final", "narration": true, "burned_text": true,
+     "status": "exported", "path": "video/catsoup-SERIES-NN-SLUG_es.mp4"},
+    {"id": "en_final", "lang": "en", "kind": "final", "narration": true, "burned_text": true,
+     "status": "exported", "path": "video/catsoup-SERIES-NN-SLUG_en.mp4"},
+    {"id": "es_clean", "lang": "es", "kind": "clean", "narration": true, "burned_text": false,
+     "status": "exported", "path": "video/catsoup-SERIES-NN-SLUG_clean_es.mp4"},
+    {"id": "en_clean", "lang": "en", "kind": "clean", "narration": true, "burned_text": false,
+     "status": "exported", "path": "video/catsoup-SERIES-NN-SLUG_clean_en.mp4"}
+  ],
+  "texts": [
+    {"id": "text_es", "lang": "es", "path": "text/es.json"},
+    {"id": "text_en", "lang": "en", "path": "text/en.json"},
+    {"id": "timings", "lang": null, "path": "text/timings.json"}
+  ],
+  "source": {
+    "project": "../..",
+    "episode": "../../episodes/catsoup-SERIES-NN-SLUG",
+    "blender": "5.2.3 LTS",
+    "command": "",
+    "provenance": "../../library/licenses/PROVENANCE.md",
+    "notes": "../../episodes/catsoup-SERIES-NN-SLUG/EPISODE.md"
+  },
+  "history": []
+}

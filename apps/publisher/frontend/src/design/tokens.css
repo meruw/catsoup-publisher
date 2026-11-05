@@ -1,0 +1,61 @@
+/* CATsoup visual foundation. Brand colors follow the owner's paw artwork.
+   Design process: Unslop by Damir Sokolovsky, CC BY 4.0; see DESIGN.md. */
+@font-face {
+  font-family: 'Instrument Sans';
+  src: url('/fonts/InstrumentSans.ttf') format('truetype');
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+}
+:root {
+  --page: #fffcf7;
+  --sidebar: #fbf3e8;
+  --surface: #ffffff;
+  --raised: #f3e9dd;
+  --text: #4f281b;
+  --secondary: #705446;
+  --muted: #786052;
+  --line: #e4d7c8;
+  --control-border: #a48c7d;
+  --accent: #ff793f;
+  --accent-hover: #f36b32;
+  --accent-pressed: #e95d25;
+  --on-accent: #361608;
+  --accent-soft: #f9e4d3;
+  --accent-ink: #9d3e15;
+  --success: #386247;
+  --warning: #805a19;
+  --danger: #a4352b;
+  --danger-soft: #fae9e4;
+  --disabled-bg: #eee6dc;
+  --disabled-text: #8a796e;
+  --media-bg: #171717;
+  --on-media: #f5f5f5;
+  --font-ui: 'Instrument Sans', 'Segoe UI', sans-serif;
+  --font-mono: Consolas, monospace;
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-md: 14px;
+  --text-lg: 16px;
+  --text-section: 20px;
+  --text-title: 28px;
+  --weight-normal: 400;
+  --weight-medium: 500;
+  --weight-strong: 600;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --control-radius: 8px;
+  --media-radius: 12px;
+  --control-height: 40px;
+  --compact-height: 32px;
+  --window-bar-height: 40px;
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --duration: 140ms;
+}

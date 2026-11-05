@@ -1,0 +1,51 @@
+# Contributing
+
+Discuss substantial behavior or architecture changes in an issue before a PR.
+Keep changes focused and describe the problem, resulting behavior and checks run.
+Contributions are made under the project's GPL-3.0-only license.
+
+## Checks
+
+`apps/publisher/build.ps1` runs strict frontend checking, production bundling and
+Go tests. To run Go checks separately after setup (from the repository root):
+
+```powershell
+$env:GOPATH = "$PWD\.tools\gopath"
+$env:GOCACHE = "$PWD\.tools\gocache"
+$env:GOTOOLCHAIN = 'local'
+Push-Location apps/publisher
+try {
+    & ..\..\.tools\go\bin\go.exe test ./...
+    & ..\..\.tools\go\bin\go.exe vet ./...
+} finally { Pop-Location }
+```
+
+For the optional real-validator/media integration test, generate the demo first,
+then set `$env:CATSOUP_TEST_ROOT = "$PWD"` before running Go tests. The test reads
+the synthetic sample and never approves it.
+
+For browser checks, install Google Chrome and the development-only harness:
+
+```powershell
+npm.cmd install --prefix .tools/visual-qa --save-exact --ignore-scripts --no-audit --no-fund playwright@1.64.1
+.venv/Scripts/python.exe apps/publisher/support/create_demo.py
+node apps/publisher/support/check_ui.mjs
+node apps/publisher/support/check_design.mjs
+```
+
+Reports/screenshots go into ignored `work/`. Browser checks use a fixture bridge;
+they do not prove native Wails behavior. Also check the desktop app when changing
+window controls, keyboard navigation or playback. Never commit generated media.
+
+## Structure and boundaries
+
+- `apps/publisher/`: desktop application, build scripts and checks.
+- `contracts/delivery/`: contract v2 and shared validator. Preserve compatibility;
+  contract changes need explicit versioning and review.
+- `docs/publisher/`: architecture, design and status.
+- `deliveries/`, `data/`, `work/`: local ignored files.
+
+Do not add background polling, a routing framework or an icon library for basic
+UI tasks. Record bundle/executable growth for desktop-shell changes. Any future
+stored drafts need a migration and recovery strategy; credentials belong in the
+OS credential store, never frontend storage or SQLite.

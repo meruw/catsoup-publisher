@@ -1,0 +1,2 @@
+# Minimal delivery validation and optional synthetic demo, not animation production.
+imageio-ffmpeg==0.8.1
