@@ -62,7 +62,7 @@ must have the validator and `.venv` layout too. Close the app before rebuilding.
 
 ## Connect accounts
 
-Open **Accounts**, select **ES** and connect the channel for each platform you use. Repeat under **EN** for your English channels. Google, TikTok and Facebook sign-in start in Publisher and open the provider in your browser. First-time operators can import their own app credentials under **Developer setup**. X stores a handle for manual posting. Each draft uses the assigned destination for its language. See [account setup](docs/publisher/UPLOADS.md).
+Open **Accounts**, select **ES** and connect the channel for each platform you use. Repeat under **EN** for your English channels. Google, TikTok and Facebook sign-in start in Publisher and open the provider in your browser. First-time operators can import their own app credentials in **Settings → Developer credentials**. X stores a handle for manual posting. Each draft uses the assigned destination for its language. See [account setup](docs/publisher/UPLOADS.md).
 
 ## Prepare a publication draft
 

@@ -1,6 +1,6 @@
 // This endpoint has no backend. Only the originating browser tab may resume a login.
-const slot = 'catsoup-meta-attempt';
-const redirect = 'https://publisher.meruw.dev/auth/meta/';
+const redirect = location.origin + location.pathname;
+const slot = 'catsoup-meta-attempt:' + location.pathname;
 const message = document.getElementById('message');
 const encode = bytes => btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 const decode = text => Uint8Array.from(atob(text.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
@@ -10,8 +10,9 @@ async function run() {
   const start = new URLSearchParams(location.hash.slice(1));
   const result = new URLSearchParams(location.search);
   history.replaceState(null, '', location.pathname);
-  if (location.href !== redirect) throw Error('Unexpected sign-in address.');
+  if (location.protocol !== 'https:' || location.href !== redirect) throw Error('Unexpected sign-in address.');
   if (start.has('key') && !result.size) {
+    if (start.has('return_uri') && start.get('return_uri') !== redirect) throw Error('The return page moved. Check the exact callback URL in Settings and Meta.');
     const app = start.get('app'), config = start.get('config');
     const state = start.get('state'), key = start.get('key'), port = Number(start.get('port'));
     if (!/^\d{1,24}$/.test(app || '') || !/^\d{1,24}$/.test(config || '') || !paired(state) ||

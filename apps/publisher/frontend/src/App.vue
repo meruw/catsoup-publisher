@@ -4,15 +4,21 @@ import VideoPreview from './components/VideoPreview.vue';
 import UiButton from './components/UiButton.vue';
 import UiSegmented from './components/UiSegmented.vue';
 import WindowBar from './components/WindowBar.vue';
+import SettingsPage from './components/SettingsPage.vue';
+import type { SetupPlatform } from './services/uploads';
 import AccountManager from './components/AccountManager.vue';
 import PublicationDraft from './components/PublicationDraft.vue';
 import { drafts } from './services/drafts';
 import { publisher, mediaURL, type Entry, type Episode } from './services/publisher';
 
-const module = ref<'publisher'|'accounts'>('publisher');
+const module = ref<'publisher'|'accounts'|'settings'>('publisher');
 const accountBusy = ref(false);
 const accountLanguage = ref('es');
-function showAccounts() { void navigate(() => { accountLanguage.value=language.value;module.value='accounts'; }); }
+const settingsProvider = ref<SetupPlatform|null>(null);
+function showAccounts() { void navigate(() => { if(module.value==='publisher') accountLanguage.value=language.value;module.value='accounts'; }); }
+function showSettings(provider?:SetupPlatform, lang?:string) {
+  void navigate(() => { settingsProvider.value=provider ?? null; if(lang) accountLanguage.value=lang; module.value='settings'; });
+}
 const entries = ref<Entry[]>([]);
 const episode = ref<Episode | null>(null);
 const busy = ref(false);
@@ -91,6 +97,7 @@ onUnmounted(() => stopCloseListener?.());
       <nav class="module-nav" aria-label="Modules">
         <button class="module-item" :aria-current="module==='publisher'?'page':undefined" :disabled="busy || navigating || accountBusy" @click="navigate(async () => { module='publisher'; await refresh(); })">Publisher</button>
         <button class="module-item" :aria-current="module==='accounts'?'page':undefined" :disabled="navigating || accountBusy" @click="showAccounts">Accounts</button>
+        <button class="module-item" :aria-current="module==='settings'?'page':undefined" :disabled="busy || navigating || accountBusy" @click="showSettings()">Settings</button>
         <button class="module-item" disabled title="Trends is not available yet">Trends<span>Planned</span></button>
       </nav>
       <div class="library-label"><span>Episodes</span><span class="mono">{{ entries.length }}</span></div>
@@ -105,7 +112,8 @@ onUnmounted(() => stopCloseListener?.());
       <p v-if="!entries.length && !busy" class="muted">No deliveries yet</p>
       <div class="workspace-note"><span>Local workspace</span><small>Spanish + English</small></div>
     </aside>
-    <AccountManager v-if="module==='accounts'" :initial-language="accountLanguage" @busy="accountBusy=$event"/>
+    <AccountManager v-if="module==='accounts'" :initial-language="accountLanguage" @settings="showSettings" @language="accountLanguage=$event" @busy="accountBusy=$event"/>
+    <SettingsPage v-else-if="module==='settings'" :provider="settingsProvider" @select="showSettings" @busy="accountBusy=$event"/>
     <main v-else :aria-busy="busy">
       <header class="page-header">
         <div><h1>Publisher</h1><p>Review deliveries in Spanish and English</p></div>

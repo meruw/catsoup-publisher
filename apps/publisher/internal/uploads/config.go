@@ -28,23 +28,27 @@ func Configure(platform, raw string) error {
 	var file string
 	switch platform {
 	case "youtube":
-		if data.Installed.ID == "" || data.Installed.Secret == "" {
+		if !fieldsPresent(data.Installed.ID, data.Installed.Secret) {
 			return errors.New("select Google Desktop app JSON")
 		}
 		file = "google-desktop.json"
 	case "tiktok":
-		if data.Key == "" || data.Secret == "" {
+		if !fieldsPresent(data.Key, data.Secret) {
 			return errors.New("client_key and client_secret are required")
 		}
 		file = "tiktok-desktop.json"
 	case "instagram":
-		if data.App == "" || data.AppSecret == "" || data.Config == "" {
+		if !fieldsPresent(data.App, data.AppSecret, data.Config) {
 			return errors.New("app_id, app_secret and config_id are required")
 		}
 		file = "meta-desktop.json"
 	default:
 		return errors.New("unsupported client configuration")
 	}
+	return saveConfiguration(file, raw)
+}
+
+func saveConfiguration(file, raw string) error {
 	dir, err := os.UserConfigDir()
 	if err != nil {
 		return err

@@ -2,6 +2,8 @@ package uploads
 
 import (
 	"context"
+	"crypto/aes"
+	"crypto/cipher"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
@@ -11,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 )
@@ -28,8 +31,26 @@ func TestBrowserSignInChecksStateAndPKCE(t *testing.T) {
 	}
 	for _, tc := range []struct{ platform, file, config string }{{"youtube", "google-desktop.json", `{"installed":{"client_id":"test-client","client_secret":"test-secret"}}`}, {"tiktok", "tiktok-desktop.json", `{"client_key":"test-client","client_secret":"test-secret"}`}, {"instagram", "meta-desktop.json", `{"app_id":"test-client","app_secret":"test-secret","config_id":"test-config"}`}} {
 		t.Run(tc.platform, func(t *testing.T) {
+			const customURL = "https://studio.example.org/team/meta/"
+			if tc.platform == "instagram" {
+				if _, err := SetMetaCallbackURL(customURL); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if ClientStatus(tc.platform) != "missing" {
+				t.Fatal("expected missing client")
+			}
+			if err := os.WriteFile(filepath.Join(dir, tc.file), []byte("{}"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			if ClientStatus(tc.platform) != "invalid" {
+				t.Fatal("expected invalid client")
+			}
 			if err := os.WriteFile(filepath.Join(dir, tc.file), []byte(tc.config), 0600); err != nil {
 				t.Fatal(err)
+			}
+			if ClientStatus(tc.platform) != "saved" {
+				t.Fatal("expected locally valid client")
 			}
 			var challenge, redirect string
 			c := New()
@@ -66,8 +87,40 @@ func TestBrowserSignInChecksStateAndPKCE(t *testing.T) {
 					return err
 				}
 				p := u.Query()
-				if tc.platform == "instagram" && p.Get("config_id") != "test-config" {
-					t.Fatal("missing Business Login configuration")
+				var reply string
+				callback := p.Get("redirect_uri")
+				if tc.platform == "instagram" {
+					boot, err := url.ParseQuery(u.Fragment)
+					if err != nil {
+						return err
+					}
+					if u.Scheme+"://"+u.Host+u.Path != customURL || boot.Get("return_uri") != customURL || u.RawQuery != "" || boot.Get("config") != "test-config" || boot.Get("app") != "test-client" {
+						t.Fatal("wrong Meta launch")
+					}
+					p = url.Values{"state": {boot.Get("state")}, "redirect_uri": {customURL}}
+					callback = "http://127.0.0.1:" + boot.Get("port") + "/callback/"
+					key, err := base64.RawURLEncoding.DecodeString(boot.Get("key"))
+					if err != nil {
+						return err
+					}
+					block, err := aes.NewCipher(key)
+					if err != nil {
+						return err
+					}
+					box, err := cipher.NewGCM(block)
+					if err != nil {
+						return err
+					}
+					iv := make([]byte, 12)
+					reply = base64.RawURLEncoding.EncodeToString(box.Seal(iv, iv, []byte("test-code"), []byte(boot.Get("state"))))
+					res, err := http.Get(callback + "?" + url.Values{"state": {boot.Get("state")}, "code": {"test-code"}, "reply": {"invalid"}}.Encode())
+					if err != nil {
+						return err
+					}
+					res.Body.Close()
+					if res.StatusCode != 400 {
+						t.Fatal("unauthenticated Meta code accepted")
+					}
 				}
 				redirect = p.Get("redirect_uri")
 				challenge = p.Get("code_challenge")
@@ -75,7 +128,7 @@ func TestBrowserSignInChecksStateAndPKCE(t *testing.T) {
 					state  string
 					status int
 				}{{"wrong", 400}, {p.Get("state"), 200}} {
-					resp, err := http.Get(redirect + "?" + url.Values{"state": {trial.state}, "code": {"test-code"}}.Encode())
+					resp, err := http.Get(callback + "?" + url.Values{"state": {trial.state}, "code": {"test-code"}, "reply": {reply}}.Encode())
 					if err != nil {
 						return err
 					}
@@ -88,6 +141,15 @@ func TestBrowserSignInChecksStateAndPKCE(t *testing.T) {
 			})
 			if err != nil || token.Access != "fixture-token" {
 				t.Fatal(token, err)
+			}
+			if ClientStatus(tc.platform) != "confirmed" {
+				t.Fatal("successful exchange should confirm this client")
+			}
+			if err := Configure(tc.platform, strings.Replace(tc.config, "test-secret", "new-secret", 1)); err != nil {
+				t.Fatal(err)
+			}
+			if ClientStatus(tc.platform) != "saved" {
+				t.Fatal("replacement credentials must be confirmed separately")
 			}
 		})
 	}

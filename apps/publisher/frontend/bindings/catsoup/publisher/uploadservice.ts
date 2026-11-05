@@ -17,8 +17,16 @@ export function ClearUncertain(key: drafts$0.Key, id: string, expectedHash: stri
     return $Call.ByID(2058715088, key, id, expectedHash, checked);
 }
 
+export function ClientReady(platform: string): $CancellablePromise<boolean> {
+    return $Call.ByID(3659135986, platform);
+}
+
 export function ConfigureClient(platform: string, raw: string): $CancellablePromise<void> {
     return $Call.ByID(693010183, platform, raw);
+}
+
+export function CredentialStatuses(): $CancellablePromise<{ [_ in string]?: string } | null> {
+    return $Call.ByID(4184223391);
 }
 
 export function GoogleClientReady(): $CancellablePromise<boolean> {
@@ -27,6 +35,10 @@ export function GoogleClientReady(): $CancellablePromise<boolean> {
 
 export function LinkAccount(platform: string, language: string, expectedID: string, handle: string, pageToken: string): $CancellablePromise<drafts$0.Profile> {
     return $Call.ByID(1236098195, platform, language, expectedID, handle, pageToken);
+}
+
+export function MetaCallbackURL(): $CancellablePromise<string> {
+    return $Call.ByID(3114828915);
 }
 
 /**
@@ -46,6 +58,10 @@ export function Receipt(key: drafts$0.Key, id: string): $CancellablePromise<draf
 
 export function Send(key: drafts$0.Key, revision: number, id: string, confirmed: boolean): $CancellablePromise<drafts$0.Receipt> {
     return $Call.ByID(3695715954, key, revision, id, confirmed);
+}
+
+export function SetMetaCallbackURL(raw: string): $CancellablePromise<string> {
+    return $Call.ByID(1220560779, raw);
 }
 
 export function UnlinkAccount(platform: string, language: string, id: string): $CancellablePromise<void> {
