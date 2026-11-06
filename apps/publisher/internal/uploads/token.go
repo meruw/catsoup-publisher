@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/url"
 	"strings"
 	"time"
@@ -78,6 +79,8 @@ func (c *Client) RefreshToken(ctx context.Context, platform string, t Token) (To
 func (c *Client) InstagramPage(ctx context.Context, user Token, handle string) (Token, error) {
 	endpoint := graph + "me/accounts?fields=access_token%2Cinstagram_business_account%7Bid%2Cusername%7D&limit=100"
 	after := ""
+	var hasPages bool
+	var available []string
 	for page := 0; page < 25; page++ {
 		var out struct {
 			Data []struct {
@@ -95,11 +98,21 @@ func (c *Client) InstagramPage(ctx context.Context, user Token, handle string) (
 		}
 		_, err := c.request(ctx, "GET", target, "Bearer "+user.Access, nil, nil, 0, &out)
 		if err != nil {
-			return Token{}, err
+			return Token{}, fmt.Errorf("Facebook sign-in finished, but Publisher could not read your Pages: %w", err)
 		}
 		for _, p := range out.Data {
-			if p.Token != "" && strings.EqualFold(p.IG.Username, handle) {
+			hasPages = true
+			if p.IG.Username == "" {
+				continue
+			}
+			if strings.EqualFold(p.IG.Username, handle) {
+				if p.Token == "" {
+					return Token{}, errors.New("Meta returned this Instagram profile without Page access. Check your access to the linked Facebook Page")
+				}
 				return Token{Access: p.Token}, nil
+			}
+			if len(available) < 5 {
+				available = append(available, "@"+p.IG.Username)
 			}
 		}
 		if out.Paging.Next == "" || out.Paging.Cursors.After == "" || out.Paging.Cursors.After == after {
@@ -107,5 +120,11 @@ func (c *Client) InstagramPage(ctx context.Context, user Token, handle string) (
 		}
 		after = out.Paging.Cursors.After
 	}
-	return Token{}, errors.New("no authorized Page matches this Instagram username")
+	if !hasPages {
+		return Token{}, errors.New("Facebook sign-in finished, but Meta returned no Pages. Authorize the Facebook Page linked to your Instagram profile")
+	}
+	if len(available) == 0 {
+		return Token{}, errors.New("the authorized Pages have no visible linked Instagram profile. Check Linked accounts on the Page for this language")
+	}
+	return Token{}, fmt.Errorf("no authorized Page matches @%s. Meta returned these Instagram usernames: %s", handle, strings.Join(available, ", "))
 }

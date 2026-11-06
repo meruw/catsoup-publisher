@@ -87,12 +87,13 @@ onMounted(()=>{void run(async()=>{
      <label><input type="checkbox" v-model="advanced" :disabled="pending"> Use an existing Facebook Page token</label>
      <input v-if="advanced" type="password" class="ui-field" v-model="pageToken" aria-label="Facebook Page access token" autocomplete="off" :disabled="pending">
     </details>
-    <div class="draft-actions"><UiButton v-if="p==='x'||(configured[p] && (p!=='instagram'||metaCallbackReady))||(p==='instagram'&&advanced)" variant="primary" :busy="pending" :disabled="advanced && !pageToken.trim()" @click="link(p)">{{ p==='x'?'Save handle':p==='instagram'?(advanced?'Connect Page':'Sign in with Facebook'):p==='youtube'?'Sign in with Google':'Sign in with TikTok' }}</UiButton><UiButton variant="quiet" :disabled="pending" @click="reset">Cancel</UiButton></div>
+    <div class="draft-actions"><UiButton v-if="p==='x'||(configured[p] && (p!=='instagram'||metaCallbackReady))||(p==='instagram'&&advanced)" variant="primary" :busy="pending" :disabled="advanced ? !pageToken.trim() : p==='instagram' && !handle.trim()" @click="link(p)">{{ p==='x'?'Save handle':p==='instagram'?(advanced?'Connect Page':'Sign in with Facebook'):p==='youtube'?'Sign in with Google':'Sign in with TikTok' }}</UiButton><UiButton variant="quiet" :disabled="pending" @click="reset">Cancel</UiButton></div>
+    <p v-if="pending" role="status">Connecting to {{ name }}…</p>
+    <p v-else-if="error" class="notice error" role="alert">{{ error }}</p>
    </div>
   </section>
-  <p v-if="pending && editing" role="status">Waiting for {{ platforms[editing] }}â€¦</p>
   <p v-if="message" role="status">{{ message }}</p>
-  <p v-if="error" class="notice error" role="alert">{{ error }}</p>
+  <p v-if="error && !editing" class="notice error" role="alert">{{ error }}</p>
  </main>
 </template>
 <style scoped>

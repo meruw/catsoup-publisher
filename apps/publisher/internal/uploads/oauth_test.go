@@ -144,7 +144,16 @@ func TestBrowserSignInChecksStateAndPKCE(t *testing.T) {
 					if err != nil {
 						return err
 					}
-					resp.Body.Close()
+				body, readErr := io.ReadAll(resp.Body)
+				resp.Body.Close()
+				title := "Return to Publisher"
+				if trial.status == http.StatusBadRequest {
+					title = "Sign-in interrupted"
+				}
+				if readErr != nil || !strings.Contains(string(body), "<h1>"+title+"</h1>") ||
+					strings.Contains(string(body), "test-code") || resp.Header.Get("Referrer-Policy") != "no-referrer" {
+					t.Fatal("unexpected browser return page", readErr)
+				}
 					if resp.StatusCode != trial.status {
 						t.Fatal("unexpected loopback status", resp.StatusCode)
 					}

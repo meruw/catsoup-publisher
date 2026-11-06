@@ -26,7 +26,10 @@ type Media struct {
 	File                     *os.File
 	Size                     int64
 }
-type Client struct{ HTTP *http.Client }
+type Client struct {
+	HTTP        *http.Client
+	BrowserIcon []byte
+}
 
 func New() *Client {
 	return &Client{HTTP: &http.Client{Timeout: 10 * time.Minute, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}}
