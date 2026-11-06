@@ -28,6 +28,7 @@ export interface Query {
     "attempt": string;
     "currentSession": boolean;
     "before": number;
+    "after": number;
 }
 
 export interface Result {

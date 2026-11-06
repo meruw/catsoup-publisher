@@ -14,6 +14,7 @@ const attempt = ref('');
 const currentSession = ref(false);
 const live = ref(true);
 const before = ref(0);
+const after = ref(0);
 const pages = ref<number[]>([]);
 const rows = ref<DiagnosticEvent[]>([]);
 const selected = ref<DiagnosticEvent | null>(null);
@@ -29,8 +30,9 @@ const expanded = ref(false);
 const input = ref<HTMLInputElement | null>(null);
 const query = computed<DiagnosticQuery>(() => ({
   search: search.value, service: service.value, language: language.value,
-  level: level.value, attempt: attempt.value, currentSession: currentSession.value, before: before.value,
+  level: level.value, attempt: attempt.value, currentSession: currentSession.value, before: before.value, after: after.value,
 }));
+const filterCount = computed(() => [search.value, service.value, language.value, level.value, attempt.value, currentSession.value].filter(Boolean).length);
 let sequence = 0;
 let disposed = false;
 let debounce: ReturnType<typeof setTimeout> | undefined;
@@ -71,6 +73,37 @@ async function refresh() {
   }
 }
 function resetPage() { before.value = 0; pages.value = []; }
+function resetFilters() {
+  search.value = ''; service.value = ''; language.value = ''; level.value = '';
+  attempt.value = ''; currentSession.value = false; selected.value = null;
+}
+async function pasteSearch() {
+  if (actionPending.value) return;
+  actionPending.value = true;
+  try {
+    const text = await diagnostics.pasteText();
+    if (disposed) return;
+    search.value = text.slice(0, 200);
+    feedback.value = text.length > 200 ? 'Pasted first 200 characters' : (text ? 'Pasted into search' : 'Clipboard is empty');
+    input.value?.focus();
+  } catch { error.value = 'Could not read clipboard. Paste into Search with Ctrl+V.'; }
+  finally { actionPending.value = false; }
+}
+async function clearView() {
+  if (actionPending.value) return;
+  actionPending.value = true;
+  try {
+    // Clear through the latest event across all filters, without deleting logs.
+    const latest = await diagnostics.query({search:'',level:'',service:'',language:'',attempt:'',currentSession:false,before:0,after:0});
+    if (disposed) return;
+    after.value = latest.events?.[0]?.id || 0;
+    selected.value = null; resetPage();
+    feedback.value = 'View cleared · saved logs retained';
+    await refresh();
+  } catch { error.value = 'Could not clear the view. Try again.'; }
+  finally { actionPending.value = false; }
+}
+function showHistory() { after.value = 0; resetPage(); feedback.value = ''; void refresh(); }
 watch([search, service, language, level, attempt, currentSession], () => {
   resetPage();
   clearTimeout(debounce);
@@ -155,7 +188,10 @@ onUnmounted(() => {
    @pointerdown="beginResize" @pointermove="drag" @pointerup="dragStart=null" @lostpointercapture="dragStart=null"
    @keydown.up.prevent="resize(32)" @keydown.down.prevent="resize(-32)"></div>
   <header class="console-header">
-   <button class="console-title" :aria-label="collapsed ? 'Open console panel' : 'Collapse console'" :aria-expanded="!collapsed" @click="collapsed=!collapsed"><svg viewBox="0 0 16 16" aria-hidden="true" :class="{folded:collapsed}"><path d="m4 6 4 4 4-4"/></svg><span>Console</span></button>
+   <div class="console-heading"><button class="console-title" :aria-label="collapsed ? 'Open console panel' : 'Collapse console'" :aria-expanded="!collapsed" @click="collapsed=!collapsed"><svg viewBox="0 0 16 16" aria-hidden="true" :class="{folded:collapsed}"><path d="m4 6 4 4 4-4"/></svg><span>Console</span></button>
+    <span class="stream-state" :class="{paused:!live}" role="status" :title="!live ? 'Display paused; recording continues' : (collapsed ? 'Display folded; recording continues' : 'Events update automatically')">{{ !live ? 'Ⅱ Paused' : (collapsed ? 'Folded' : '● Live') }}</span>
+    <span v-if="filterCount" class="filter-count">{{ filterCount }} {{ filterCount===1 ? 'filter' : 'filters' }}</span>
+   </div>
    <div class="console-actions">
     <UiButton v-if="!collapsed" size="compact" variant="quiet" :aria-pressed="!live" @click="resume">{{ live ? 'Pause' : 'Resume live' }}</UiButton>
     <UiButton v-if="!collapsed" size="compact" variant="quiet" :busy="pending" @click="refresh">Refresh</UiButton>
@@ -165,12 +201,13 @@ onUnmounted(() => {
   </header>
   <template v-if="!collapsed">
   <div class="console-filters">
-   <label class="search-field">Search<input ref="input" v-model="search" type="search" class="ui-field" aria-label="Search" maxlength="200" placeholder="Message, stage, code or attempt"></label>
-   <label>Level<select v-model="level" class="ui-field" aria-label="Level"><option value="">All levels</option><option>ERROR</option><option>WARN</option><option>INFO</option><option>DEBUG</option></select></label>
-   <label>Source<select v-model="service" class="ui-field" aria-label="Source"><option value="">All sources</option><option v-for="(name,key) in serviceName" :key="key" :value="key">{{ name }}</option></select></label>
-   <label>Context<select v-model="language" class="ui-field" aria-label="Context"><option value="">All</option><option value="es">ES</option><option value="en">EN</option></select></label>
-   <label>History<select v-model="currentSession" class="ui-field" aria-label="History"><option :value="false">Saved history</option><option :value="true">This session</option></select></label>
+   <label class="search-field" :class="{filtered:search}">Search<span class="search-controls"><input ref="input" v-model="search" type="search" class="ui-field" aria-label="Search" maxlength="200" placeholder="Message, stage, code or attempt"><UiButton size="compact" variant="quiet" :disabled="actionPending" title="Paste clipboard text into Search" @click="pasteSearch">Paste</UiButton></span></label>
+   <label :class="{filtered:level}">Level<select v-model="level" class="ui-field" aria-label="Level"><option value="">All levels</option><option>ERROR</option><option>WARN</option><option>INFO</option><option>DEBUG</option></select></label>
+   <label :class="{filtered:service}">Source<select v-model="service" class="ui-field" aria-label="Source"><option value="">All sources</option><option v-for="(name,key) in serviceName" :key="key" :value="key">{{ name }}</option></select></label>
+   <label :class="{filtered:language}">Context<select v-model="language" class="ui-field" aria-label="Context"><option value="">All</option><option value="es">ES</option><option value="en">EN</option></select></label>
+   <label :class="{filtered:currentSession}">History<select v-model="currentSession" class="ui-field" aria-label="History"><option :value="false">Saved history</option><option :value="true">This session</option></select></label>
   </div>
+  <div v-if="filterCount || after" class="view-controls"><span v-if="filterCount">Filtered results</span><UiButton v-if="filterCount" size="compact" variant="quiet" @click="resetFilters">Reset filters</UiButton><span v-if="after">Since clear</span><UiButton v-if="after" size="compact" variant="quiet" @click="showHistory">Show saved history</UiButton></div>
   <div v-if="attempt" class="attempt-filter">Attempt <code>{{ attempt }}</code><UiButton size="compact" variant="quiet" @click="attempt=''">Clear attempt filter</UiButton></div>
   <p v-if="warning" class="console-warning" role="status">{{ warning }}</p>
   <p v-if="liveWarning" class="console-warning" role="status">{{ liveWarning }}</p>
@@ -208,11 +245,12 @@ onUnmounted(() => {
    </aside>
   </div>
   <footer class="console-footer">
-   <span>{{ rows.length }} events · {{ live ? 'Live' : 'Paused' }} · Newest first</span>
+   <span>{{ rows.length }} {{ filterCount ? 'matches' : 'events' }} · Newest first</span>
    <div class="console-actions">
+    <UiButton size="compact" variant="quiet" :disabled="pending || actionPending" title="Clear displayed events; keep saved log files" @click="clearView">Clear view</UiButton>
     <UiButton size="compact" variant="quiet" :disabled="!pages.length || pending" @click="newer">Newer</UiButton>
     <UiButton size="compact" variant="quiet" :disabled="!more || pending" @click="older">Older</UiButton>
-    <UiButton size="compact" variant="quiet" :disabled="!rows.length" title="Export this page of up to 200 matching events" @click="exportPage">Export page</UiButton>
+    <UiButton size="compact" variant="quiet" :disabled="!rows.length || pending || actionPending" title="Export this page of up to 200 matching events" @click="exportPage">Export page</UiButton>
     <UiButton size="compact" variant="quiet" @click="action(diagnostics.openFolder,'Log folder opened.')">Log folder</UiButton>
    </div>
   </footer>
@@ -243,12 +281,22 @@ onUnmounted(() => {
 .console-title svg {width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.5}
 .console-title svg.folded {transform:rotate(-90deg)}
 .console-actions {display:flex;gap:4px;align-items:center;flex-wrap:wrap}
-.diagnostics :deep(.ui-button) {font:inherit;min-height:28px;padding:0 8px;border-radius:4px}
+.console-heading {display:flex;align-items:center;gap:12px;min-width:0}
+.stream-state {color:#a7c5b0;white-space:nowrap}
+.stream-state.paused,.filter-count {color:var(--warning)}
+.diagnostics :deep(.ui-button) {font:inherit;min-height:28px;padding:0 8px;border-radius:4px;border-color:var(--control-border)}
+.diagnostics :deep(.ui-button[aria-pressed='true']) {background:var(--accent-soft);border-color:var(--warning);color:var(--warning)}
+.diagnostics :deep(.ui-button:disabled) {border-color:var(--line)}
 .console-filters {display:flex;align-items:end;gap:8px;padding:8px 12px}
 .console-filters label {display:flex;flex-direction:column;gap:4px;color:var(--secondary);font-size:11px}
 .console-filters .ui-field {min-height:28px;height:28px;padding:4px 8px;font:12px var(--font-mono);border-radius:4px}
 .search-field {flex:1;min-width:120px}
 .search-field input {width:100%}
+.search-controls {display:flex;gap:4px}
+.search-controls input {min-width:0;flex:1}
+.console-filters .filtered {color:var(--warning)}
+.console-filters .filtered .ui-field {border-color:var(--warning)}
+.view-controls {display:flex;align-items:center;gap:8px;padding:0 12px 8px;color:var(--secondary);flex-wrap:wrap}
 .console-body {flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr);border-top:1px solid var(--line)}
 .console-body.inspecting {grid-template-columns:minmax(0,1fr) 272px}
 .log-scroll {min-height:0;overflow:auto;scrollbar-color:var(--control-border) var(--page)}
