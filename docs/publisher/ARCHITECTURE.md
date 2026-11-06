@@ -103,8 +103,13 @@ directly to the native clipboard. Empty results preserve the clipboard; selectio
 over 10,000 events or 8 MB fail without copying a partial result. Pausing freezes
 the display only; copying reads saved events at the time of the click.
 
-The diagnostics UI chunk is 6.8 kB gzipped (JavaScript and CSS combined). The
-Windows executable is 18,452,480 bytes in the measured production build.
+Clear restores the initial UI state, including live mode, filters, pagination,
+history boundary, copy range and panel size. It does not mutate log storage.
+Filters, copy options and secondary tools use local Vue state with native controls,
+outside-click dismissal and Escape focus restoration, without a menu library.
+
+The diagnostics UI chunk is 7.4 kB gzipped (JavaScript and CSS combined). The
+Windows executable is 18,455,040 bytes in the measured production build.
 No frontend runtime dependency was added.
 
 ## Version and maintenance policy

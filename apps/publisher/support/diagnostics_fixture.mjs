@@ -44,6 +44,7 @@ export async function checkDiagnostics(page,output) {
  await panel.getByRole('button',{name:'Older',exact:true}).click();
  await panel.getByRole('button',{name:'Resume live',exact:true}).waitFor();
  await panel.getByRole('button',{name:'Newer',exact:true}).click();
+ await panel.getByRole('button',{name:'Filters',exact:true}).click();
  await panel.getByLabel('Source',{exact:true}).selectOption('instagram');
  await panel.getByLabel('Context',{exact:true}).selectOption('es');
  await panel.getByLabel('Level',{exact:true}).selectOption('ERROR');
@@ -61,6 +62,7 @@ export async function checkDiagnostics(page,output) {
  await panel.getByRole('button',{name:'Follow attempt',exact:true}).click();
  await panel.getByRole('button',{name:'Clear attempt filter'}).waitFor();
  await page.waitForFunction(()=>document.querySelectorAll('.log-table tbody tr').length===7);
+ await panel.getByRole('button',{name:'Copy',exact:true}).click();
  await panel.getByRole('button',{name:'Copy results',exact:true}).click();
  const copiedAttempt=await page.evaluate(()=>window.__diagnosticBulkCopy);
  assert(copiedAttempt.q.attempt.startsWith('attempt'));
@@ -72,8 +74,11 @@ export async function checkDiagnostics(page,output) {
   assert.equal((await page.evaluate(()=>window.__diagnosticBulkCopy)).minutes,minutes);
  }
  await panel.getByLabel('Copy time range',{exact:true}).selectOption('0');
+ await page.keyboard.press('Escape');
+ await panel.getByRole('button',{name:'More',exact:true}).click();
  await panel.getByRole('button',{name:'Export page',exact:true}).click();
  assert((await page.evaluate(()=>window.__diagnosticExport)).attempt.startsWith('attempt'));
+ await page.keyboard.press('Escape');
  await panel.getByRole('button',{name:'Clear attempt filter'}).click();
  await panel.getByRole('button',{name:'Hide',exact:true}).click();
  await panel.getByLabel('Source',{exact:true}).selectOption('');
@@ -86,6 +91,7 @@ export async function checkDiagnostics(page,output) {
  const first=await panel.locator('tbody tr').first().innerText();
  await page.evaluate(()=>window.__emitDiagnostic());
  assert.equal(await panel.locator('tbody tr').first().innerText(),first);
+ await panel.getByRole('button',{name:'Filters',exact:true}).click();
  await page.setViewportSize({width:820,height:700});
  await page.screenshot({path:path.join(output,'diagnostics-compact.png')});
  assert(await panel.evaluate(e=>e.scrollWidth<=e.clientWidth));
@@ -108,18 +114,36 @@ export async function checkDiagnostics(page,output) {
  assert((await panel.evaluate(e=>e.getBoundingClientRect().height))>600);
  await panel.getByRole('button',{name:'Restore',exact:true}).click();
  assert.equal(await panel.evaluate(e=>e.getBoundingClientRect().left),200);
+ await panel.getByRole('button',{name:/^Filters/}).click();
  await panel.getByRole('button',{name:'Reset filters',exact:true}).click();
  await page.waitForFunction(()=>document.querySelectorAll('.log-table tbody tr').length===200);
  assert.equal(await panel.locator('.filter-count').count(),0);
- await panel.getByRole('button',{name:'Clear view',exact:true}).click();
+ await panel.getByRole('button',{name:'More',exact:true}).click();
+ await panel.getByRole('button',{name:'Hide existing events',exact:true}).click();
  await panel.getByText('No events',{exact:true}).waitFor();
  await panel.getByRole('button',{name:'Resume live',exact:true}).click();
  await page.evaluate(()=>window.__emitDiagnostic());
  await page.waitForFunction(()=>document.querySelectorAll('.log-table tbody tr').length===1);
+ await panel.getByRole('button',{name:'More',exact:true}).click();
  await panel.getByRole('button',{name:'Export page',exact:true}).click();
  assert((await page.evaluate(()=>window.__diagnosticExport)).after>0);
  await panel.getByRole('button',{name:'Show saved history',exact:true}).click();
  await page.waitForFunction(()=>document.querySelectorAll('.log-table tbody tr').length===200);
+ // Clear restores every display control, including filters, range, history and pause.
+ await panel.getByLabel('Level',{exact:true}).selectOption('WARN');
+ await panel.getByRole('button',{name:'Pause',exact:true}).click();
+ await panel.getByRole('button',{name:'Copy',exact:true}).click();
+ await panel.getByLabel('Copy time range',{exact:true}).selectOption('30');
+ await panel.getByRole('button',{name:'Clear',exact:true}).click();
+ await page.waitForFunction(()=>document.querySelectorAll('.log-table tbody tr').length===200);
+ assert.equal(await panel.locator('.stream-state').innerText(),'● Live');
+ assert.equal(await panel.locator('.filter-count').count(),0);
+ assert.equal(await panel.getByLabel('Level',{exact:true}).count(),0);
+ assert.equal(await panel.locator('.event-detail').count(),0);
+ assert.equal(await panel.evaluate(e=>e.getBoundingClientRect().height),360);
+ await panel.getByRole('button',{name:'Copy',exact:true}).click();
+ assert.equal(await panel.getByLabel('Copy time range',{exact:true}).inputValue(),'0');
+ await page.keyboard.press('Escape');
  await panel.getByRole('button',{name:'Collapse console',exact:true}).click();
  await page.keyboard.press('Control+Shift+D');
  await panel.getByLabel('Search',{exact:true}).waitFor();
