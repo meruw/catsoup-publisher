@@ -1,0 +1,42 @@
+name: Windows build
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/publisher/**'
+      - 'contracts/delivery/**'
+      - 'requirements.txt'
+      - '.github/workflows/windows.yml'
+  pull_request:
+    paths:
+      - 'apps/publisher/**'
+      - 'contracts/delivery/**'
+      - 'requirements.txt'
+      - '.github/workflows/windows.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-2025
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Prepare the validator
+        run: |
+          python -m venv .venv
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          ./.venv/Scripts/python.exe -m pip install -r requirements.txt
+      - name: Install pinned build tools
+        run: ./apps/publisher/setup.ps1
+      - name: Generate the synthetic delivery
+        run: ./.venv/Scripts/python.exe apps/publisher/support/create_demo.py
+      - name: Build and test Publisher
+        env:
+          CATSOUP_TEST_ROOT: ${{ github.workspace }}
+        run: ./apps/publisher/build.ps1
