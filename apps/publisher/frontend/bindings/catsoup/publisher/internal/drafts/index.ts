@@ -4,6 +4,9 @@
 export type {
     Draft,
     Key,
+    PostFilter,
+    PostPage,
+    PostStatus,
     Profile,
     PublishingDefault,
     Receipt,

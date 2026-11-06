@@ -52,6 +52,10 @@ export function OpenVideoFolder(episodeID: string, videoID: string): $Cancellabl
     return $Call.ByID(1349805657, episodeID, videoID);
 }
 
+export function PostStatuses(filter: drafts$0.PostFilter): $CancellablePromise<drafts$0.PostPage> {
+    return $Call.ByID(3332952350, filter);
+}
+
 export function SaveDraft(input: $models.SaveDraftInput): $CancellablePromise<drafts$0.Draft> {
     return $Call.ByID(1150757330, input);
 }

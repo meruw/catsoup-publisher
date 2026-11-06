@@ -120,6 +120,9 @@ func (s *UploadService) SendX(key drafts.Key, revision int64, id string, confirm
 
 // SendMode accepts only capabilities actually implemented by each connector.
 func (s *UploadService) SendMode(key drafts.Key, revision int64, id, mode string, confirmed, paidAccepted bool, audience string, synthetic bool) (drafts.Receipt, error) {
+	return s.sendMode(key, revision, id, mode, confirmed, paidAccepted, audience, synthetic, nil)
+}
+func (s *UploadService) sendMode(key drafts.Key, revision int64, id, mode string, confirmed, paidAccepted bool, audience string, synthetic bool, tikOptions *uploads.TikTokOptions) (drafts.Receipt, error) {
 	if err := drafts.CheckDestination(key, id); err != nil {
 		return drafts.Receipt{}, err
 	}
@@ -129,7 +132,7 @@ func (s *UploadService) SendMode(key drafts.Key, revision int64, id, mode string
 	if mode == "draft" && key.Platform != "youtube" && key.Platform != "tiktok" {
 		return drafts.Receipt{}, errors.New("this platform supports local drafts only")
 	}
-	if mode == "publish" && key.Platform == "tiktok" {
+	if mode == "publish" && key.Platform == "tiktok" && tikOptions == nil {
 		return drafts.Receipt{}, errors.New("TikTok Direct Post is not enabled; send to the inbox instead")
 	}
 	if key.Platform == "x" && !paidAccepted {
@@ -171,14 +174,39 @@ func (s *UploadService) SendMode(key drafts.Key, revision int64, id, mode string
 	defer os.Remove(file.Name())
 	defer file.Close()
 	caption := strings.TrimSpace(d.Description + "\n\n" + d.Hashtags)
-	if (key.Platform == "instagram" || key.Platform == "x") && strings.TrimSpace(d.Title) != "" {
+	if (key.Platform == "instagram" || key.Platform == "x" || (key.Platform == "tiktok" && mode == "publish")) && strings.TrimSpace(d.Title) != "" {
 		caption = strings.TrimSpace(d.Title + "\n\n" + caption)
 	}
 	m := uploads.Media{Title: d.Title, Caption: caption, Language: key.Language, File: file, Size: size, Mode: mode, Audience: audience, Synthetic: synthetic}
 	if err = uploads.Validate(key.Platform, m); err != nil {
 		return drafts.Receipt{}, err
 	}
-	token, err := s.access(ctx, key.Platform, key.Language, id)
+	var token string
+	if key.Platform == "tiktok" && mode == "publish" {
+		token, err = s.tikTokAccess(ctx, key, id)
+		if err != nil {
+			return drafts.Receipt{}, err
+		}
+		ep, e := s.reader.Inspect(key.Episode)
+		if e != nil {
+			return drafts.Receipt{}, e
+		}
+		for _, v := range ep.Videos {
+			if v.ID == d.VideoID {
+				m.Duration = v.Measured.Duration
+			}
+		}
+		m.TikTok = tikOptions
+		creator, e := s.client.TikTokCreator(ctx, token)
+		if e != nil {
+			return drafts.Receipt{}, e
+		}
+		if e = uploads.ValidateTikTokOptions(*tikOptions, creator, m.Duration, m.Caption); e != nil {
+			return drafts.Receipt{}, e
+		}
+	} else {
+		token, err = s.access(ctx, key.Platform, key.Language, id)
+	}
 	if err != nil {
 		return drafts.Receipt{}, err
 	}
@@ -199,9 +227,20 @@ func (s *UploadService) SendMode(key drafts.Key, revision int64, id, mode string
 	}
 	if key.Platform == "tiktok" {
 		state = "inbox"
+		if mode == "publish" {
+			state = "published"
+			if tikOptions.Privacy == "SELF_ONLY" {
+				state = "private"
+			} else if tikOptions.Privacy != "PUBLIC_TO_EVERYONE" {
+				state = "restricted"
+			}
+		}
 	}
 	if sendErr != nil {
 		state = "check"
+		if errors.Is(sendErr, uploads.ErrProcessingFailed) {
+			state = "failed"
+		}
 	}
 	if err = s.store.SaveReceipt(d, id, state, ref); err != nil {
 		return drafts.Receipt{}, errors.New("receipt write failed; check the platform before retrying")

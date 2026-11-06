@@ -21,6 +21,7 @@ onMounted(async()=>{
    let reason=draftBlocker(draft,profile,props.episode,props.video);
    const receipt=draft&&!localDraft(draft)&&!(profile.platform==='x'&&!profile.api)?await uploads.receipt(draft.key,profile.id):{state:'',reference:'',retryAllowed:false};
    if(!reason&&draft)reason=receiptBlocker(draft,receipt);
+   if(!reason&&profile.platform==='tiktok'&&draft?.deliveryMode==='publish')reason='Confirm privacy and disclosures in the individual TikTok dialog';
    if(!postApproved(draft))error.value='Every connected account must have an approved post. Close this dialog and approve the missing accounts.';
    rows.value.push({profile,draft,selected:!reason,reason,result:'',receipt});
   }

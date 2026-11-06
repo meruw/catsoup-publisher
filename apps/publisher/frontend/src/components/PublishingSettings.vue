@@ -20,8 +20,8 @@ onMounted(load);
   <p class="muted">For new drafts. Saved posts keep their current mode and approval.</p>
   <div v-for="row in rows" :key="row.id" class="default-row">
    <span><strong>{{row.label}}</strong><small>{{row.profile?.name || 'Connect an account in Accounts'}}</small></span>
-   <UiTooltip :disabled="busy||!row.profile||row.id==='tiktok'" :text="row.id==='tiktok'?'Videos go to your TikTok inbox. Finish posting in TikTok; Direct Post is not implemented in Publisher.':!row.profile?'Connect this account first.':'Used for new drafts for this account. Existing posts are unchanged.'">
-    <select class="ui-field" :aria-label="row.label+' default mode'" :value="mode(row.profile)" :disabled="busy||!row.profile||row.id==='tiktok'" @change="row.profile && save(row.profile,$event)"><option v-for="option in modeOptions(row.id,row.profile)" :key="option.value" :value="option.value">{{option.label}}</option></select>
+   <UiTooltip :disabled="busy||!row.profile||row.id==='tiktok'" :text="row.id==='tiktok'?'TikTok defaults to inbox. Choose Direct Post per post after authorizing video.publish; privacy must be selected for each send.':!row.profile?'Connect this account first.':'Used for new drafts for this account. Existing posts are unchanged.'">
+    <select class="ui-field" :aria-label="row.label+' default mode'" :value="mode(row.profile)" :disabled="busy||!row.profile||row.id==='tiktok'" @change="row.profile && save(row.profile,$event)"><option v-for="option in modeOptions(row.id,row.id==='tiktok'?undefined:row.profile)" :key="option.value" :value="option.value">{{option.label}}</option></select>
    </UiTooltip>
   </div>
   <p v-if="feedback" role="status" class="ui-status ui-status--success">{{feedback}}</p><p v-if="error" role="alert" class="notice error">{{error}}</p>

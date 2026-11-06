@@ -87,7 +87,7 @@ Browser fixtures cover autosave, in-flight editing, language changes, copy/revea
 dispatch, conflicts, failed-save navigation/close protection and reloading.
 Fixtures do not verify real clipboard/file-manager behavior or native close timing.
 
-Receipts record private, inbox, published, sending or check states. YouTube
+Receipts record private, restricted, inbox, published, sending, failed or check states. TikTok FAILED responses are definitive; transport failures stay uncertain. YouTube
 promotion reserves publishing for the same remote ID; failures become check_publish.
 That state cannot be cleared to permit a duplicate upload. An abandoned promotion
 can be explicitly retried after 30 minutes. Older successful YouTube receipts are
@@ -95,7 +95,7 @@ interpreted as private uploads. No background polling or job framework is requir
 
 ## Individual and batch transfers
 
-Both entry points use the shared frontend transfer adapter and the same Go
+Individual TikTok Direct Post uses typed, validated per-send privacy and disclosure options and is excluded from batch transfer. Other entry points use the shared frontend transfer adapter and the same Go
 publication methods, account checks and durable receipt reservations. A batch is
 an explicit, foreground sequence for one language, not a background queue. Before
 the first send it refreshes all connected account identities and approvals, plus every selected draft revision and receipt. The header action is blocked until all connected accounts in the current language have approved posts.
@@ -106,3 +106,7 @@ back completed publications or retries automatically. Partial results are shown 
 the dialog; remote transfer receipts survive restart. Local-only and X browser
 handoff results are not remote publication receipts. Uncertain YouTube promotion
 recovery remains an explicit individual action, outside batch sending.
+
+## Post overview
+
+`PostStatuses` joins saved drafts to receipts by platform, verified account ID and video hash, and to connected accounts by platform, language and ID. It exposes no credentials and makes no provider request. Search is literal and parameterized; filters are allowlisted and results are bounded to 50 rows with offset pagination. Disconnected drafts remain visible. Transfers abandoned for more than 30 minutes appear as Check result. The overview follows each draft's current file, rather than retaining immutable snapshots of every edited post.

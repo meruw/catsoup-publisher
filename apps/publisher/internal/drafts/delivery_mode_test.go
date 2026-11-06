@@ -41,8 +41,8 @@ func TestDeliveryModeMigrationPreservesDraftAndRevision(t *testing.T) {
 	again.Key.Platform = "tiktok"
 	again.Revision = 0
 	again.DeliveryMode = "publish"
-	if _, err = s.Save(context.Background(), again); err == nil {
-		t.Fatal("accepted TikTok public mode")
+	if _, err = s.Save(context.Background(), again); err != nil {
+		t.Fatal("could not prepare TikTok direct post", err)
 	}
 }
 

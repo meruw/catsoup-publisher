@@ -1,45 +1,59 @@
 <script setup lang="ts">
 import {computed,nextTick,onMounted,ref,watch} from 'vue';
+import UiTooltip from './UiTooltip.vue';
 import UiButton from './UiButton.vue';
-import {uploads,type Profile} from '../services/uploads';
+import {mediaURL} from '../services/publisher';
+import {uploads,type Profile,type TikTokCreator,type TikTokOptions} from '../services/uploads';
 import {accountKey,modeLabel,transfer} from '../services/publication';
 import {type Draft} from '../services/drafts';
 const props=defineProps<{draft:Draft;hint:string;flush:()=>Promise<void>}>();
 const emit=defineEmits<{busy:[value:boolean];accounts:[]}>();
-const account=ref<Profile>({id:'',name:'',api:false,platform:'',language:''});
+const account=ref<Profile>({id:'',name:'',api:false,directPost:false,platform:'',language:''});
 const receipt=ref({state:'',reference:'',retryAllowed:false});
 const loading=ref(true);
+const creator=ref<TikTokCreator|null>(null),creatorError=ref('');
+const options=ref<TikTokOptions>({privacy:'',comments:false,duet:false,stitch:false,commercial:false,ownBrand:false,branded:false,synthetic:false,consent:false});
+const directTikTok=computed(()=>platform.value==='tiktok'&&mode.value==='publish');
+const privacyNames:Record<string,string>={PUBLIC_TO_EVERYONE:'Everyone',MUTUAL_FOLLOW_FRIENDS:'Friends',FOLLOWER_OF_CREATOR:'Followers',SELF_ONLY:'Only me'};
+const tikTokBlocked=computed(()=>directTikTok.value&&(!creator.value||!options.value.privacy||!options.value.consent||(options.value.commercial&&!options.value.ownBrand&&!options.value.branded)||(options.value.branded&&options.value.privacy==='SELF_ONLY')));
+watch(options,()=>{confirmed.value=false},{deep:true});
+watch(()=>options.value.branded,()=>{options.value.consent=false});
+watch(()=>options.value.commercial,value=>{if(!value){options.value.ownBrand=false;options.value.branded=false;}});
+async function loadCreator(){try{creator.value=await uploads.tikTokCreator(props.draft.key,account.value.id);creatorError.value='';}catch(e){creator.value=null;creatorError.value=String(e)}}
+
 const mode=computed(()=>props.draft.deliveryMode || 'draft');
 const audience=ref(''),synthetic=ref(false),confirmed=ref(false),paidAccepted=ref(false),reconciled=ref(false),busy=ref(false),error=ref('');
 const platform=computed(()=>props.draft.key.platform);
 const browserX=computed(()=>platform.value==='x' && !account.value.api);
 const localOnly=computed(()=>mode.value==='draft' && !['youtube','tiktok'].includes(platform.value));
 const privateVideo=computed(()=>platform.value==='youtube' && ['private','sent','check_publish'].includes(receipt.value.state));
-const completed=computed(()=>['published','inbox'].includes(receipt.value.state) || (receipt.value.state==='sent' && platform.value!=='youtube'));
+const completed=computed(()=>['published','inbox','restricted'].includes(receipt.value.state) || (receipt.value.state==='sent' && platform.value!=='youtube') || (receipt.value.state==='private'&&platform.value==='tiktok'));
 const action=computed(()=>{
  if(privateVideo.value) return 'Publish existing YouTube video';
  if(browserX.value) return 'Copy video path and open X';
- return ({youtube:mode.value==='draft'?'Upload privately to YouTube':'Publish on YouTube',tiktok:'Send to TikTok inbox',instagram:'Publish Reel on Instagram',x:'Publish on X · Paid API'})[platform.value];
+ return ({youtube:mode.value==='draft'?'Upload privately to YouTube':'Publish on YouTube',tiktok:mode.value==='publish'?'Post on TikTok':'Send to TikTok inbox',instagram:'Publish Reel on Instagram',x:'Publish on X · Paid API'})[platform.value];
 });
 const note=computed(()=>{
  if(privateVideo.value && mode.value==='draft')return '';
  if(localOnly.value) return 'Saved on this PC';
  if(platform.value==='youtube') return mode.value==='draft'?'Upload a private video. It will not be public.':'Make this video public on the connected YouTube channel.';
- if(platform.value==='tiktok')return 'Finish editing and posting in TikTok.';
+ if(platform.value==='tiktok')return directTikTok.value?'Choose who can see this post. TikTok may take time to process and moderate it.':'Finish editing and posting in TikTok.';
  if(browserX.value)return 'Publisher opens the prepared text and copies the video path. Paste it into X’s file picker, then review and post in X.';
  if(platform.value==='x')return 'Post the video and text using your paid X API access. X bills your developer project.';
  return 'Publish a Reel on the connected Instagram profile.';
 });
-const blocked=computed(()=>!!props.hint || !confirmed.value || (platform.value==='youtube' && !audience.value) || (platform.value==='x' && !browserX.value && !paidAccepted.value));
-const receiptLabel=computed(()=>receipt.value.state==='published'?'Published':receipt.value.state==='inbox'?'Sent to inbox':privateVideo.value?(receipt.value.state==='check_publish'?'Check visibility in YouTube Studio':'Private video uploaded'):receipt.value.state==='sent'?(platform.value==='tiktok'?'Sent to inbox':'Published'):'Check the platform');
+const blocked=computed(()=>tikTokBlocked.value||!!props.hint || !confirmed.value || (platform.value==='youtube' && !audience.value) || (platform.value==='x' && !browserX.value && !paidAccepted.value));
+const receiptLabel=computed(()=>receipt.value.state==='failed'?'Failed':receipt.value.state==='restricted'?'Posted with limited visibility':receipt.value.state==='private'&&platform.value==='tiktok'?'Posted · Only me':receipt.value.state==='published'?'Published':receipt.value.state==='inbox'?'Sent to inbox':privateVideo.value?(receipt.value.state==='check_publish'?'Check visibility in YouTube Studio':'Private video uploaded'):receipt.value.state==='sent'?(platform.value==='tiktok'?'Sent to inbox':'Published'):'Check the platform');
 watch([mode,audience,synthetic,()=>props.draft.revision,()=>props.hint],()=>{confirmed.value=false;paidAccepted.value=false});
 async function run(task:()=>Promise<void>){if(busy.value)return;busy.value=true;emit('busy',true);error.value='';try{await task()}catch(e){error.value=String(e)}finally{busy.value=false;emit('busy',false)}}
+function openPolicy(policy:string){void run(async()=>{await uploads.tikTokPolicy(policy)})}
 async function refreshReceipt(){if(account.value.id && !browserX.value)receipt.value=await uploads.receipt(props.draft.key,account.value.id);}
-onMounted(async()=>{try{const p=(await uploads.accounts()||[]).find(p=>p.platform===platform.value && p.language===props.draft.key.language);if(p && accountKey(p)===props.draft.key.account){account.value=p;await refreshReceipt()}}catch(e){error.value=String(e)}finally{loading.value=false}});
+onMounted(async()=>{try{const p=(await uploads.accounts()||[]).find(p=>p.platform===platform.value && p.language===props.draft.key.language);if(p && accountKey(p)===props.draft.key.account){account.value=p;await refreshReceipt();if(directTikTok.value)await loadCreator()}}catch(e){error.value=String(e)}finally{loading.value=false}});
 function send(){void run(async()=>{
  await props.flush();await nextTick();
  try{
- await transfer(props.draft,account.value,receipt.value,confirmed.value,paidAccepted.value,audience.value,synthetic.value,true);
+ if(directTikTok.value)await uploads.sendTikTok(props.draft.key,props.draft.revision,account.value.id,confirmed.value,options.value);
+ else await transfer(props.draft,account.value,receipt.value,confirmed.value,paidAccepted.value,audience.value,synthetic.value,true);
  }finally{confirmed.value=false;paidAccepted.value=false;await refreshReceipt()}
 })}
 function clearAttempt(){void run(async()=>{await uploads.clear(props.draft.key,account.value.id,props.draft.videoHash,reconciled.value);reconciled.value=false;await refreshReceipt()})}
@@ -61,13 +75,27 @@ function clearAttempt(){void run(async()=>{await uploads.clear(props.draft.key,a
    <template v-else-if="privateVideo && mode==='draft'"></template>
    <template v-else-if="!account.id"><UiButton @click="emit('accounts')">Connect {{platform==='youtube'?'YouTube':platform==='tiktok'?'TikTok':platform==='instagram'?'Instagram':'X'}}</UiButton></template>
    <fieldset v-else class="draft-fields send-confirmation" :disabled="busy">
+    <template v-if="directTikTok">
+     <p v-if="creatorError" role="alert" class="notice error">{{creatorError}}</p>
+     <template v-if="creator">
+      <p>{{creator.creator_nickname}} · @{{creator.creator_username}}</p>
+      <video class="tiktok-preview" :src="mediaURL(draft.key.episode,draft.videoId)" controls preload="metadata" aria-label="TikTok post preview"/>
+      <details><summary>Caption</summary><p class="tiktok-caption">{{[draft.title,draft.description,draft.hashtags].filter(Boolean).join('\n\n')}}</p><small>Close this dialog to edit the caption and approve the revised post.</small></details>
+      <div class="field-group"><label for="tiktok-privacy">Who can watch</label><select id="tiktok-privacy" v-model="options.privacy" class="ui-field"><option value="" disabled>Choose visibility</option><option v-for="p in creator.privacy_level_options||[]" :key="p" :value="p" :disabled="options.branded&&p==='SELF_ONLY'">{{privacyNames[p]}}</option></select></div>
+      <div class="tiktok-interactions"><label><input v-model="options.comments" type="checkbox" :disabled="creator.comment_disabled"> Allow comments</label><label><input v-model="options.duet" type="checkbox" :disabled="creator.duet_disabled"> Allow Duet</label><label><input v-model="options.stitch" type="checkbox" :disabled="creator.stitch_disabled"> Allow Stitch</label></div>
+      <label><input v-model="options.commercial" type="checkbox"> This post promotes a brand, product or service</label>
+      <div v-if="options.commercial" class="tiktok-disclosures"><label><input v-model="options.ownBrand" type="checkbox"> Your brand</label><label title="Branded content cannot be private"><input v-model="options.branded" type="checkbox" :disabled="options.privacy==='SELF_ONLY'"> Branded content · Paid partnership</label><p v-if="options.branded">Your video will be labeled as Paid partnership</p><p v-else-if="options.ownBrand">Your video will be labeled as Promotional content</p></div>
+      <label><input v-model="options.synthetic" type="checkbox"> AI-generated content</label>
+      <label><input v-model="options.consent" type="checkbox"><span>By posting, I agree to TikTok's <button type="button" class="policy-link" @click.prevent="openPolicy('music')">Music Usage Confirmation</button><span v-if="options.branded"> and <button type="button" class="policy-link" @click.prevent="openPolicy('branded')">Branded Content Policy</button></span>.</span></label>
+     </template>
+    </template>
     <template v-if="platform==='youtube'">
      <div class="field-group"><label for="youtube-audience">Audience</label><select id="youtube-audience" v-model="audience" class="ui-field"><option value="" disabled>Choose an audience</option><option value="general">Not made for kids</option><option value="kids">Made for kids</option></select></div>
      <label><input v-model="synthetic" type="checkbox"> Contains realistic altered or synthetic content</label>
     </template>
-    <label><input v-model="confirmed" type="checkbox"> {{browserX?'I checked the active account in X.':`I confirm ${account.name} and this ${mode==='draft'?'private / inbox transfer':'public post'}.`}}</label>
+    <label><input v-model="confirmed" type="checkbox"> {{directTikTok?`I confirm ${account.name} and ${privacyNames[options.privacy]||'the selected visibility'}.`:browserX?'I checked the active account in X.':`I confirm ${account.name} and this ${mode==='draft'?'private / inbox transfer':'public post'}.`}}</label>
     <label v-if="platform==='x' && !browserX"><input v-model="paidAccepted" type="checkbox"> I accept X API usage charges for this attempt.</label>
-    <div class="send-action"><UiButton variant="primary" :busy="busy" :disabled="blocked" @click="send">{{busy?'Sending...':action}}</UiButton></div>
+    <div class="send-action"><UiTooltip :disabled="!!blocked" :text="directTikTok && tikTokBlocked ? 'Choose visibility, complete any commercial disclosure and accept the posting terms.' : ''"><UiButton variant="primary" :busy="busy" :disabled="blocked" @click="send">{{busy?'Sending...':action}}</UiButton></UiTooltip></div>
    </fieldset>
    </template>
   </template>
@@ -86,6 +114,8 @@ function clearAttempt(){void run(async()=>{await uploads.clear(props.draft.key,a
 .send-explanation{font-size:var(--text-sm);color:var(--secondary);margin:16px 0 24px;line-height:1.5}.local-draft-status{color:var(--success);margin-bottom:0}
 .send-blocker{font-size:var(--text-md);color:var(--warning);line-height:1.6;margin:0 0 20px}
 .send-confirmation{display:grid;gap:20px}.send-confirmation>label{display:flex;gap:8px;align-items:flex-start}.send-confirmation .field-group{margin:0}.send-action{display:flex;justify-content:flex-end;margin-top:4px}
-.send-receipt{display:grid;gap:8px;margin-bottom:24px;overflow-wrap:anywhere}.send-receipt strong{font-weight:500;color:var(--success)}.send-receipt span,.send-receipt small{font-size:var(--text-xs);color:var(--secondary)}
+.send-receipt{display:grid;gap:8px;margin-bottom:24px;overflow-wrap:anywhere}.send-receipt strong{font-weight:500}.send-receipt span,.send-receipt small{font-size:var(--text-xs);color:var(--secondary)}
 .retry-confirmation{display:grid;gap:16px;margin-top:20px}
+.policy-link{border:0;background:none;padding:0;font:inherit;color:var(--accent-ink);text-decoration:underline;cursor:pointer}
+.tiktok-preview{display:block;width:100%;max-height:200px;background:#171717;border-radius:8px}.tiktok-caption{white-space:pre-wrap;overflow-wrap:anywhere;margin:12px 0}.tiktok-interactions,.tiktok-disclosures{display:grid;gap:12px}.tiktok-interactions label,.tiktok-disclosures label{display:flex;gap:8px;align-items:flex-start}
 </style>

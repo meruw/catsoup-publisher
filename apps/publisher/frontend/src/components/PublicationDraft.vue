@@ -10,7 +10,7 @@ import { accountKey, modeOptions, modeHint, postApproved, sendLabel, draftBlocke
 import { drafts, type Draft, type DraftKey } from '../services/drafts';
 import type { Episode, Video } from '../services/publisher';
 
-const props = defineProps<{ episode: Episode; language: string; video: Video; locked: boolean; stage:'prepare'|'publish' }>();
+const props = defineProps<{ initialPlatform?:string; episode: Episode; language: string; video: Video; locked: boolean; stage:'prepare'|'publish' }>();
 const region = ref<HTMLElement | null>(null);
 const platforms = { youtube: 'YouTube', tiktok: 'TikTok', instagram: 'Instagram', x: 'X' };
 const emit=defineEmits<{accounts:[];prepare:[];publish:[];busy:[value:boolean]}>();
@@ -211,7 +211,7 @@ onMounted(async () => {
     profiles.value = await uploads.accounts() || [];
     saved.value = await drafts.list(props.episode.id, props.language) || [];
     loading.value = false;
-    const p=profiles.value.find(p=>p.language===props.language && p.platform==='youtube') || profiles.value.find(p=>p.language===props.language);
+    const p=profiles.value.find(p=>p.language===props.language && p.platform===(props.initialPlatform||'youtube')) || profiles.value.find(p=>p.language===props.language);
     await open({episode:props.episode.id,language:props.language,platform:p?.platform || 'youtube',account:accountKey(p)},true);
   } catch (e) { error.value = `Could not load saved destinations. ${String(e)}`; }
   finally { loading.value = false; }
@@ -241,8 +241,8 @@ defineExpose({ flush: beforeLeaving, focusEditor, publishAll, batchBlocker });
       <div v-if="!destination && form" class="compose-connect"><UiButton variant="quiet" size="compact" @click="emit('accounts')">Connect {{platforms[form.key.platform as keyof typeof platforms]}}</UiButton></div>
       <template v-if="form">
         <div class="post-mode-line">
-          <UiTooltip class="post-mode" :disabled="saving || form.key.platform==='tiktok' || !destination" :text="modeHint(form.key.platform,form.deliveryMode,destination)">
-            <select class="ui-field" :aria-label="platforms[form.key.platform as keyof typeof platforms]+' delivery mode'" :value="form.deliveryMode || 'draft'" :disabled="saving || form.key.platform==='tiktok' || !destination" @change="changeMode(form.key.platform,($event.target as HTMLSelectElement).value as DeliveryMode)"><option v-for="option in modeOptions(form.key.platform,destination)" :key="option.value" :value="option.value">{{option.label}}</option></select>
+          <UiTooltip class="post-mode" :disabled="saving || (form.key.platform==='tiktok' && !destination?.directPost && form.deliveryMode!=='publish') || !destination" :text="modeHint(form.key.platform,form.deliveryMode,destination)">
+            <select class="ui-field" :aria-label="platforms[form.key.platform as keyof typeof platforms]+' delivery mode'" :value="form.deliveryMode || 'draft'" :disabled="saving || (form.key.platform==='tiktok' && !destination?.directPost && form.deliveryMode!=='publish') || !destination" @change="changeMode(form.key.platform,($event.target as HTMLSelectElement).value as DeliveryMode)"><option v-if="form.key.platform==='tiktok' && !destination?.directPost && form.deliveryMode==='publish'" value="publish" disabled>Direct Post · Unavailable</option><option v-for="option in modeOptions(form.key.platform,destination)" :key="option.value" :value="option.value">{{option.label}}</option></select>
           </UiTooltip>
           <UiTooltip class="selected-send" :disabled="!!uploadHint || dirty || saving" :text="uploadHint==='Delivery approval required'?'This file is blocked by the production manifest. Approve the delivery in the production project and refresh Publisher. Test deliveries cannot be sent.':uploadHint || modeHint(form.key.platform,form.deliveryMode,destination)"><UiButton id="open-publishing" variant="primary" :disabled="!!uploadHint || dirty || saving" @click="publishingOptions">{{sendLabel(form,destination)}}</UiButton></UiTooltip>
         </div>

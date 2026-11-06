@@ -16,7 +16,7 @@ Write the title, description and hashtags. Edits save locally after typing pause
 
 **Restore draft**, beside Save draft, reloads this account's last saved text. Autosave means this is not an edit history or undo function. It also offers explicit recovery of unassigned text for the selected platform, when present. Recovery copies the text into the connected account and preserves its source. Drafts from different accounts never share a selector.
 
-Set the default for each account in **Settings → Publishing defaults**, under ES or EN. Defaults apply only to new drafts; existing text, modes and approvals stay unchanged. The mode selector above the post editor controls that individual post. TikTok is fixed to **TikTok inbox**; hover or focus the disabled selector for its explanation. Instagram and X use a local draft when their mode is **Local draft**.
+Set the default for each account in **Settings → Publishing defaults**, under ES or EN. Defaults apply only to new drafts; existing text, modes and approvals stay unchanged. The mode selector above the post editor controls that individual post. TikTok offers **TikTok inbox** and, after optional setup and authorization, **Direct Post**. Hover or focus a disabled selector for its explanation. Instagram and X use a local draft when their mode is **Local draft**.
 
 Watch and listen to the final video, check the text, destination and mode, then choose **Approve post** below the text fields, alongside Save draft and Restore draft. This confirms only that account's saved revision. Editing text, changing the mode or linking another video removes approval. **Undo approval** removes it explicitly. Opening the video or saving a draft does not approve it.
 
@@ -24,14 +24,14 @@ Only the selected platform has an individual send button. Its label describes th
 
 **Publish all…** stays in the workspace header while scrolling. It is disabled until every connected account in the selected language has an approved current post and the delivery passes the sending checks. Hover or focus the button to see missing approvals or other blockers. Disconnected platforms are not targets. In the dialog, check the saved modes, omit any destinations you do not want to send, provide YouTube's audience and acknowledge paid X usage if applicable. All connected accounts must still have current approvals, even if a destination is omitted.
 
-The app rechecks account identities, approvals, selected revisions and receipts before the first send. Transfers run sequentially and stop on the first error. Completed transfers stay completed; later destinations show **Not sent**. There is no automatic retry. Already-sent and unresolved destinations are excluded from the batch; resolve uncertain attempts through the individual platform dialog. A local draft stays on this PC. X browser mode requires finishing in X.
+The app rechecks account identities, approvals, selected revisions and receipts before the first send. Transfers run sequentially and stop on the first error. Completed transfers stay completed; later destinations show **Not sent**. There is no automatic retry. Already-sent and unresolved destinations are excluded from the batch; resolve uncertain attempts through the individual platform dialog. A local draft stays on this PC. X browser mode requires finishing in X. TikTok Direct Post requires its individual confirmation for privacy and disclosure choices and is excluded from the batch.
 
 **Production approval missing** below the video means the source delivery is blocked independently of account approval. Hover or focus that status to see the reason. The production owner must approve the exact delivery through the [delivery contract](https://github.com/meruw/catsoup-publisher/blob/main/contracts/delivery/CONTRACT.md), then refresh Publisher. Publisher's **Approve post** never changes that manifest. Local preparation works before production approval; the demo and pilot cannot be sent.
 
 | Destination | Keep as draft | Publish now |
 | --- | --- | --- |
 | [YouTube](https://publisher.meruw.dev/guides/youtube/) | Private video on the selected channel | Public upload, or publish the recorded private video using its existing ID |
-| [TikTok](https://publisher.meruw.dev/guides/tiktok/) | Video in the creator's inbox; finish posting in TikTok | Unavailable in this connector; Direct Post requires its own integration and provider approval |
+| [TikTok](https://publisher.meruw.dev/guides/tiktok/) | Video in the creator's inbox; finish posting in TikTok | Optional Direct Post with explicit visibility and TikTok authorization |
 | [Meta](https://publisher.meruw.dev/guides/meta/) | Local draft on this PC | Reel on the connected Instagram profile |
 | [X](https://publisher.meruw.dev/guides/x/) | Local draft on this PC | Free browser handoff to finish in X, or direct posting with paid API access |
 
@@ -40,6 +40,12 @@ The app rechecks account identities, approvals, selected revisions and receipts 
 Each workspace has one destination per platform and language. Connect both languages before creating an episode. **Change** replaces only the selected slot after successful authorization. **Remove** forgets its local credentials. Publisher prevents assigning one provider ID to both languages on the same platform. Drafts are routed using their language and bound account ID. Reconnecting the same provider ID restores that account's draft; connecting a different ID does not reuse its text. The send screen shows the current assignment and requires confirmation.
 
 In **Settings → Developer credentials**, select the provider. When credentials are missing, **Set up credentials** in Accounts takes you directly to that provider. Enter the developer credentials once for both languages. YouTube also accepts a Google desktop client JSON. The browser handles the provider's sign-in and returns to Publisher. Windows DPAPI protects saved user credentials for this Windows user and slot. Google and TikTok renew access using provider-issued refresh tokens when available. Reconnect from **Accounts** if a provider expires or revokes access. The synthetic demo and pilot are always preview-only.
+
+## Posts overview
+
+Open **Posts** in the sidebar for a compact list of saved video posts by account and platform. Search by video or account; expand **Filters** for platform, language and status. Select a video title for details and **Open post** to return to that account's editor. Disconnected accounts remain readable.
+
+Statuses distinguish local **Draft**, **Approved**, **Private video**, **TikTok inbox**, **Limited visibility**, **Published**, **Failed** and **Check result**. The last label means the result is uncertain, not that publishing failed. The view shows the file currently linked to each saved post and its local receipt, with 50 rows per page. **Refresh posts** reloads local records; it does not query social networks or reconstruct remote history. Browser handoffs to X cannot establish a published status.
 
 ## Check the result
 

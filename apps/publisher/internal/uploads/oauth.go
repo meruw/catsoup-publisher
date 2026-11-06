@@ -74,13 +74,18 @@ func desktopConfig(platform string) (desktopOAuth, error) {
 	}
 	if platform == "tiktok" {
 		var cfg struct {
+			Direct bool   `json:"direct_post"`
 			Key    string `json:"client_key"`
 			Secret string `json:"client_secret"`
 		}
 		if json.Unmarshal(raw, &cfg) != nil || !fieldsPresent(cfg.Key, cfg.Secret) {
 			return desktopOAuth{}, errors.New("invalid TikTok desktop configuration")
 		}
-		return desktopOAuth{"https://www.tiktok.com/v2/auth/authorize/", tik + "oauth/token/", "client_key", cfg.Key, cfg.Secret, "user.info.basic,video.upload", "/callback/"}, nil
+		scope := "user.info.basic,video.upload"
+		if cfg.Direct {
+			scope += ",video.publish"
+		}
+		return desktopOAuth{"https://www.tiktok.com/v2/auth/authorize/", tik + "oauth/token/", "client_key", cfg.Key, cfg.Secret, scope, "/callback/"}, nil
 	}
 	var cfg struct {
 		Installed struct {

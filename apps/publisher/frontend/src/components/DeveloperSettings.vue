@@ -10,6 +10,8 @@ const names = { youtube: 'YouTube', tiktok: 'TikTok', instagram: 'Instagram', x:
 const provider = ref(props.initialProvider);
 
 const pending = ref(false);
+const tikTokDirect=ref(false);
+function toggleTikTok(event:Event){const control=event.target as HTMLInputElement;const value=control.checked;void run(async()=>{try{await uploads.setTikTokDirectEnabled(value);tikTokDirect.value=value;emit('saved');message.value=value?'Direct Post enabled. Reconnect both TikTok accounts to authorize video.publish.':'Direct Post disabled. Inbox uploads remain available.';}finally{control.checked=tikTokDirect.value;}});}
 const fileInput = ref<HTMLInputElement | null>(null);
 const identifier = ref('');
 const secret = ref('');
@@ -55,7 +57,7 @@ function saveFields() {
     if (!id || (provider.value!=='x' && !client_secret) || (provider.value==='instagram' && !configID.value.trim())) return;
     const client = provider.value==='x' ? {client_id:id,redirect_uri:xCallback.value.trim()} : provider.value==='youtube'
       ? { installed: { client_id: id, client_secret } }
-      : provider.value==='instagram' ? {app_id:id,app_secret:client_secret,config_id:configID.value.trim()} : { client_key: id, client_secret };
+      : provider.value==='instagram' ? {app_id:id,app_secret:client_secret,config_id:configID.value.trim()} : { client_key: id, client_secret, direct_post:tikTokDirect.value };
     await persist(JSON.stringify(client));
   });
 }
@@ -74,7 +76,7 @@ function loadCallback() {
     showHosting(await uploads.metaCallback());
   });
 }
-watch(provider, p => { if (p==='instagram') loadCallback(); }, { immediate: true });
+watch(provider, p => { if (p==='instagram') loadCallback(); if(p==='tiktok')void run(async()=>{tikTokDirect.value=await uploads.tikTokDirectEnabled()}); }, { immediate: true });
 function saveCallback() {
   void run(async () => {
     if(hosting.value==='hosted' && !accepted.value) throw Error('Accept the hosting notice to continue.');
@@ -132,6 +134,10 @@ function openXSetup(step: string) { void run(() => uploads.xSetup(step)); }
       </form>
      </details>
     </div>
+    <section v-if="provider==='tiktok'" class="return-url">
+     <label><input type="checkbox" :checked="tikTokDirect" :disabled="pending || !statuses.tiktok || statuses.tiktok==='missing'" @change="toggleTikTok"> Enable Direct Post</label>
+     <p>Enable Direct Post and video.publish in your TikTok developer app first, then reconnect each account. Public visibility requires TikTok's audit; unaudited clients are restricted to private accounts and Only me posts.</p>
+    </section>
     <form class="credential-form" @submit.prevent="saveFields">
      <div class="fields">
       <label class="field-group">{{ provider==='youtube'||provider==='x'?'Client ID':provider==='instagram'?'App ID':'Client key' }}<input class="ui-field" v-model="identifier" autocomplete="off" spellcheck="false" :disabled="pending" required></label>

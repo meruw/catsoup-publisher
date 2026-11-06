@@ -20,12 +20,29 @@ func (c *Client) tiktok(ctx context.Context, token string, m Media, record func(
 		Error struct{ Code string }
 	}
 	auth := "Bearer " + token
-	_, err := c.request(ctx, "POST", tik+"post/publish/inbox/video/init/", auth, jsonHeaders, jsonBody(map[string]any{"source_info": src}), -1, &out)
+	endpoint := tik + "post/publish/inbox/video/init/"
+	body := map[string]any{"source_info": src}
+	if m.Mode == "publish" {
+		if m.TikTok == nil {
+			return "", errors.New("TikTok posting options are required")
+		}
+		creator, err := c.TikTokCreator(ctx, token)
+		if err != nil {
+			return "", err
+		}
+		if err = ValidateTikTokOptions(*m.TikTok, creator, m.Duration, m.Caption); err != nil {
+			return "", err
+		}
+		o := m.TikTok
+		endpoint = tik + "post/publish/video/init/"
+		body["post_info"] = map[string]any{"title": m.Caption, "privacy_level": o.Privacy, "disable_comment": !o.Comments, "disable_duet": !o.Duet, "disable_stitch": !o.Stitch, "brand_content_toggle": o.Branded, "brand_organic_toggle": o.OwnBrand, "is_aigc": o.Synthetic}
+	}
+	_, err := c.request(ctx, "POST", endpoint, auth, jsonHeaders, jsonBody(body), -1, &out)
 	if err != nil {
 		return "", err
 	}
 	if out.Error.Code != "ok" || !safeID.MatchString(out.Data.ID) || !safeSession(out.Data.URL, "open-upload.tiktokapis.com", "open-upload-us.tiktokapis.com", "open-upload-eu.tiktokapis.com") {
-		return "", errors.New("TikTok declined the inbox upload or returned an unexpected upload address")
+		return "", errors.New("TikTok declined the upload or returned an unexpected upload address")
 	}
 	if err = record(out.Data.ID); err != nil {
 		return "", err
@@ -50,10 +67,13 @@ func (c *Client) tiktok(ctx context.Context, token string, m Media, record func(
 		if err != nil {
 			return false, err
 		}
-		if outStatus.Error.Code != "ok" || outStatus.Data.Status == "FAILED" {
-			return false, errors.New("TikTok could not deliver the inbox upload")
+		if outStatus.Data.Status == "FAILED" && outStatus.Error.Code == "ok" {
+			return false, ErrProcessingFailed
 		}
-		return outStatus.Data.Status == "SEND_TO_USER_INBOX" || outStatus.Data.Status == "PUBLISH_COMPLETE", nil
+		if outStatus.Error.Code != "ok" {
+			return false, errors.New("TikTok could not confirm the transfer status")
+		}
+		return (m.Mode != "publish" && outStatus.Data.Status == "SEND_TO_USER_INBOX") || outStatus.Data.Status == "PUBLISH_COMPLETE", nil
 	}, 5*time.Second)
 	return out.Data.ID, err
 }

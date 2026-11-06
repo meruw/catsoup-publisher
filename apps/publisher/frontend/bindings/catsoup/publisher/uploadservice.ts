@@ -8,6 +8,9 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
 import * as drafts$0 from "./internal/drafts/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import * as uploads$0 from "./internal/uploads/models.js";
 
 export function Accounts(): $CancellablePromise<drafts$0.Profile[] | null> {
     return $Call.ByID(1307383184);
@@ -56,6 +59,13 @@ export function OpenGoogleSetup(step: string): $CancellablePromise<void> {
     return $Call.ByID(1173914444, step);
 }
 
+/**
+ * OpenTikTokPolicy opens only the declarations required by TikTok's posting UI.
+ */
+export function OpenTikTokPolicy(policy: string): $CancellablePromise<void> {
+    return $Call.ByID(4126246752, policy);
+}
+
 export function OpenXComposer(key: drafts$0.Key, revision: number): $CancellablePromise<void> {
     return $Call.ByID(3526750102, key, revision);
 }
@@ -83,12 +93,28 @@ export function SendMode(key: drafts$0.Key, revision: number, id: string, mode: 
     return $Call.ByID(301800697, key, revision, id, mode, confirmed, paidAccepted, audience, synthetic);
 }
 
+export function SendTikTok(key: drafts$0.Key, revision: number, id: string, confirmed: boolean, options: uploads$0.TikTokOptions): $CancellablePromise<drafts$0.Receipt> {
+    return $Call.ByID(2680187480, key, revision, id, confirmed, options);
+}
+
 export function SendX(key: drafts$0.Key, revision: number, id: string, confirmed: boolean, paidAccepted: boolean): $CancellablePromise<drafts$0.Receipt> {
     return $Call.ByID(4019459102, key, revision, id, confirmed, paidAccepted);
 }
 
 export function SetMetaCallbackURL(raw: string): $CancellablePromise<string> {
     return $Call.ByID(1220560779, raw);
+}
+
+export function SetTikTokDirectEnabled(enabled: boolean): $CancellablePromise<void> {
+    return $Call.ByID(2287064436, enabled);
+}
+
+export function TikTokCreator(key: drafts$0.Key, id: string): $CancellablePromise<uploads$0.TikTokCreator> {
+    return $Call.ByID(665794954, key, id);
+}
+
+export function TikTokDirectEnabled(): $CancellablePromise<boolean> {
+    return $Call.ByID(3309901564);
 }
 
 export function UnlinkAccount(platform: string, language: string, id: string): $CancellablePromise<void> {

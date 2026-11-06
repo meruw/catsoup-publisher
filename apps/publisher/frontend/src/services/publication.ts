@@ -7,20 +7,22 @@ export const accountKey=(profile?:Profile)=>profile ? `account:${profile.id}` : 
 export const postApproved=(d?:Draft)=>!!d?.revision && d.approvedRevision===d.revision;
 export function sendLabel(d:Draft|undefined,p?:Profile){
  if(!d)return 'Select a platform';
+ if(d.key.platform==='tiktok' && d.deliveryMode==='publish')return 'Post on TikTok…';
  if(d.deliveryMode!=='publish')return d.key.platform==='youtube'?'Upload privately…':d.key.platform==='tiktok'?'Send to TikTok inbox…':'Keep local draft';
  return d.key.platform==='x'&&!p?.api?'Finish in X…':`Publish on ${d.key.platform==='youtube'?'YouTube':d.key.platform==='instagram'?'Instagram':'X'}…`;
 }
 export const localDraft=(d:Draft)=>d.deliveryMode!=='publish' && !['youtube','tiktok'].includes(d.key.platform);
 export function modeOptions(platform:string,profile?:Profile) {
   const draft=platform==='youtube'?'Private video':platform==='tiktok'?'TikTok inbox':'Local draft';
-  return [{value:'draft' as DeliveryMode,label:draft},...(platform==='tiktok'?[]:[{value:'publish' as DeliveryMode,label:platform==='x'&&!profile?.api?'Finish in X':'Publish now'}])];
+  return [{value:'draft' as DeliveryMode,label:draft},...(platform==='tiktok'&&!profile?.directPost?[]:[{value:'publish' as DeliveryMode,label:platform==='tiktok'?'Direct Post':platform==='x'&&!profile?.api?'Finish in X':'Publish now'}])];
 }
-export function modeLabel(platform:string,mode:string,profile?:Profile){return modeOptions(platform,profile).find(o=>o.value===mode)?.label || 'Local draft';}
+export function modeLabel(platform:string,mode:string,profile?:Profile){if(platform==='tiktok'&&mode==='publish')return 'Direct Post';return modeOptions(platform,profile).find(o=>o.value===mode)?.label || 'Local draft';}
 export function draftBlocker(d:Draft|undefined,p:Profile|undefined,episode:Episode,video:Video):string {
   if(!p)return 'Connect account';
   if(!d?.revision)return 'Save a draft';
   if(d.key.account!==accountKey(p))return 'Account changed';
   if(!d.title.trim()&&!d.description.trim()&&!d.hashtags.trim())return 'Add post text';
+  if(d.key.platform==='tiktok'&&d.deliveryMode==='publish'&&!p.directPost)return 'Enable Direct Post and reconnect this account with video.publish';
   if(!postApproved(d))return 'Approve this account’s post';
   if(localDraft(d))return '';
   if(d.key.platform==='youtube'&&!d.title.trim())return 'Add a YouTube title';
@@ -32,7 +34,7 @@ export type TransferReceipt={state:string;reference:string;retryAllowed:boolean}
 export function receiptBlocker(d:Draft,r:TransferReceipt):string {
   if(!r.state)return '';
   if(d.key.platform==='youtube' && ['private','sent'].includes(r.state))return d.deliveryMode==='publish'?'':'Already uploaded privately';
-  if(['published','inbox','sent'].includes(r.state))return 'Already sent';
+  if(['published','inbox','sent','private','restricted'].includes(r.state))return 'Already sent';
   return 'Check the previous attempt';
 }
 // Both entry points use the same provider actions and durable backend receipts.
@@ -51,7 +53,7 @@ export async function transfer(d:Draft,p:Profile,r:TransferReceipt,confirmed:boo
 }
 
 export function modeHint(platform:string,mode:string,p?:Profile){
- if(platform==='tiktok')return 'Videos go to your TikTok inbox. Finish posting in TikTok; Direct Post is not implemented in Publisher.';
+ if(platform==='tiktok')return mode==='publish'?'Post directly with the privacy you choose in the confirmation dialog. TikTok approval and video.publish are required.':p?.directPost?'Send to the TikTok inbox and finish posting there.':'Inbox only. Enable Direct Post in Settings and reconnect this account with video.publish to unlock direct posting.';
  if(mode!=='publish')return platform==='youtube'?'Uploads a private YouTube video. It will not be public.':'Keeps the post on this PC. No video is sent to this platform.';
  if(platform==='x')return p?.api?'Publishes through your paid X API connection. You must confirm API charges before sending.':'Opens X with your text and copies the video path. You attach the video and finish posting in X.';
  return platform==='youtube'?'Makes the video public on this YouTube channel.':'Publishes a Reel on this Instagram account.';

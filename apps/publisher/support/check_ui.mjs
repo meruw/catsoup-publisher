@@ -39,6 +39,11 @@ const server = await createServer({
       const none = {state:'',reference:'',retryAllowed:false};
       const receipts = new Map(); window.__clearReceipts=()=>receipts.clear();window.__sendCalls=[]; const profiles = () => JSON.parse(localStorage.getItem('account-fixture') || '[]');
       export const uploads = {
+        tikTokDirectEnabled:async()=>!!window.__tikTokDirect,
+        setTikTokDirectEnabled:async enabled=>{window.__tikTokDirect=enabled},
+        tikTokPolicy:async policy=>{window.__tikTokPolicy=policy},
+        tikTokCreator:async()=>({creator_username:'catsoup_es',creator_nickname:'CATsoup ES',privacy_level_options:['SELF_ONLY','PUBLIC_TO_EVERYONE'],comment_disabled:false,duet_disabled:true,stitch_disabled:false,max_video_post_duration_sec:300}),
+        sendTikTok:async(key,revision,id,confirmed,options)=>{window.__sendCalls.push({key,revision,id,confirmed,options});const receipt={state:options.privacy==='SELF_ONLY'?'private':'published',reference:'direct-fixture',retryAllowed:false};receipts.set(id,receipt);return receipt;},
         metaCallback: async () => localStorage.getItem('meta-callback-fixture') || '',
         enableHostedMetaCallback: async () => {const url='https://publisher.meruw.dev/auth/meta/';localStorage.setItem('meta-callback-fixture',url);return url;},
         setMetaCallback: async url => {localStorage.setItem('meta-callback-fixture',url);return url;},
@@ -199,7 +204,7 @@ try {
   assert(await page.getByLabel('Title',{exact:true}).isVisible());
   assert(await page.getByLabel('TikTok delivery mode',{exact:true}).isDisabled());
   await page.locator('.post-mode').hover();
-  await page.getByRole('tooltip').filter({hasText:'Direct Post is not implemented'}).waitFor();
+  await page.getByRole('tooltip').filter({hasText:'Inbox only. Enable Direct Post'}).waitFor();
   await page.keyboard.press('Escape');
   await platformPicker.selectOption('youtube');
   const tip=page.locator('.approval-control');
@@ -660,6 +665,67 @@ try {
   await batch.getByText(/Every connected account needs a current approval|A draft or account changed/).waitFor();
   assert.equal((await page.evaluate(()=>window.__sendCalls)).length,0);
   await closePublishing();
+  // Direct Post is offered only after the account grants video.publish.
+  await page.evaluate(()=>{
+    window.__clearReceipts();window.__sendCalls=[];
+    const rows=JSON.parse(localStorage.getItem('account-fixture'));
+    rows.find(p=>p.platform==='tiktok'&&p.language==='es').directPost=true;
+    localStorage.setItem('account-fixture',JSON.stringify(rows));
+  });
+  await page.getByRole('button',{name:'Refresh',exact:true}).click();
+  await page.getByLabel('Post platform',{exact:true}).selectOption('tiktok');
+  await page.getByLabel('TikTok delivery mode',{exact:true}).selectOption('publish');
+  await review();await step('Publish');
+  const direct=page.getByRole('dialog');
+  await direct.getByLabel('Who can watch').waitFor();
+  assert.equal(await direct.getByLabel('Who can watch').inputValue(),'');
+  for(const name of ['Allow comments','Allow Stitch'])assert.equal(await direct.getByLabel(name,{exact:true}).isChecked(),false);
+  assert(await direct.getByLabel('Allow Duet',{exact:true}).isDisabled());
+  assert(await direct.getByRole('button',{name:'Post on TikTok',exact:true}).isDisabled());
+  await direct.getByLabel('Who can watch').selectOption('PUBLIC_TO_EVERYONE');
+  await direct.getByLabel('This post promotes a brand, product or service').check();
+  await direct.getByRole('checkbox',{name:/By posting/}).check();
+  await direct.getByRole('checkbox',{name:/I confirm Fixture es and/}).check();
+  assert(await direct.getByRole('button',{name:'Post on TikTok',exact:true}).isDisabled());
+  await direct.getByLabel('Branded content · Paid partnership').check();
+  assert(await direct.locator('#tiktok-privacy option[value="SELF_ONLY"]').isDisabled());
+  await direct.getByRole('button',{name:'Branded Content Policy',exact:true}).click();
+  assert.equal(await page.evaluate(()=>window.__tikTokPolicy),'branded');
+  await direct.getByLabel('This post promotes a brand, product or service').uncheck();
+  await direct.getByLabel('Who can watch').selectOption('SELF_ONLY');
+  assert(await direct.getByLabel('Branded content · Paid partnership').count()===0);
+  await direct.getByRole('checkbox',{name:/By posting/}).check();
+  await direct.getByRole('checkbox',{name:/I confirm Fixture es and/}).check();
+  await page.screenshot({path:path.join(output,'publish-tiktok-direct.png')});
+  await direct.getByRole('button',{name:'Post on TikTok',exact:true}).click();
+  await direct.getByText('Posted · Only me',{exact:true}).waitFor();
+  const directCall=(await page.evaluate(()=>window.__sendCalls)).at(-1);
+  assert.equal(directCall.options.privacy,'SELF_ONLY');assert.equal(directCall.options.branded,false);
+  await closePublishing();
+  await page.evaluate(()=>{const rows=JSON.parse(localStorage.getItem('account-fixture'));rows.find(p=>p.platform==='tiktok'&&p.language==='es').directPost=false;localStorage.setItem('account-fixture',JSON.stringify(rows));});
+  await page.getByRole('button',{name:'Refresh',exact:true}).click();
+  await page.getByLabel('Post platform',{exact:true}).selectOption('tiktok');
+  assert.equal(await page.getByLabel('TikTok delivery mode',{exact:true}).inputValue(),'publish');
+  await page.getByLabel('TikTok delivery mode',{exact:true}).selectOption('draft');
+  await page.getByText('Saved locally',{exact:true}).waitFor();
+  assert(await page.getByLabel('TikTok delivery mode',{exact:true}).isDisabled());
+  await page.getByRole('button',{name:'Posts',exact:true}).click();
+  await page.getByRole('heading',{name:'Posts',exact:true}).waitFor();
+  await page.locator('.posts-table tbody tr').first().waitFor();
+  await page.locator('.posts-toolbar summary').click();
+  await page.getByLabel('Filter language').selectOption('en');
+  await page.waitForTimeout(300);
+  assert.equal(await page.locator('.posts-table tbody tr').filter({hasText:' · ES'}).count(),0);
+  await page.getByRole('button',{name:'Reset filters'}).click();
+  await page.getByLabel('Search posts').fill('no-such-video');
+  await page.getByText('No matching posts',{exact:true}).waitFor();
+  await page.getByLabel('Search posts').fill('');
+  await page.locator('.posts-table tbody tr').first().waitFor();
+  await page.screenshot({path:path.join(output,'posts-overview.png')});
+  await page.locator('.post-title').first().click();
+  await page.getByRole('dialog').waitFor();
+  await page.keyboard.press('Escape');
+  assert.equal(await page.getByRole('dialog').count(),0);
   await checkDiagnostics(page,output);
   await page.getByRole('button',{name:'Publisher',exact:true}).click();
   await page.evaluate(() => { window.__empty = true; });
@@ -667,7 +733,7 @@ try {
   await page.getByRole('heading', { name: 'No delivery to preview' }).waitFor();
   assert.equal(await page.locator('video').count(), 0);
   assert.deepEqual(errors, []);
-  const report = { passed: true, checks: ['per-account publishing defaults, language isolation and failed-save recovery', 'hover and keyboard tooltips without help buttons', 'account ID isolation with identical names', 'saved per-account delivery modes', 'batch language routing, duplicate protection, preflight and stop on failure', 'visible save action', 'native dialog focus, Escape and busy dismissal guard', 'minimal composer and folded secondary actions', 'per-account approval persistence and edit invalidation', 'review and approval gates', 'private/public modes and same-ID promotion', 'per-destination receipts and duplicate prevention', 'ES/EN decode and playback', 'seek', 'variant selection', 'refresh keeps language', 'non-publishable state', 'empty state', '1200/820px layout', 'module navigation', 'window controls with fixture adapter', 'draft autosave and reload', 'language/platform/account isolation', 'typing during save', 'failed saves block navigation and close', 'conflict recovery', 'delivery change and explicit rebind', 'copy/reveal adapters', 'close flush', 'diagnostics search and filters', 'attempt grouping and export', 'history pagination and pause', 'live diagnostics and keyboard access', 'console collapse and expansion preserve filters', 'no JS errors'], native: false };
+  const report = { passed: true, checks: ['post overview search, filters and detail dialog', 'TikTok Direct Post explicit privacy, disabled interactions, commercial disclosures and private receipts', 'per-account publishing defaults, language isolation and failed-save recovery', 'hover and keyboard tooltips without help buttons', 'account ID isolation with identical names', 'saved per-account delivery modes', 'batch language routing, duplicate protection, preflight and stop on failure', 'visible save action', 'native dialog focus, Escape and busy dismissal guard', 'minimal composer and folded secondary actions', 'per-account approval persistence and edit invalidation', 'review and approval gates', 'private/public modes and same-ID promotion', 'per-destination receipts and duplicate prevention', 'ES/EN decode and playback', 'seek', 'variant selection', 'refresh keeps language', 'non-publishable state', 'empty state', '1200/820px layout', 'module navigation', 'window controls with fixture adapter', 'draft autosave and reload', 'language/platform/account isolation', 'typing during save', 'failed saves block navigation and close', 'conflict recovery', 'delivery change and explicit rebind', 'copy/reveal adapters', 'close flush', 'diagnostics search and filters', 'attempt grouping and export', 'history pagination and pause', 'live diagnostics and keyboard access', 'console collapse and expansion preserve filters', 'no JS errors'], native: false };
   await writeFile(path.join(output, 'report.json'), JSON.stringify(report, null, 2));
   console.log(JSON.stringify(report));
 } catch (error) {
