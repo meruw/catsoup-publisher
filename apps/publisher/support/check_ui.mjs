@@ -198,11 +198,11 @@ try {
   await page.waitForFunction(()=>document.querySelector('#post-platform')?.value==='tiktok');
   assert(await page.getByLabel('Title',{exact:true}).isVisible());
   assert(await page.getByLabel('TikTok delivery mode',{exact:true}).isDisabled());
-  await page.locator('.destination-mode .help-tip button').focus();
+  await page.locator('.post-mode').hover();
   await page.getByRole('tooltip').filter({hasText:'Direct Post is not implemented'}).waitFor();
   await page.keyboard.press('Escape');
   await platformPicker.selectOption('youtube');
-  const tip=page.locator('.approval-control .help-tip button');
+  const tip=page.locator('.approval-control');
   await tip.focus();
   assert(await page.getByRole('tooltip').filter({hasText:'Add post text first'}).isVisible());
   await page.keyboard.press('Escape');
@@ -223,7 +223,7 @@ try {
   await review();
   assert(await page.locator('#open-publishing').isDisabled(),'PoC remains non-publicable even when locally approved');
   assert(await page.locator('#publish-all').isDisabled(),'other accounts still need approval');
-  await page.locator('.selected-send .help-tip button').focus();
+  await page.locator('.selected-send').focus();
   await page.getByRole('tooltip').filter({hasText:'production manifest'}).waitFor();
   await page.screenshot({path:path.join(output,'publish-blocked.png')});
   await page.keyboard.press('Escape');
@@ -328,6 +328,9 @@ try {
   await page.getByRole('button',{name:'Settings',exact:true}).click();
   await page.getByRole('heading',{name:'Settings',exact:true}).waitFor();
   assert.equal(await page.getByText('Not configured',{exact:true}).count(),0);
+  const defaults=page.getByRole('region',{name:'Publishing defaults',exact:true});
+  assert(await defaults.isVisible());
+  assert(await defaults.getByLabel('YouTube default mode',{exact:true}).isDisabled(),'unconnected account cannot set defaults');
   const overview=page.getByRole('region',{name:'Developer credentials',exact:true});
   const headerBox=await page.getByRole('heading',{name:'Settings',exact:true}).locator('..').boundingBox();
   const titleBox=await overview.getByRole('heading').boundingBox();
@@ -433,6 +436,24 @@ try {
       await row.getByText('Account details').click();
     }
   }
+  await page.getByRole('button',{name:'Settings',exact:true}).click();
+  const prefs=page.getByRole('region',{name:'Publishing defaults',exact:true});
+  await prefs.getByLabel('YouTube default mode',{exact:true}).selectOption('publish');
+  await prefs.getByText('Default saved for Fixture es',{exact:true}).waitFor();
+  const beforeDefaults=await page.evaluate(()=>JSON.parse(localStorage.getItem('draft-fixture')));
+  await prefs.getByRole('button',{name:'English defaults',exact:true}).click();
+  assert.equal(await prefs.getByLabel('YouTube default mode',{exact:true}).inputValue(),'draft');
+  await prefs.getByRole('button',{name:'Spanish defaults',exact:true}).click();
+  assert.equal(await prefs.getByLabel('YouTube default mode',{exact:true}).inputValue(),'publish');
+  await page.evaluate(()=>window.__defaultFail=true);
+  await prefs.getByLabel('YouTube default mode',{exact:true}).selectOption('draft');
+  await prefs.getByText(/Simulated preference failure/).waitFor();
+  assert.equal(await page.getByLabel('YouTube default mode',{exact:true}).inputValue(),'publish','failed preference save restores the stored value');
+  await page.evaluate(()=>window.__defaultFail=false);
+  await prefs.getByLabel('YouTube default mode',{exact:true}).selectOption('draft');
+  await prefs.getByText('Default saved for Fixture es',{exact:true}).waitFor();
+  assert.deepEqual(await page.evaluate(()=>JSON.parse(localStorage.getItem('draft-fixture'))),beforeDefaults,'preferences never change saved posts');
+  await page.screenshot({path:path.join(output,'settings-publishing-defaults.png')});
   await page.getByRole('button',{name:'Publisher',exact:true}).click();
   await page.getByRole('button',{name:'English',exact:true}).click();
   await step('Prepare');
@@ -573,7 +594,7 @@ try {
   }
   await page.getByRole('button',{name:'Undo approval',exact:true}).click();
   assert(await page.locator('#publish-all').isDisabled(),'one missing approval blocks the entire batch');
-  await page.locator('.batch-header-action .help-tip button').focus();
+  await page.locator('.batch-header-action').focus();
   await page.getByRole('tooltip').filter({hasText:'Approval needed: X'}).waitFor();
   await page.keyboard.press('Escape');
   await review();
@@ -581,7 +602,9 @@ try {
   await page.getByRole('dialog').getByRole('button',{name:'Reload saved draft',exact:true}).click();
   await page.getByText('Saved draft restored',{exact:true}).waitFor();
   await page.getByRole('button',{name:'Refresh',exact:true}).click();
+  await page.getByLabel('Post platform',{exact:true}).selectOption('instagram');
   assert.equal(await page.getByLabel('Instagram delivery mode',{exact:true}).inputValue(),'publish');
+  await page.getByLabel('Post platform',{exact:true}).selectOption('x');
   assert.equal(await page.getByLabel('X delivery mode',{exact:true}).inputValue(),'draft');
   await page.evaluate(()=>{window.__clearReceipts();window.__sendCalls=[];window.__sendDelay=150;});
   await page.getByRole('button',{name:'Publish all…',exact:true}).click();
@@ -644,7 +667,7 @@ try {
   await page.getByRole('heading', { name: 'No delivery to preview' }).waitFor();
   assert.equal(await page.locator('video').count(), 0);
   assert.deepEqual(errors, []);
-  const report = { passed: true, checks: ['account ID isolation with identical names', 'saved per-account delivery modes', 'batch language routing, duplicate protection, preflight and stop on failure', 'visible save action', 'native dialog focus, Escape and busy dismissal guard', 'minimal composer and folded secondary actions', 'per-account approval persistence and edit invalidation', 'review and approval gates', 'private/public modes and same-ID promotion', 'per-destination receipts and duplicate prevention', 'ES/EN decode and playback', 'seek', 'variant selection', 'refresh keeps language', 'non-publishable state', 'empty state', '1200/820px layout', 'module navigation', 'window controls with fixture adapter', 'draft autosave and reload', 'language/platform/account isolation', 'typing during save', 'failed saves block navigation and close', 'conflict recovery', 'delivery change and explicit rebind', 'copy/reveal adapters', 'close flush', 'diagnostics search and filters', 'attempt grouping and export', 'history pagination and pause', 'live diagnostics and keyboard access', 'console collapse and expansion preserve filters', 'no JS errors'], native: false };
+  const report = { passed: true, checks: ['per-account publishing defaults, language isolation and failed-save recovery', 'hover and keyboard tooltips without help buttons', 'account ID isolation with identical names', 'saved per-account delivery modes', 'batch language routing, duplicate protection, preflight and stop on failure', 'visible save action', 'native dialog focus, Escape and busy dismissal guard', 'minimal composer and folded secondary actions', 'per-account approval persistence and edit invalidation', 'review and approval gates', 'private/public modes and same-ID promotion', 'per-destination receipts and duplicate prevention', 'ES/EN decode and playback', 'seek', 'variant selection', 'refresh keeps language', 'non-publishable state', 'empty state', '1200/820px layout', 'module navigation', 'window controls with fixture adapter', 'draft autosave and reload', 'language/platform/account isolation', 'typing during save', 'failed saves block navigation and close', 'conflict recovery', 'delivery change and explicit rebind', 'copy/reveal adapters', 'close flush', 'diagnostics search and filters', 'attempt grouping and export', 'history pagination and pause', 'live diagnostics and keyboard access', 'console collapse and expansion preserve filters', 'no JS errors'], native: false };
   await writeFile(path.join(output, 'report.json'), JSON.stringify(report, null, 2));
   console.log(JSON.stringify(report));
 } catch (error) {

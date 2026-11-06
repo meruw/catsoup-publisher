@@ -113,12 +113,12 @@ not merge the independent Trends backend or introduce an unimplemented module.
 
 Keep the shell lightweight: no UI framework additions, icon library, animation
 library, router or background module loading for this layout. The three window
-symbols are inline SVG paths. The design catalog is a separate entry and is not
+symbols are selected, statically bundled Lucide SVGs with ISC/MIT notices; no icon runtime is installed. The design catalog is a separate entry and is not
 loaded by the Publisher page.
 
 ## Source of truth and preview
 
-The workspace places video and text side by side. Version selection stays below the player. The selected account owns its draft and approval; its send action describes the actual delivery mode. Save and restore remain visible. Publish all stays in the scrolling workspace header, with an adjacent keyboard-accessible information tooltip for blockers.
+The workspace places video and text side by side. Version selection stays below the player. The selected account owns its draft and approval; its send action describes the actual delivery mode. Save and restore remain visible. Publish all stays in the scrolling workspace header, with a hover/focus tooltip on the control explaining blockers. Disabled controls use a focusable wrapper; no separate information icon is shown.
 
 Technical file details and copy tools use disclosure. Approval is a deliberate post action, separate from saving. Saved, unsaved, approved and error states use text as well as color. Failed saves retain edits; restoring saved text is explicit. Use the shared fields and buttons, without cards or an icon framework.
 
@@ -168,3 +168,5 @@ its status without asking the user to repeat the same confirmation.
 
 Design process informed by [Unslop](https://github.com/heydamir/unslop), by Damir
 Sokolovsky, CC BY 4.0. CATsoup's paw artwork was supplied separately by the owner.
+
+Publishing defaults belong in Settings, scoped to the connected account and language. In the composer, place the account selector first, its current mode and individual send action next, then the text fields. Group Save draft, Restore draft and Approve post below the fields. Keep language, refresh and Publish all in the header, with spacing separating navigation from sending. Use the shared `UiTooltip` for contextual help and `UiIcon` for the pinned Lucide symbols; icons are decorative when their button already has an accessible label.

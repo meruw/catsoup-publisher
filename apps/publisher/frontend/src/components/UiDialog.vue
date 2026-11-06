@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import UiIcon from './UiIcon.vue';
 import {onMounted,onBeforeUnmount,ref} from 'vue';
 import UiButton from './UiButton.vue';
 const props=defineProps<{title:string;busy?:boolean;returnFocusId?:string}>();
@@ -15,7 +16,7 @@ onBeforeUnmount(()=>{
 </script>
 <template>
   <dialog ref="dialog" class="ui-dialog" aria-labelledby="publish-dialog-title" @cancel.prevent="close">
-    <header><h2 id="publish-dialog-title">{{title}}</h2><UiButton variant="quiet" size="compact" :disabled="busy" aria-label="Close publishing options" title="Close" @click="close"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></UiButton></header>
+    <header><h2 id="publish-dialog-title">{{title}}</h2><UiButton variant="quiet" size="compact" :disabled="busy" aria-label="Close publishing options" title="Close" @click="close"><UiIcon name="close"/></UiButton></header>
     <slot/>
   </dialog>
 </template>

@@ -156,7 +156,7 @@ func (s *Store) migrate() error {
 	if err = tx.QueryRowContext(ctx, "SELECT version FROM schema_version WHERE id=1").Scan(&version); err != nil {
 		return err
 	}
-	if version > 6 || version < 0 {
+	if version > 7 || version < 0 {
 		return errors.New("unsupported schema version; use a compatible Publisher build")
 	}
 	if version == 0 {
@@ -211,6 +211,11 @@ func (s *Store) migrate() error {
 			return err
 		}
 	}
+	if version < 7 {
+		if _, err = tx.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS publishing_defaults(platform TEXT NOT NULL,language TEXT NOT NULL,account_id TEXT NOT NULL,mode TEXT NOT NULL CHECK(mode IN ('draft','publish')),PRIMARY KEY(platform,language,account_id)); UPDATE schema_version SET version=7 WHERE id=1;`); err != nil {
+			return err
+		}
+	}
 	return tx.Commit()
 }
 
@@ -226,7 +231,8 @@ func (s *Store) Get(ctx context.Context, k Key) (Draft, error) {
 	}
 	d, err := scan(s.db.QueryRowContext(ctx, "SELECT "+columns+" FROM drafts WHERE episode=? AND language=? AND platform=? AND account=?", k.Episode, k.Language, k.Platform, k.Account))
 	if errors.Is(err, sql.ErrNoRows) {
-		return Draft{Key: k, DeliveryMode: "draft"}, nil
+		mode, modeErr := s.DefaultMode(ctx, k)
+		return Draft{Key: k, DeliveryMode: mode}, modeErr
 	}
 	return d, err
 }

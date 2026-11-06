@@ -36,6 +36,10 @@ export function GetDraft(key: drafts$0.Key): $CancellablePromise<drafts$0.Draft>
     return $Call.ByID(2170648933, key);
 }
 
+export function GetPublishingDefaults(): $CancellablePromise<drafts$0.PublishingDefault[] | null> {
+    return $Call.ByID(2264742973);
+}
+
 export function GetReview(episode: string, language: string, video: string): $CancellablePromise<drafts$0.Review> {
     return $Call.ByID(2133563182, episode, language, video);
 }
@@ -61,4 +65,8 @@ export function SaveReview(input: drafts$0.Review, confirmed: boolean): $Cancell
  */
 export function SetPostApproval(key: drafts$0.Key, revision: number, approved: boolean): $CancellablePromise<drafts$0.Draft> {
     return $Call.ByID(383607575, key, revision, approved);
+}
+
+export function SetPublishingDefault(p: drafts$0.PublishingDefault): $CancellablePromise<void> {
+    return $Call.ByID(3120405992, p);
 }

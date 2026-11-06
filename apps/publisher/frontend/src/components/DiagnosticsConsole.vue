@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import UiIcon from './UiIcon.vue';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { diagnostics, type DiagnosticEvent, type DiagnosticQuery } from '../services/diagnostics';
 import UiButton from './UiButton.vue';
@@ -223,7 +224,7 @@ onUnmounted(() => {
    @pointerdown="beginResize" @pointermove="drag" @pointerup="dragStart=null" @lostpointercapture="dragStart=null"
    @keydown.up.prevent="resize(32)" @keydown.down.prevent="resize(-32)"></div>
   <header class="console-header">
-   <div class="console-heading"><button class="console-title" :aria-label="collapsed ? 'Open console panel' : 'Collapse console'" :aria-expanded="!collapsed" @click="collapsed=!collapsed"><svg viewBox="0 0 16 16" aria-hidden="true" :class="{folded:collapsed}"><path d="m4 6 4 4 4-4"/></svg><span>Console</span></button>
+   <div class="console-heading"><button class="console-title" :aria-label="collapsed ? 'Open console panel' : 'Collapse console'" :aria-expanded="!collapsed" @click="collapsed=!collapsed"><UiIcon name="chevron" :class="{folded:collapsed}"/><span>Console</span></button>
     <span class="stream-state" :class="{paused:!live}" role="status" :title="!live ? 'Display paused; recording continues' : (collapsed ? 'Display folded; recording continues' : 'Events update automatically')">{{ !live ? 'Paused' : (collapsed ? 'Folded' : '● Live') }}</span>
     <span v-if="filterCount" class="filter-count">{{ filterCount }} {{ filterCount===1 ? 'filter' : 'filters' }}</span>
    </div>
@@ -332,8 +333,8 @@ onUnmounted(() => {
 .console-header {height:36px;border-bottom:1px solid var(--line);background:var(--sidebar)}
 .collapsed .console-header {border-bottom:0}
 .console-title {display:flex;align-items:center;gap:8px;background:transparent;border:0;padding:4px 0;font:inherit;color:var(--text)}
-.console-title svg {width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.5}
-.console-title svg.folded {transform:rotate(-90deg)}
+.console-title .ui-icon {width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.5}
+.console-title .ui-icon.folded {transform:rotate(-90deg)}
 .console-actions {display:flex;gap:4px;align-items:center;flex-wrap:wrap}
 .console-heading {display:flex;align-items:center;gap:12px;min-width:0}
 .stream-state {color:#a7c5b0;white-space:nowrap}

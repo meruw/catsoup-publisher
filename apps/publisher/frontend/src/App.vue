@@ -8,7 +8,8 @@ import SettingsPage from './components/SettingsPage.vue';
 import type { SetupPlatform } from './services/uploads';
 import AccountManager from './components/AccountManager.vue';
 import PublicationDraft from './components/PublicationDraft.vue';
-import UiHelp from './components/UiHelp.vue';
+import UiTooltip from './components/UiTooltip.vue';
+import UiIcon from './components/UiIcon.vue';
 import { drafts } from './services/drafts';
 import { publisher, mediaURL, type Entry, type Episode } from './services/publisher';
 
@@ -141,9 +142,10 @@ onUnmounted(() => {stopCloseListener?.();window.removeEventListener('keydown',di
       <header class="page-header">
         <h1>{{ episode?.title || 'Publisher' }}</h1>
         <div class="page-actions">
-          <div v-if="episode" class="batch-header-action"><UiButton id="publish-all" variant="primary" :disabled="navigating || transferBusy || !editor || !!editor.batchBlocker" @click="editor?.publishAll()">Publish all…</UiButton><UiHelp symbol="i" :text="editor?.batchBlocker || 'Confirm delivery to all connected accounts for the selected language, using each saved mode.'"/></div>
+
           <UiSegmented v-if="episode" :model-value="language" label="Workspace language" :disabled="navigating" :options="(episode.languages || []).map(lang => ({value:lang,label:lang.toUpperCase(),accessibleLabel:languageName(lang)}))" @update:model-value="lang=>navigate(()=>chooseLanguage(lang))"/>
-          <UiButton variant="quiet" :busy="busy" :disabled="navigating" aria-label="Refresh" title="Refresh delivery files" @click="navigate(refresh)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5M6 7a7 7 0 0 1 12-1l2 3M4 15l2 3a7 7 0 0 0 12-1"/></svg></UiButton>
+          <UiTooltip text="Refresh delivery files" :disabled="navigating"><UiButton variant="quiet" :busy="busy" :disabled="navigating" aria-label="Refresh" @click="navigate(refresh)"><UiIcon name="refresh"/></UiButton></UiTooltip>
+          <UiTooltip v-if="episode" class="batch-header-action" :disabled="navigating || transferBusy || !editor || !!editor.batchBlocker" :text="editor?.batchBlocker || 'Confirm delivery to all connected accounts in this language, using each post’s saved mode.'"><UiButton id="publish-all" variant="primary" :disabled="navigating || transferBusy || !editor || !!editor.batchBlocker" @click="editor?.publishAll()">Publish all…</UiButton></UiTooltip>
         </div>
       </header>
       <div v-if="error" class="notice error" role="alert">{{ error }}</div>
@@ -158,7 +160,7 @@ onUnmounted(() => {stopCloseListener?.();window.removeEventListener('keydown',di
                 <option v-for="v in variants" :key="v.id" :value="v.id">{{ v.kind === 'final' ? 'Final' : 'Clean' }} · {{ v.narration ? 'with narration' : 'no narration' }}</option>
               </select>
             </div>
-            <div v-if="!episode.ready" class="production-lock"><span>Production approval missing</span><UiHelp symbol="i" :text="(episode.reason ? episode.reason+' ' : '')+'This delivery is not authorized for upload. Approval comes from its production manifest. Approve the delivery in the production project and refresh Publisher; test deliveries remain preview-only.'"/></div>
+            <UiTooltip v-if="!episode.ready" class="production-lock" :disabled="true" :text="(episode.reason ? episode.reason+' ' : '')+'This delivery is not authorized for upload. Approve it in the production project and refresh Publisher. Test deliveries remain preview-only.'"><span>Production approval missing</span></UiTooltip>
             <details class="delivery-check"><summary>Video details</summary>
             <div v-if="video" class="video-specs mono" aria-label="Video specifications">
               <span>{{ video.measured.resolution }}</span><span>{{ video.measured.fps }} fps</span><span>{{ video.measured.duration_s }} s</span>
