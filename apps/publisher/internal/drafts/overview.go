@@ -40,9 +40,9 @@ func (s *Store) PostStatuses(ctx context.Context, f PostFilter) (PostPage, error
 		return out, err
 	}
 	rows, err := s.db.QueryContext(ctx, postSnapshotSQL+` SELECT episode,language,platform,account,title,video_id,delivery_mode,account_name,connected,status,reference,updated FROM posts
- WHERE (?='' OR episode=?) AND (?='' OR platform=?) AND (?='' OR language=?) AND (?='' OR status=?)
+ WHERE (?='' OR episode=?) AND (?='' OR platform=?) AND (?='' OR language=?) AND (?='' OR status IN (SELECT value FROM json_each(?)))
  AND (?='' OR instr(lower(title||' '||episode||' '||account_name||' '||account),lower(?))>0)
- ORDER BY updated DESC,episode,language,platform,account LIMIT 51 OFFSET ?`, time.Now().Add(-30*time.Minute).Unix(), f.Episode, f.Episode, f.Platform, f.Platform, f.Language, f.Language, f.State, f.State, f.Search, f.Search, f.Offset)
+ ORDER BY updated DESC,episode,language,platform,account LIMIT 51 OFFSET ?`, time.Now().Add(-30*time.Minute).Unix(), f.Episode, f.Episode, f.Platform, f.Platform, f.Language, f.Language, f.State, postStateValues(f.State), f.Search, f.Search, f.Offset)
 	if err != nil {
 		return out, err
 	}
@@ -81,11 +81,25 @@ func validatePostFilter(f PostFilter) error {
 	if f.Language != "" && f.Language != "es" && f.Language != "en" {
 		return errors.New("invalid language")
 	}
-	if f.State != "" && !slices.Contains([]string{"draft", "approved", "published", "private", "restricted", "inbox", "sending", "check", "failed"}, f.State) {
+	if f.State != "" && !slices.Contains([]string{"draft", "approved", "published", "private", "restricted", "inbox", "sending", "check", "failed", "unsent", "active", "delivered", "attention"}, f.State) {
 		return errors.New("invalid status")
 	}
 
 	return nil
+}
+
+// Filter categories do not change the precise receipt state returned to the UI.
+func postStateValues(state string) string {
+	states := map[string][]string{
+		"unsent": {"draft", "approved"}, "active": {"sending"},
+		"delivered": {"published", "private", "restricted", "inbox"},
+		"attention": {"failed", "check"},
+	}[state]
+	if states == nil {
+		states = []string{state}
+	}
+	raw, _ := json.Marshal(states)
+	return string(raw)
 }
 
 const postSnapshotSQL = `WITH posts AS (
@@ -102,6 +116,7 @@ const postSnapshotSQL = `WITH posts AS (
  )`
 
 type PostGroup struct {
+	VideoID   string         `json:"videoId"`
 	Episode   string         `json:"episode"`
 	Title     string         `json:"title"`
 	Languages string         `json:"languages"`
@@ -125,14 +140,14 @@ func (s *Store) PostGroups(ctx context.Context, f PostFilter) (PostGroupPage, er
 	matched, _ := json.Marshal(f.EpisodeMatches)
 	rows, err := s.db.QueryContext(ctx, postSnapshotSQL+`, matching AS (
  SELECT episode FROM posts
- WHERE (?='' OR episode=?) AND (?='' OR platform=?) AND (?='' OR language=?) AND (?='' OR status=?)
+ WHERE (?='' OR episode=?) AND (?='' OR platform=?) AND (?='' OR language=?) AND (?='' OR status IN (SELECT value FROM json_each(?)))
  AND (?='' OR instr(lower(title||' '||episode||' '||account_name||' '||account),lower(?))>0 OR episode IN (SELECT value FROM json_each(?)))
  ), selected AS (SELECT episode FROM posts WHERE episode IN (SELECT episode FROM matching)
  GROUP BY episode ORDER BY MAX(updated) DESC,episode LIMIT 21 OFFSET ?
- ) SELECT episode,MIN(title),GROUP_CONCAT(DISTINCT language),COUNT(DISTINCT platform),COUNT(*),
+ ) SELECT episode,MIN(title),MIN(video_id),GROUP_CONCAT(DISTINCT language),COUNT(DISTINCT platform),COUNT(*),
  SUM(status='draft'),SUM(status='approved'),SUM(status='published'),SUM(status='private'),SUM(status='restricted'),SUM(status='inbox'),SUM(status='sending'),SUM(status='check'),SUM(status='failed'),MAX(updated)
  FROM posts WHERE episode IN (SELECT episode FROM selected) GROUP BY episode ORDER BY MAX(updated) DESC,episode`,
-		time.Now().Add(-30*time.Minute).Unix(), f.Episode, f.Episode, f.Platform, f.Platform, f.Language, f.Language, f.State, f.State, f.Search, f.Search, string(matched), f.Offset)
+		time.Now().Add(-30*time.Minute).Unix(), f.Episode, f.Episode, f.Platform, f.Platform, f.Language, f.Language, f.State, postStateValues(f.State), f.Search, f.Search, string(matched), f.Offset)
 	if err != nil {
 		return out, err
 	}
@@ -141,7 +156,7 @@ func (s *Store) PostGroups(ctx context.Context, f PostFilter) (PostGroupPage, er
 		var p PostGroup
 		var counts [9]int
 		var updated int64
-		if err = rows.Scan(&p.Episode, &p.Title, &p.Languages, &p.Platforms, &p.Total, &counts[0], &counts[1], &counts[2], &counts[3], &counts[4], &counts[5], &counts[6], &counts[7], &counts[8], &updated); err != nil {
+		if err = rows.Scan(&p.Episode, &p.Title, &p.VideoID, &p.Languages, &p.Platforms, &p.Total, &counts[0], &counts[1], &counts[2], &counts[3], &counts[4], &counts[5], &counts[6], &counts[7], &counts[8], &updated); err != nil {
 			return out, err
 		}
 		p.Counts = map[string]int{}

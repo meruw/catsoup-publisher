@@ -141,3 +141,43 @@ func TestPostGroupsKeepAllDestinationsTogether(t *testing.T) {
 		t.Fatal("unrelated episode leaked", details, err)
 	}
 }
+
+func TestPostFilterCategories(t *testing.T) {
+	s := openTest(t, filepath.Join(t.TempDir(), "drafts.sqlite"))
+	ctx := context.Background()
+	d := sample()
+	d.Key.Account = "account:category-test"
+	if _, err := s.Save(ctx, d); err != nil {
+		t.Fatal(err)
+	}
+	page, err := s.PostGroups(ctx, PostFilter{State: "unsent"})
+	if err != nil || len(page.Items) != 1 || page.Items[0].VideoID != d.VideoID {
+		t.Fatal(page, err)
+	}
+	_, err = s.db.Exec("INSERT INTO upload_attempts VALUES(?,?,?,'published','remote',?)", d.Key.Platform, "category-test", d.VideoHash, time.Now().Unix())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct{ state, category string }{
+		{"published", "delivered"}, {"private", "delivered"}, {"restricted", "delivered"}, {"inbox", "delivered"},
+		{"sending", "active"}, {"failed", "attention"}, {"check", "attention"},
+	} {
+		if _, err = s.db.Exec("UPDATE upload_attempts SET state=?", tc.state); err != nil {
+			t.Fatal(err)
+		}
+		for _, filter := range []string{"unsent", "active", "delivered", "attention"} {
+			groups, e := s.PostGroups(ctx, PostFilter{State: filter})
+			details, de := s.PostStatuses(ctx, PostFilter{State: filter})
+			want := 0
+			if filter == tc.category {
+				want = 1
+			}
+			if e != nil || de != nil || len(groups.Items) != want || len(details.Items) != want {
+				t.Fatal(tc, filter, groups, details, e, de)
+			}
+			if want == 1 && details.Items[0].State != tc.state {
+				t.Fatal("category replaced precise receipt state", details)
+			}
+		}
+	}
+}

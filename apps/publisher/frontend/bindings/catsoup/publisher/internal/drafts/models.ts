@@ -33,6 +33,7 @@ export interface PostFilter {
 }
 
 export interface PostGroup {
+    "videoId": string;
     "episode": string;
     "title": string;
     "languages": string;
