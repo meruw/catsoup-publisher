@@ -74,3 +74,70 @@ func TestPostStatusesIsolationAndResults(t *testing.T) {
 		}
 	}
 }
+
+func TestPostGroupsKeepAllDestinationsTogether(t *testing.T) {
+	s := openTest(t, filepath.Join(t.TempDir(), "drafts.sqlite"))
+	ctx := context.Background()
+	for _, lang := range []string{"es", "en"} {
+		for _, platform := range []string{"youtube", "tiktok", "instagram", "x"} {
+			d := sample()
+			d.Key.Episode = "catsoup-grouped-video"
+			d.Key.Language = lang
+			d.Key.Platform = platform
+			d.Key.Account = "account:" + platform + lang
+			if _, err := s.Save(ctx, d); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	_, err := s.db.Exec("INSERT INTO upload_attempts VALUES('youtube','youtubees',?,'published','remote',?)", sample().VideoHash, time.Now().Unix())
+	if err != nil {
+		t.Fatal(err)
+	}
+	page, err := s.PostGroups(ctx, PostFilter{Platform: "youtube", State: "published"})
+	if err != nil || len(page.Items) != 1 {
+		t.Fatal(page, err)
+	}
+	byTitle, e := s.PostGroups(ctx, PostFilter{Search: "Display title", EpisodeMatches: []string{"catsoup-grouped-video"}})
+	if e != nil || len(byTitle.Items) != 1 {
+		t.Fatal("catalog title not found", byTitle, e)
+	}
+	g := page.Items[0]
+	if g.Total != 8 || g.Platforms != 4 || g.Counts["published"] != 1 || g.Counts["draft"] != 7 {
+		t.Fatal("partial summary", g)
+	}
+	page, err = s.PostGroups(ctx, PostFilter{Platform: "tiktok", State: "published"})
+	if err != nil || len(page.Items) != 0 {
+		t.Fatal("filters must match the same destination", page, err)
+	}
+	details, err := s.PostStatuses(ctx, PostFilter{Episode: "catsoup-grouped-video", Language: "en"})
+	if err != nil || len(details.Items) != 4 {
+		t.Fatal(details, err)
+	}
+	for i := 0; i < 23; i++ {
+		d := sample()
+		d.Key.Episode = fmt.Sprintf("catsoup-other-%02d", i)
+		if _, err = s.Save(ctx, d); err != nil {
+			t.Fatal(err)
+		}
+	}
+	page, err = s.PostGroups(ctx, PostFilter{})
+	if err != nil || len(page.Items) != 20 || !page.More {
+		t.Fatal(page, err)
+	}
+	next, err := s.PostGroups(ctx, PostFilter{Offset: 20})
+	if err != nil || len(next.Items) != 4 || next.More {
+		t.Fatal(next, err)
+	}
+	seen := map[string]bool{}
+	for _, p := range append(page.Items, next.Items...) {
+		if seen[p.Episode] {
+			t.Fatal("group repeated across pages")
+		}
+		seen[p.Episode] = true
+	}
+	details, err = s.PostStatuses(ctx, PostFilter{Episode: "catsoup-grouped-video"})
+	if err != nil || len(details.Items) != 8 {
+		t.Fatal("unrelated episode leaked", details, err)
+	}
+}

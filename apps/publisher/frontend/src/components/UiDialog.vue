@@ -2,7 +2,7 @@
 import UiIcon from './UiIcon.vue';
 import {onMounted,onBeforeUnmount,ref} from 'vue';
 import UiButton from './UiButton.vue';
-const props=defineProps<{title:string;busy?:boolean;returnFocusId?:string}>();
+const props=defineProps<{title:string;busy?:boolean;returnFocusId?:string;closeLabel?:string}>();
 const emit=defineEmits<{close:[]}>();
 const dialog=ref<HTMLDialogElement|null>(null);
 let restoreFocus=false;
@@ -16,7 +16,7 @@ onBeforeUnmount(()=>{
 </script>
 <template>
   <dialog ref="dialog" class="ui-dialog" aria-labelledby="publish-dialog-title" @cancel.prevent="close">
-    <header><h2 id="publish-dialog-title">{{title}}</h2><UiButton variant="quiet" size="compact" :disabled="busy" aria-label="Close publishing options" title="Close" @click="close"><UiIcon name="close"/></UiButton></header>
+    <header><h2 id="publish-dialog-title">{{title}}</h2><UiButton variant="quiet" size="compact" :disabled="busy" :aria-label="closeLabel||'Close publishing options'" title="Close" @click="close"><UiIcon name="close"/></UiButton></header>
     <slot/>
   </dialog>
 </template>

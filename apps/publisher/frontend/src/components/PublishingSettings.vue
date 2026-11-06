@@ -4,8 +4,9 @@ import {drafts,type PublishingDefault} from '../services/drafts';
 import {uploads,type Profile} from '../services/uploads';
 import {modeOptions} from '../services/publication';
 import UiSegmented from './UiSegmented.vue';
+import UiButton from './UiButton.vue';
 import UiTooltip from './UiTooltip.vue';
-const emit=defineEmits<{busy:[value:boolean]}>();
+const emit=defineEmits<{busy:[value:boolean];setup:[]}>();
 const profiles=ref<Profile[]>([]),defaults=ref<PublishingDefault[]>([]),language=ref('es'),busy=ref(false),error=ref(''),feedback=ref('');
 const platforms={youtube:'YouTube',tiktok:'TikTok',instagram:'Instagram',x:'X'};
 const rows=computed(()=>Object.entries(platforms).map(([id,label])=>({id,label,profile:profiles.value.find(p=>p.language===language.value&&p.platform===id)})));
@@ -25,8 +26,9 @@ onMounted(load);
    </UiTooltip>
   </div>
   <p v-if="feedback" role="status" class="ui-status ui-status--success">{{feedback}}</p><p v-if="error" role="alert" class="notice error">{{error}}</p>
+  <div class="publishing-setup"><UiButton variant="quiet" @click="emit('setup')">Set up TikTok Direct Post</UiButton></div>
  </section>
 </template>
 <style scoped>
-.publishing-settings{max-width:48rem;padding:24px 0;border-top:1px solid var(--line)}header{display:flex;justify-content:space-between;align-items:center;gap:24px;margin-bottom:12px}.publishing-settings>p{font-size:var(--text-sm);margin-bottom:20px}.default-row{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:16px 0;border-bottom:1px solid var(--line)}.default-row>span{display:grid;gap:4px;min-width:0}.default-row strong{font-weight:500}.default-row small{color:var(--muted);overflow-wrap:anywhere}.default-row .control-tip{width:180px;flex-shrink:0}.default-row select{width:100%}
+.publishing-setup{margin-top:20px}.publishing-settings{max-width:48rem;padding:24px 0;border-top:1px solid var(--line)}header{display:flex;justify-content:space-between;align-items:center;gap:24px;margin-bottom:12px}.publishing-settings>p{font-size:var(--text-sm);margin-bottom:20px}.default-row{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:16px 0;border-bottom:1px solid var(--line)}.default-row>span{display:grid;gap:4px;min-width:0}.default-row strong{font-weight:500}.default-row small{color:var(--muted);overflow-wrap:anywhere}.default-row .control-tip{width:180px;flex-shrink:0}.default-row select{width:100%}
 </style>
