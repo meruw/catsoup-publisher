@@ -16,7 +16,7 @@ Write the title, description and hashtags. Edits save locally after typing pause
 
 **Restore draft**, beside Save draft, reloads this account's last saved text. Autosave means this is not an edit history or undo function. It also offers explicit recovery of unassigned text for the selected platform, when present. Recovery copies the text into the connected account and preserves its source. Drafts from different accounts never share a selector.
 
-Set the default for each account in **Settings → Publishing defaults**, under ES or EN. Defaults apply only to new drafts; existing text, modes and approvals stay unchanged. The mode selector above the post editor controls that individual post. TikTok offers **TikTok inbox** and, after optional setup and authorization, **Direct Post**. Hover or focus a disabled selector for its explanation. Instagram and X use a local draft when their mode is **Local draft**.
+Set the default for each account in **Settings → Manage publishing**, on the Publishing defaults page under ES or EN. Defaults apply only to new drafts; existing text, modes and approvals stay unchanged. The mode selector above the post editor controls that individual post. TikTok offers **TikTok inbox** and, after optional setup and authorization, **Direct Post**. The **Set up TikTok Direct Post** link opens its developer credentials. Hover or focus a disabled selector for its explanation. Instagram and X use a local draft when their mode is **Local draft**.
 
 Watch and listen to the final video, check the text, destination and mode, then choose **Approve post** below the text fields, alongside Save draft and Restore draft. This confirms only that account's saved revision. Editing text, changing the mode or linking another video removes approval. **Undo approval** removes it explicitly. Opening the video or saving a draft does not approve it.
 
@@ -43,9 +43,13 @@ In **Settings → Developer credentials**, select the provider. When credentials
 
 ## Posts overview
 
-Open **Posts** in the sidebar for a compact list of saved video posts by account and platform. Search by video or account; expand **Filters** for platform, language and status. Select a video title for details and **Open post** to return to that account's editor. Disconnected accounts remain readable.
+Open **Posts** in the sidebar for one row per saved video, with its languages, platform count and a status summary. Search videos or accounts. **Filters** opens platform, language and status choices; select **Apply filters** to use them. Active filters remain visible beside **Clear filters**.
 
-Statuses distinguish local **Draft**, **Approved**, **Private video**, **TikTok inbox**, **Limited visibility**, **Published**, **Failed** and **Check result**. The last label means the result is uncertain, not that publishing failed. The view shows the file currently linked to each saved post and its local receipt, with 50 rows per page. **Refresh posts** reloads local records; it does not query social networks or reconstruct remote history. Browser handoffs to X cannot establish a published status.
+Select any video row to see its destinations. The language tabs narrow that list; selecting an account opens its status, version and transfer reference. **Open post** returns to that account's editor. Disconnected accounts remain readable.
+
+The list has 20 videos per page. Grouping happens before pagination, so a video's destinations stay together. Filters select videos with a matching destination; their summaries still count every destination. A summary such as **2 of 8 published** does not imply the other accounts have been published. Destination lists use 50 rows per page when needed.
+
+Statuses distinguish local **Draft**, **Approved**, **Private video**, **TikTok inbox**, **Limited visibility**, **Published**, **Failed** and **Check result**. The last label means the result is uncertain, not that publishing failed. The view shows the file currently linked to each saved post and its local receipt. **Refresh posts** reloads local records; it does not query social networks or reconstruct remote history. Browser handoffs to X cannot establish a published status.
 
 ## Check the result
 

@@ -23,11 +23,28 @@ export interface Key {
 }
 
 export interface PostFilter {
+    "episodeMatches": string[] | null;
+    "episode": string;
     "search": string;
     "platform": string;
     "language": string;
     "state": string;
     "offset": number;
+}
+
+export interface PostGroup {
+    "episode": string;
+    "title": string;
+    "languages": string;
+    "platforms": number;
+    "total": number;
+    "counts": { [_ in string]?: number } | null;
+    "updatedAt": string;
+}
+
+export interface PostGroupPage {
+    "items": PostGroup[] | null;
+    "more": boolean;
 }
 
 export interface PostPage {

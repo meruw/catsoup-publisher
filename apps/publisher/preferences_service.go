@@ -22,3 +22,9 @@ func (s *DraftService) PostStatuses(filter drafts.PostFilter) (drafts.PostPage, 
 	defer cancel()
 	return s.store.PostStatuses(ctx, filter)
 }
+
+func (s *DraftService) PostGroups(filter drafts.PostFilter) (drafts.PostGroupPage, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	return s.store.PostGroups(ctx, filter)
+}

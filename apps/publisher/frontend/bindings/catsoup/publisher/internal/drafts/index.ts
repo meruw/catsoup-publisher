@@ -5,6 +5,8 @@ export type {
     Draft,
     Key,
     PostFilter,
+    PostGroup,
+    PostGroupPage,
     PostPage,
     PostStatus,
     Profile,
