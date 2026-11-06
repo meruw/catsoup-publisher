@@ -14,15 +14,18 @@ import { publisher, mediaURL, type Entry, type Episode } from './services/publis
 const module = ref<'publisher'|'accounts'|'settings'>('publisher');
 const DiagnosticsConsole = defineAsyncComponent(() => import('./components/DiagnosticsConsole.vue'));
 const consoleOpen = ref(false);
+const consoleCollapsed = ref(false);
 const diagnosticFilter = ref({service:'',language:''});
 function openDiagnostics(service='', language='') {
   diagnosticFilter.value={service,language};
   consoleOpen.value=true;
+  consoleCollapsed.value=false;
 }
 function diagnosticShortcut(event:KeyboardEvent) {
   if(event.ctrlKey && event.shiftKey && event.key.toLowerCase()==='d') {
     event.preventDefault();
-    if(consoleOpen.value) consoleOpen.value=false;
+    if(consoleOpen.value && consoleCollapsed.value) consoleCollapsed.value=false;
+    else if(consoleOpen.value) consoleOpen.value=false;
     else openDiagnostics();
   }
 }
@@ -106,7 +109,7 @@ onUnmounted(() => {stopCloseListener?.();window.removeEventListener('keydown',di
 
 <template>
   <WindowBar />
-  <DiagnosticsConsole v-if="consoleOpen" :service="diagnosticFilter.service" :language="diagnosticFilter.language" @close="consoleOpen=false"/>
+  <DiagnosticsConsole v-if="consoleOpen" v-model:collapsed="consoleCollapsed" :service="diagnosticFilter.service" :language="diagnosticFilter.language" @close="consoleOpen=false"/>
   <div class="workspace">
     <aside class="sidebar" aria-label="Modules and episodes">
       <div class="module-label">Modules</div>
@@ -126,10 +129,10 @@ onUnmounted(() => {stopCloseListener?.();window.removeEventListener('keydown',di
         </button>
       </nav>
       <p v-if="!entries.length && !busy" class="muted">No deliveries yet</p>
-      <div class="workspace-note"><span>Local workspace</span><small>Spanish + English</small></div>
+      <div class="sidebar-tools"><button class="console-launcher" :aria-expanded="consoleOpen && !consoleCollapsed" aria-controls="diagnostics-console" aria-keyshortcuts="Control+Shift+D" title="Console (Ctrl+Shift+D)" @click="consoleOpen ? consoleCollapsed=false : openDiagnostics()"><span aria-hidden="true" class="console-symbol">&gt;_</span><span>Console</span><kbd>Ctrl ⇧ D</kbd></button></div>
     </aside>
     <AccountManager v-if="module==='accounts'" :initial-language="accountLanguage" @settings="showSettings" @language="accountLanguage=$event" @busy="accountBusy=$event" @diagnostics="openDiagnostics"/>
-    <SettingsPage v-else-if="module==='settings'" :provider="settingsProvider" @select="showSettings" @busy="accountBusy=$event" @diagnostics="openDiagnostics()"/>
+    <SettingsPage v-else-if="module==='settings'" :provider="settingsProvider" @select="showSettings" @busy="accountBusy=$event"/>
     <main v-else :aria-busy="busy">
       <header class="page-header">
         <div><h1>Publisher</h1><p>Review deliveries in Spanish and English</p></div>

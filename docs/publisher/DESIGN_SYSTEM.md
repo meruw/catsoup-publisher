@@ -14,6 +14,16 @@ colored vertical selection markers. Selected navigation uses a soft background
 and accessible current-state attributes. Outlines are appropriate for controls;
 the player keeps a neutral dark surface and its own bounded media area.
 
+## Diagnostic console
+
+The console is a technical surface with a charcoal canvas (#111214), a raised
+header (#191B1E), neutral borders and system monospace text. Semantic colors mark
+log levels; CATsoup orange is reserved for keyboard focus. Keep console copy
+generic and concise. The discreet sidebar footer launcher replaces workspace
+metadata. The panel docks beside the sidebar, folds to a 36px header, resizes and
+can fill the area beneath the window bar. It does not compete with Settings
+sections or primary navigation. No shadows, animation loops or added UI packages.
+
 ## Palette
 
 | Role | Token | Value | Use |

@@ -86,16 +86,16 @@ attempt ID, service, language, elapsed time and numeric HTTP/provider error code
 Tokens, authorization codes, URLs, usernames and raw provider bodies are excluded.
 Logs stay local unless the operator explicitly exports or copies them.
 
-The console is a lazy-loaded Vue panel opened from Settings or Ctrl+Shift+D. Its
+The console is a lazy-loaded Vue panel opened from the sidebar footer or Ctrl+Shift+D. Its
 typed bridge returns at most 200 events per page and scans bounded log files.
-Live notifications are coalesced and enabled only while the console is open;
+Live notifications are coalesced and enabled only while the console is open and unfolded;
 logging continues when it is closed. Export uses the native save dialog and writes
 only the selected query page. No terminal emulator, shell or hosted log service
 is involved.
 
-The diagnostics UI chunk is 5.1 kB gzipped (JavaScript and CSS combined). The
-Windows executable increased by 137,728 bytes to 18,440,704 bytes in the measured
-production build. No frontend runtime dependency was added.
+The diagnostics UI chunk is 5.6 kB gzipped (JavaScript and CSS combined). The
+Windows executable is 18,443,264 bytes in the measured production build.
+No frontend runtime dependency was added.
 
 ## Version and maintenance policy
 
