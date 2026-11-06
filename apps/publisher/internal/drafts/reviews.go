@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"strings"
 	"time"
 )
 
@@ -69,6 +70,16 @@ func (s *Store) SaveReview(ctx context.Context, r Review) (Review, error) {
 }
 
 func (s *Store) RequireReview(ctx context.Context, d Draft) error {
+	if strings.HasPrefix(d.Key.Account, "account:") {
+		current, err := s.Get(ctx, d.Key)
+		if err != nil {
+			return err
+		}
+		if current.Revision != d.Revision || current.ApprovedRevision != d.Revision || d.Revision < 1 {
+			return errors.New("approve this account's current post before sending")
+		}
+		return nil
+	}
 	r, err := s.GetReview(ctx, d.Key.Episode, d.Key.Language, d.VideoID)
 	if err != nil {
 		return err

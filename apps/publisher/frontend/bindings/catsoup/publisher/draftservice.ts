@@ -55,3 +55,10 @@ export function SaveDraft(input: $models.SaveDraftInput): $CancellablePromise<dr
 export function SaveReview(input: drafts$0.Review, confirmed: boolean): $CancellablePromise<drafts$0.Review> {
     return $Call.ByID(3210540495, input, confirmed);
 }
+
+/**
+ * Approval confirms the post in Publisher; it never modifies production approval.
+ */
+export function SetPostApproval(key: drafts$0.Key, revision: number, approved: boolean): $CancellablePromise<drafts$0.Draft> {
+    return $Call.ByID(383607575, key, revision, approved);
+}

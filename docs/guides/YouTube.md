@@ -18,7 +18,7 @@ Publisher can upload an approved video privately or publicly to the selected cha
 In **Accounts → ES → YouTube**, select **Connect → Sign in with Google**. Select the account and channel for Spanish and verify the returned channel name. Repeat under **EN** for the English channel. If the channels have similar names, open **Account details** to compare their IDs.
 
 ## Send an approved video
-Review the video, select **YouTube** above the post editor and write its text. Set the YouTube row to **Private video** or **Publish now**, then choose its **Publish…** action. Select the audience (made for kids or not), indicate realistic altered/synthetic content when applicable, and confirm the account and action. The delivery must already have production approval.
+Review the video, select **YouTube** above the post editor and write its text. Set the YouTube row to **Private video** or **Publish now**, then choose **Approve post** and the send action above the editor. Select the audience (made for kids or not), indicate realistic altered/synthetic content when applicable, and confirm the account and action. The delivery must already have production approval.
 
 After a private upload, **Publish now → Publish existing YouTube video** applies the saved text and public visibility to that same ID. Publisher verifies its channel, preserves other editable metadata and never uploads a duplicate. If the visibility change is uncertain, check YouTube Studio before retrying it.
 

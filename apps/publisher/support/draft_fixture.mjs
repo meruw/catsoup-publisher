@@ -10,8 +10,9 @@ export const draftFixture = `
  export const drafts = {
   review: async (episode,language,videoId) => JSON.parse(localStorage.getItem('review-'+episode+language+videoId) || 'null') || {episode,language,videoId,fingerprint:'',videoHash:'',state:'pending',notes:'',revision:0,updatedAt:''},
   saveReview: async (input,confirmed) => {if(input.state==='reviewed' && !confirmed)throw Error('Confirm review');const value={...input,revision:input.revision+1,updatedAt:new Date().toISOString()};localStorage.setItem('review-'+input.episode+input.language+input.videoId,JSON.stringify(value));return value;},
+  approve: async (key,revision,approved)=>{const all=storage(),d=all[keyOf(key)];if(!d||d.revision!==revision||!key.account.startsWith('account:'))throw Error('Approval conflict');d.approvedRevision=approved?revision:0;localStorage.setItem('draft-fixture',JSON.stringify(all));return d;},
   list: async (episode, language) => Object.values(storage()).filter(d => d.key.episode === episode && d.key.language === language),
-  get: async key => storage()[keyOf(key)] || {key,deliveryMode:'draft',title:'',description:'',hashtags:'',videoId:'',videoHash:'',deliveryFingerprint:'',revision:0,updatedAt:''},
+  get: async key => storage()[keyOf(key)] || {key,approvedRevision:0,deliveryMode:'draft',title:'',description:'',hashtags:'',videoId:'',videoHash:'',deliveryFingerprint:'',revision:0,updatedAt:''},
   save: async input => {
    window.__draftWrites.push(JSON.parse(JSON.stringify(input)));
    await new Promise(resolve => setTimeout(resolve, window.__draftDelay));
@@ -19,7 +20,7 @@ export const draftFixture = `
    const all = storage(), old = all[keyOf(input.key)];
    if (window.__draftConflict || (old?.revision || 0) !== input.revision) throw new Error('draft changed in another window; reload the saved draft before editing');
    const attach = input.attachVideo || !old;
-   const result = {...input, videoId: attach ? input.videoId : old.videoId,
+   const result = {...input, approvedRevision:0, videoId: attach ? input.videoId : old.videoId,
     videoHash: attach ? window.__fixtureEpisode.videos.find(v=>v.id===input.videoId).sha256 : old.videoHash,
     deliveryFingerprint: attach ? window.__fixtureEpisode.fingerprint : old.deliveryFingerprint,
     revision: input.revision + 1, updatedAt: new Date().toISOString()};

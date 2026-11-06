@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import {ref} from 'vue';
-defineProps<{text:string}>();
+withDefaults(defineProps<{text:string;symbol?:string}>(),{symbol:'?'});
 const dismissed=ref(false);
 </script>
 <template>
   <span class="help-tip" :class="{dismissed}" @mouseenter="dismissed=false" @focusin="dismissed=false" @keydown.esc.stop="dismissed=true">
-    <button type="button" class="help-trigger" :aria-label="text" @click="dismissed=false">?</button>
+    <button type="button" class="help-trigger" :aria-label="text" @click="dismissed=false">{{symbol}}</button>
     <span class="help-content" role="tooltip">{{text}}</span>
   </span>
 </template>
