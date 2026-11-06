@@ -4,15 +4,19 @@ order: 3
 title: Accounts and uploads
 permalink: /guides/uploads/
 ---
-# Review, prepare and publish an episode
+# Edit and publish an episode
 
 Open **Accounts** in the sidebar. Select **ES** or **EN**, choose the platform and connect the intended account. In the episode workspace, the draft's platform and language select that verified destination. Check its name and ID before confirming the upload. A draft label is for organizing text; editing it never switches accounts.
 
-## Work through the episode
+## Work on an episode
 
-1. **Review:** watch and listen to the final video in each language. Keep notes, request changes or confirm **Mark reviewed**. Notes and decisions stay on this PC and belong to the current manifest and video hashes. Opening a preview never records a review. Changing the delivery requires a fresh review. Clean versions remain available to preview; review decisions apply to final versions.
-2. **Prepare:** choose a platform and account label, then write the title, description and hashtags. Changes save locally after typing pauses. Switching steps, languages or modules flushes edits first; a failed save keeps you in place. Copy actions and the video folder are available here.
-3. **Publish:** select a saved destination from the status table, check its text and connected account, then choose **Keep as draft** or **Publish now**. Confirm each transfer separately. Keep as draft is selected initially; its description explains whether the result stays local or goes to the platform.
+Select an episode and **ES** or **EN**. The video and post editor share one workspace. Choose YouTube, TikTok, Instagram or X above the text to open that platform's draft. The connected account appears beneath the platform selector; **Connect** opens Accounts when no destination is assigned. You can write a local draft before connecting an account.
+
+Watch and listen to the final video, then confirm **Mark reviewed** below the player. **Notes** opens optional review notes and **Request changes**. Decisions belong to the current manifest and video hashes; opening a preview never records a review. Clean versions remain available to preview, while review decisions apply to final versions. **File details** contains technical checks and production approval information.
+
+Write the title, description and hashtags beside the video. Text saves locally after typing pauses. Switching platforms, languages or modules flushes edits first; a failed save preserves the current draft. Copy actions and the video folder are below the text. **Saved drafts** opens additional labeled drafts and, in the publishing view, their transfer statuses. A draft label organizes text and never changes the connected account.
+
+Choose **Publish…** to open destination and visibility options beside the video. Opening these options does not send anything. **Edit post** returns to the text. Choose **Keep as draft** or **Publish now**, check the connected destination and confirm the specific transfer. Keep as draft is selected initially; the description explains whether it stays local or goes to the platform.
 
 Local editorial review does not grant production approval or modify the delivery package. The production owner must provide an approved delivery under the [delivery contract](https://github.com/meruw/catsoup-publisher/blob/main/contracts/delivery/CONTRACT.md). Both that approval and a current local review are required for remote transfers and browser file handoff. Local preparation works before approval. The demo and pilot cannot be sent.
 

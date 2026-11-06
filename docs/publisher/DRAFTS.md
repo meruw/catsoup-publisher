@@ -20,7 +20,8 @@ label. They are storage bounds, not platform API limits. Draft text contains no 
 
 ## Editorial review
 
-The workspace has Review, Prepare and Publish steps shared across ES/EN. Each final
+The workspace shows video review and post editing together for ES/EN. Publishing
+options open beside the same preview. Each final
 video has a local review keyed by episode, language and video ID, with its manifest
 fingerprint, video hash, notes, decision, revision and timestamp. Decisions are
 pending, changes_requested or reviewed. Only an explicit watched/listened
@@ -47,8 +48,10 @@ SQL statements use parameters. Inserts refuse duplicate keys; updates require th
 expected revision. Two writers cannot silently overwrite each other's revision.
 The UI's reload action requires a second explicit choice before discarding edits.
 Reload is not automatic after a conflict. Users can select/copy unsaved text manually
-before replacing it. Account labels in the destination controls do not rename drafts;
-**Open draft** opens or prepares a separate destination.
+before replacing it. Platform buttons open a draft using the connected account label
+or a local platform/language label. Existing drafts remain accessible under
+**Saved drafts**. Account labels there do not rename drafts; **Open draft** opens
+or prepares a separate labeled draft without changing the connected destination.
 
 Linking a new draft or choosing **Use selected video** revalidates the delivery and
 captures its current fingerprint and video hash. Normal text autosaves only touch

@@ -56,10 +56,10 @@ main { flex: 1; min-width: 0; max-width: 1600px; padding: 0 var(--space-8); over
 .approval-strip strong { font-weight: var(--weight-medium); margin-right: var(--space-1); }
 .status-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
 .approval-strip.approved { color: var(--success); }
-.review-layout { display: grid; grid-template-columns: minmax(300px, 1.4fr) minmax(256px, 1fr); align-items: start; gap: var(--space-6); margin-top: var(--space-6); }
+.editor-layout { display: grid; grid-template-columns: minmax(280px, .85fr) minmax(340px, 1.15fr); align-items: start; gap: var(--space-6); margin-top: var(--space-6); }
 .preview-panel { min-width: 0; }
 .section-header { display: flex; align-items: center; justify-content: space-between; min-height: 36px; gap: var(--space-3); margin-bottom: var(--space-3); }
-.video-stage { position: relative; height: clamp(280px, calc(100vh - 440px), 640px); min-height: 280px; border-radius: var(--media-radius); background: var(--media-bg); overflow: hidden; display: flex; justify-content: center; }
+.video-stage { position: relative; height: clamp(280px, calc(100vh - 480px), 440px); min-height: 280px; border-radius: var(--media-radius); background: var(--media-bg); overflow: hidden; display: flex; justify-content: center; }
 video { display: block; width: 100%; height: 100%; object-fit: contain; }
 .player-message { position: absolute; top: 50%; left: var(--space-6); right: var(--space-6); transform: translateY(-50%); color: var(--on-media); text-align: center; font-size: var(--text-sm); pointer-events: none; }
 .variant-control { display: flex; align-items: center; gap: var(--space-3); margin-top: var(--space-4); }
@@ -101,30 +101,43 @@ footer { display: flex; justify-content: space-between; gap: var(--space-4); pad
 @media (max-width: 900px) { .destination-row { grid-template-columns: 1fr 1fr; } .destination-row > button { justify-self: start; } .draft-heading { flex-wrap: wrap; } }
 @media (max-width: 1050px) {
   main { padding: 0 var(--space-6); }
-  .review-layout { grid-template-columns: minmax(240px, 1.2fr) minmax(224px, 1fr); gap: var(--space-4); }
+  .editor-layout { grid-template-columns: minmax(240px, .85fr) minmax(300px, 1.15fr); gap: var(--space-4); }
   .version { display: none; }
 }
 @media (max-width: 900px) {
-  .sidebar { width: 200px; }
-  .review-layout { grid-template-columns: 1fr; }
-  .video-stage { height: 420px; }
+  .sidebar { width: 184px; }
+  .editor-layout { grid-template-columns: minmax(180px, .75fr) minmax(260px, 1.25fr); }
+  .video-stage { height: 320px; }
   .page-header { align-items: flex-start; }
+  .page-header h1 { font-size: 24px; }
 }
+@media (max-width: 740px) { .editor-layout { grid-template-columns: 1fr; } .video-stage { height: 280px; } }
 @media (prefers-reduced-motion: reduce) {
   button, select { transition: none; }
 }
-.workspace-toolbar{display:flex;align-items:center;justify-content:space-between;gap:24px;margin-top:24px;border-bottom:1px solid var(--line);padding-bottom:16px}
-.workflow-steps{display:flex;gap:24px}
-.workflow-steps button{display:flex;align-items:center;gap:12px;text-align:left;background:transparent;border:0;padding:8px 0;color:var(--secondary)}
-.workflow-steps button[aria-current='step']{color:var(--text)}
-.step-number{display:grid;place-items:center;width:28px;height:28px;border:1px solid var(--line);border-radius:8px;font-size:12px}
-[aria-current='step'] .step-number{background:var(--accent);border-color:var(--accent);color:var(--text)}
-.workflow-footer{display:flex;align-items:center;justify-content:flex-end;gap:16px;border-top:1px solid var(--line);padding:20px 0;margin-top:32px}
-.episode-workspace .publication{border:0;padding-top:24px;margin-top:0}
+/* One editing surface: the media stays beside its post, sending is contextual. */
+.workspace-toolbar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;padding:20px 0;border-bottom:1px solid var(--line)}
+.episode-workspace .publication{min-width:0;border:0;padding:0;margin:0}
+.post-header h2{font-size:var(--text-section)}
+.post-platforms{display:flex;gap:4px;border-bottom:1px solid var(--line);padding-bottom:8px}
+.post-platforms button{flex:1;min-width:0;border:0;background:transparent;border-radius:4px;padding:8px 4px;color:var(--secondary);font-size:var(--text-sm)}
+.post-platforms button:hover{background:var(--raised)}
+.post-platforms button[aria-pressed='true']{background:var(--accent-soft);color:var(--text);font-weight:500}
+.post-account{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:44px;padding:8px 0;font-size:var(--text-sm);overflow-wrap:anywhere}
+.post-account strong{font-weight:500}.post-account-language{color:var(--muted)}
+.publication .draft-heading{align-items:center;margin:4px 0 16px;min-height:24px}
+.publication .draft-heading>span{font-size:var(--text-xs)}
+.post-tools{column-gap:4px;row-gap:8px}
+.draft-library{margin-top:24px;border-top:1px solid var(--line);padding-top:16px;min-width:0}
+.draft-library summary{cursor:pointer;font-size:var(--text-sm);color:var(--secondary);margin-bottom:16px}
+.draft-library summary span{margin-left:12px;color:var(--muted);font-size:var(--text-xs)}
+.draft-library .destination-row{grid-template-columns:1fr;gap:12px}.draft-library .destination-row button{justify-self:start}
+.delivery-check dd{overflow-wrap:anywhere;min-width:0}
 .post-proof{border-block:1px solid var(--line);padding:16px 0;margin-bottom:24px;overflow-wrap:anywhere}
+.post-proof summary{cursor:pointer;font-size:var(--text-sm);color:var(--secondary)}
+.post-proof[open] summary{margin-bottom:16px}
 .post-proof p{white-space:pre-wrap;margin-top:8px;font-size:var(--text-sm)}
 .post-tags{color:var(--secondary)}
 .manual-handoff{margin-top:24px;padding-top:16px;border-top:1px solid var(--line)}
 .manual-handoff summary{cursor:pointer;font-size:var(--text-sm);color:var(--secondary);margin-bottom:16px}
 .delivery-check{margin-top:24px;border-top:1px solid var(--line);padding-top:16px}.delivery-check summary{cursor:pointer;color:var(--secondary);font-size:var(--text-sm);margin-bottom:16px}
-@media(max-width:1050px){.workflow-steps{gap:16px}}
