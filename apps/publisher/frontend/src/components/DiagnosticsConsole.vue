@@ -26,6 +26,9 @@ const feedback = ref('');
 const pending = ref(false);
 const actionPending = ref(false);
 const copyMinutes = ref(0);
+const filtersOpen = ref(false);
+const menu = ref<'copy' | 'tools' | null>(null);
+const panel = ref<HTMLElement | null>(null);
 const height = ref(360);
 const expanded = ref(false);
 const input = ref<HTMLInputElement | null>(null);
@@ -77,6 +80,19 @@ function resetPage() { before.value = 0; pages.value = []; }
 function resetFilters() {
   search.value = ''; service.value = ''; language.value = ''; level.value = '';
   attempt.value = ''; currentSession.value = false; selected.value = null;
+}
+function clearConsole() {
+  clearTimeout(debounce);
+  resetFilters(); resetPage(); after.value = 0;
+  live.value = true; selected.value = null; copyMinutes.value = 0;
+  filtersOpen.value = false; menu.value = null;
+  height.value = 360; expanded.value = false;
+  error.value = ''; feedback.value = ''; warning.value = ''; changedDuringRead = false;
+  void refresh();
+  input.value?.focus();
+}
+function dismissMenus(event: PointerEvent) {
+  if (!(event.target instanceof Element) || !event.target.closest('.console-menu')) menu.value = null;
 }
 async function pasteSearch() {
   if (actionPending.value) return;
@@ -155,6 +171,11 @@ async function copyResults() {
 }
 function exportPage() { void action(() => diagnostics.export(query.value), 'Diagnostic page exported.'); }
 function keydown(event: KeyboardEvent) {
+  if (event.key === 'Escape' && menu.value) {
+    event.preventDefault(); event.stopPropagation();
+    const trigger = panel.value?.querySelector<HTMLButtonElement>(`[data-menu="${menu.value}"]`);
+    menu.value = null; trigger?.focus(); return;
+  }
   if (event.key === 'Escape') { event.preventDefault(); emit('close'); }
   if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'f') {
     event.preventDefault(); input.value?.focus(); input.value?.select();
@@ -171,6 +192,7 @@ function drag(event: PointerEvent) {
   height.value = Math.max(300, Math.min(window.innerHeight - 72, dragStart.height + dragStart.y - event.clientY));
 }
 onMounted(async () => {
+  document.addEventListener('pointerdown', dismissMenus);
   previousFocus = document.activeElement as HTMLElement | null;
   stop = diagnostics.onChanged(() => {
     if (!live.value || collapsed.value) return;
@@ -185,6 +207,7 @@ onMounted(async () => {
   if (!disposed) input.value?.focus();
 });
 onUnmounted(() => {
+  document.removeEventListener('pointerdown', dismissMenus);
   disposed = true;
   sequence++;
   clearTimeout(debounce);
@@ -195,7 +218,7 @@ onUnmounted(() => {
 </script>
 
 <template>
- <section id="diagnostics-console" class="diagnostics" aria-label="Diagnostics console" :class="{ expanded, collapsed }" :style="{height: height + 'px'}" @keydown="keydown">
+ <section ref="panel" id="diagnostics-console" class="diagnostics" aria-label="Diagnostics console" :class="{ expanded, collapsed }" :style="{height: height + 'px'}" @keydown="keydown">
   <div v-if="!collapsed && !expanded" class="resize-handle" role="separator" aria-label="Resize diagnostics" aria-orientation="horizontal" :aria-valuenow="height" aria-valuemin="300" tabindex="0"
    @pointerdown="beginResize" @pointermove="drag" @pointerup="dragStart=null" @lostpointercapture="dragStart=null"
    @keydown.up.prevent="resize(32)" @keydown.down.prevent="resize(-32)"></div>
@@ -206,24 +229,41 @@ onUnmounted(() => {
    </div>
    <div class="console-actions">
     <UiButton v-if="!collapsed" size="compact" variant="quiet" :aria-pressed="!live" @click="resume">{{ live ? 'Pause' : 'Resume live' }}</UiButton>
-    <UiButton v-if="!collapsed" size="compact" variant="quiet" :busy="pending" @click="refresh">Refresh</UiButton>
+    <UiButton v-if="!collapsed" size="compact" variant="quiet" :disabled="actionPending" title="Reset filters, history, pause and panel layout; keep saved logs" @click="clearConsole">Clear</UiButton>
     <UiButton size="compact" variant="quiet" :aria-pressed="expanded" @click="expand">{{ expanded ? 'Restore' : 'Expand' }}</UiButton>
     <UiButton size="compact" variant="quiet" @click="emit('close')">Close</UiButton>
    </div>
   </header>
   <template v-if="!collapsed">
-  <div class="console-filters">
-   <label class="search-field" :class="{filtered:search}">Search<span class="search-controls"><input ref="input" v-model="search" type="search" class="ui-field" aria-label="Search" maxlength="200" placeholder="Message, stage, code or attempt"><UiButton size="compact" variant="quiet" :disabled="actionPending" title="Paste clipboard text into Search" @click="pasteSearch">Paste</UiButton></span></label>
+  <div class="console-toolbar">
+   <div class="search-controls" :class="{filtered:search}"><input ref="input" v-model="search" type="search" class="ui-field" aria-label="Search" maxlength="200" placeholder="Search logs"><UiButton size="compact" variant="quiet" :disabled="actionPending" title="Paste clipboard text into Search" @click="pasteSearch">Paste</UiButton></div>
+   <UiButton size="compact" variant="quiet" :aria-expanded="filtersOpen" aria-controls="console-filters" @click="filtersOpen=!filtersOpen">Filters<span v-if="filterCount"> ({{filterCount}})</span></UiButton>
+   <div class="console-menu">
+    <UiButton data-menu="copy" size="compact" variant="quiet" :aria-expanded="menu==='copy'" aria-controls="console-copy" @click="menu=menu==='copy'?null:'copy'">Copy</UiButton>
+    <div v-if="menu==='copy'" id="console-copy" class="action-popover">
+     <label for="console-copy-range">Time range</label>
+     <select id="console-copy-range" v-model="copyMinutes" class="ui-field" aria-label="Copy time range"><option :value="0">All filtered events</option><option :value="1">Last minute</option><option :value="5">Last 5 minutes</option><option :value="10">Last 10 minutes</option><option :value="30">Last 30 minutes</option></select>
+     <p>Includes all matching pages. Active filters apply.</p>
+     <UiButton size="compact" :disabled="actionPending" @click="copyResults">Copy results</UiButton>
+    </div>
+   </div>
+   <div class="console-menu">
+    <UiButton data-menu="tools" size="compact" variant="quiet" :aria-expanded="menu==='tools'" aria-controls="console-tools" @click="menu=menu==='tools'?null:'tools'">More</UiButton>
+    <div v-if="menu==='tools'" id="console-tools" class="action-popover tool-options">
+     <UiButton size="compact" variant="quiet" :busy="pending" @click="refresh">Refresh</UiButton>
+     <UiButton size="compact" variant="quiet" :disabled="pending || actionPending" @click="clearView();menu=null">Hide existing events</UiButton>
+     <UiButton v-if="after" size="compact" variant="quiet" @click="showHistory();menu=null">Show saved history</UiButton>
+     <UiButton size="compact" variant="quiet" :disabled="!rows.length || pending || actionPending" @click="exportPage">Export page</UiButton>
+     <UiButton size="compact" variant="quiet" @click="action(diagnostics.openFolder,'Log folder opened')">Log folder</UiButton>
+    </div>
+   </div>
+  </div>
+  <div v-if="filtersOpen" id="console-filters" class="console-filters">
    <label :class="{filtered:level}">Level<select v-model="level" class="ui-field" aria-label="Level"><option value="">All levels</option><option>ERROR</option><option>WARN</option><option>INFO</option><option>DEBUG</option></select></label>
    <label :class="{filtered:service}">Source<select v-model="service" class="ui-field" aria-label="Source"><option value="">All sources</option><option v-for="(name,key) in serviceName" :key="key" :value="key">{{ name }}</option></select></label>
    <label :class="{filtered:language}">Context<select v-model="language" class="ui-field" aria-label="Context"><option value="">All</option><option value="es">ES</option><option value="en">EN</option></select></label>
    <label :class="{filtered:currentSession}">History<select v-model="currentSession" class="ui-field" aria-label="History"><option :value="false">Saved history</option><option :value="true">This session</option></select></label>
-  </div>
-  <div class="view-controls"><span v-if="filterCount">Filtered results</span><UiButton v-if="filterCount" size="compact" variant="quiet" @click="resetFilters">Reset filters</UiButton><span v-if="after">Since clear</span><UiButton v-if="after" size="compact" variant="quiet" @click="showHistory">Show saved history</UiButton>
-   <div class="copy-controls" title="Copies all matching saved events, across pages. Active filters and Clear view apply; pausing does not stop recording.">
-    <select v-model="copyMinutes" class="ui-field" aria-label="Copy time range"><option :value="0">All filtered events</option><option :value="1">Last minute</option><option :value="5">Last 5 minutes</option><option :value="10">Last 10 minutes</option><option :value="30">Last 30 minutes</option></select>
-    <UiButton size="compact" variant="quiet" :disabled="actionPending" @click="copyResults">Copy results</UiButton>
-   </div>
+   <UiButton v-if="filterCount" size="compact" variant="quiet" @click="resetFilters">Reset filters</UiButton>
   </div>
   <div v-if="attempt" class="attempt-filter">Attempt <code>{{ attempt }}</code><UiButton size="compact" variant="quiet" @click="attempt=''">Clear attempt filter</UiButton></div>
   <p v-if="warning" class="console-warning" role="status">{{ warning }}</p>
@@ -262,13 +302,10 @@ onUnmounted(() => {
    </aside>
   </div>
   <footer class="console-footer">
-   <span>{{ rows.length }} {{ filterCount ? 'matches' : 'events' }} · Newest first</span>
+   <span>{{ rows.length }} {{ filterCount ? 'matches' : 'events' }}<span v-if="after"> · Recent view</span><span v-if="pending"> · Loading</span></span>
    <div class="console-actions">
-    <UiButton size="compact" variant="quiet" :disabled="pending || actionPending" title="Clear displayed events; keep saved log files" @click="clearView">Clear view</UiButton>
     <UiButton size="compact" variant="quiet" :disabled="!pages.length || pending" @click="newer">Newer</UiButton>
     <UiButton size="compact" variant="quiet" :disabled="!more || pending" @click="older">Older</UiButton>
-    <UiButton size="compact" variant="quiet" :disabled="!rows.length || pending || actionPending" title="Export this page of up to 200 matching events" @click="exportPage">Export page</UiButton>
-    <UiButton size="compact" variant="quiet" @click="action(diagnostics.openFolder,'Log folder opened.')">Log folder</UiButton>
    </div>
   </footer>
   <p v-if="feedback" class="console-feedback" role="status">{{ feedback }}</p>
@@ -301,27 +338,31 @@ onUnmounted(() => {
 .console-heading {display:flex;align-items:center;gap:12px;min-width:0}
 .stream-state {color:#a7c5b0;white-space:nowrap}
 .stream-state.paused,.filter-count {color:var(--warning)}
-.diagnostics :deep(.ui-button) {font:inherit;min-height:28px;padding:0 8px;border-radius:4px;border-color:var(--control-border)}
+.diagnostics :deep(.ui-button) {font:inherit;min-height:28px;padding:0 8px;border-radius:4px;border-color:transparent}
+.diagnostics :deep(.ui-button:hover:not(:disabled)) {background:var(--raised);border-color:var(--control-border)}
 .diagnostics :deep(.ui-button[aria-pressed='true']) {background:var(--accent-soft);border-color:var(--warning);color:var(--warning)}
 .diagnostics :deep(.ui-button:disabled) {border-color:var(--line)}
-.console-filters {display:flex;align-items:end;gap:8px;padding:8px 12px}
+.console-toolbar {display:flex;align-items:center;gap:8px;padding:12px 16px;flex-shrink:0}
+.console-toolbar .search-controls {flex:1;min-width:100px}
+.console-toolbar .ui-field,.action-popover .ui-field {min-height:32px;height:32px;padding:4px 8px;font:inherit;border-radius:4px;width:100%}
+.console-menu {position:relative}
+.action-popover {position:absolute;right:0;top:36px;width:240px;z-index:5;background:var(--sidebar);border:1px solid var(--control-border);padding:16px;border-radius:4px;display:flex;flex-direction:column;gap:12px}
+.action-popover label,.action-popover p {font:inherit;color:var(--secondary);margin:0}
+.tool-options {width:216px;padding:8px;gap:4px}
+.tool-options :deep(.ui-button) {justify-content:flex-start;min-height:32px}
+.console-filters {display:flex;align-items:end;gap:12px;padding:0 16px 12px;flex-wrap:wrap;flex-shrink:0}
 .console-filters label {display:flex;flex-direction:column;gap:4px;color:var(--secondary);font-size:11px}
 .console-filters .ui-field {min-height:28px;height:28px;padding:4px 8px;font:12px var(--font-mono);border-radius:4px}
-.search-field {flex:1;min-width:120px}
-.search-field input {width:100%}
 .search-controls {display:flex;gap:4px}
 .search-controls input {min-width:0;flex:1}
 .console-filters .filtered {color:var(--warning)}
-.console-filters .filtered .ui-field {border-color:var(--warning)}
-.view-controls {display:flex;align-items:center;gap:8px;padding:0 12px 8px;color:var(--secondary);flex-wrap:wrap}
-.copy-controls {display:flex;align-items:center;gap:4px;margin-left:auto}
-.copy-controls .ui-field {min-height:28px;height:28px;padding:4px 8px;font:inherit;border-radius:4px;max-width:185px}
+.filtered .ui-field {border-color:#78634a}
 .console-body {flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr);border-top:1px solid var(--line)}
 .console-body.inspecting {grid-template-columns:minmax(0,1fr) 272px}
 .log-scroll {min-height:0;overflow:auto;scrollbar-color:var(--control-border) var(--page)}
 .log-table {width:100%;border-collapse:collapse;text-align:left;font:inherit}
 .log-table th {position:sticky;top:0;background:var(--sidebar);font-weight:400;color:var(--secondary);z-index:1}
-.log-table th,.log-table td {padding:4px 8px;vertical-align:top}
+.log-table th,.log-table td {padding:6px 8px;vertical-align:top}
 .log-table th {border-bottom:1px solid var(--line)}
 .log-table th:first-child,.log-table td:first-child {padding-left:12px}
 .log-table td:nth-child(-n+3) {white-space:nowrap}
@@ -351,10 +392,9 @@ onUnmounted(() => {
 .console-warning,.console-error,.console-feedback {padding:4px 12px;margin:0;font:inherit}
 .attempt-filter {display:flex;align-items:center;gap:8px;padding:0 12px 8px}
 @media(max-width:1050px) {
- .console-filters {flex-wrap:wrap}
- .search-field {flex-basis:100%}
  .console-body.inspecting {grid-template-columns:minmax(0,1fr) 224px}
  .log-table td:nth-child(3),.log-table th:nth-child(3) {display:none}
 }
+@media(max-width:900px) {.console-heading {gap:8px}.console-header,.console-footer {padding-inline:12px}.console-toolbar {gap:4px}.console-filters {gap:8px}}
 @media(max-width:900px) {.diagnostics {left:200px}}
 </style>
