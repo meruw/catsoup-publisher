@@ -18,8 +18,10 @@ The PoC is in progress. The project owner decides when it is complete. Release p
 
 The owner confirmed native Instagram sign-in and assignment for both ES and EN with access restricted to CATsoup assets. The business login configuration includes `business_management` alongside the Instagram publishing and Page discovery permissions. This confirms account connection, not Reel publishing.
 
+The owner confirmed the console controls work in the native app. The console also supports whole-result copying (including an attempt across pages), rolling 1/5/10/30-minute copy ranges and opening event details from any table cell. Copying keeps active filters, reports the copied count and leaves the clipboard intact for empty results. Go tests cover complete attempts, time windows and clipboard failures; browser fixtures cover the controls and row interaction.
+
 For subsequent release validation, test the packaged validator, media preview and browser sign-in on a clean Windows machine without build tools. Verify ES/EN routing and receipts with operator-owned accounts and approved content, including recovery after an interrupted upload. Supply a versioned artifact, prerequisites and a checksum. No installer or signed release is available.
 
 ## Next action
 
-Verify the X handles assigned to ES and EN, then validate language routing and transfer receipts using separately approved content. The production demo remains non-publicable. Check the native console clipboard action after restarting the updated build; automated browser checks use a fixture adapter.
+Verify the X handles assigned to ES and EN, then validate language routing and transfer receipts using separately approved content. The production demo remains non-publicable. Confirm whole-result copying in the native app after restarting the updated build; browser clipboard checks use a fixture adapter.

@@ -18,6 +18,14 @@ export function CopyEvent(id: number): $CancellablePromise<void> {
     return $Call.ByID(1676566292, id);
 }
 
+/**
+ * CopyResults copies chronological JSONL, including matches beyond the UI page.
+ * A zero count leaves the clipboard intact.
+ */
+export function CopyResults(q: diagnostics$0.Query, minutes: number): $CancellablePromise<number> {
+    return $Call.ByID(2765785090, q, minutes);
+}
+
 export function Export(q: diagnostics$0.Query): $CancellablePromise<boolean> {
     return $Call.ByID(3647955563, q);
 }

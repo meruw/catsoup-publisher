@@ -25,6 +25,7 @@ export const diagnostics={
  listen:async value=>{window.__diagnosticsListening=value;},
  onChanged:callback=>{listener=callback;return ()=>{listener=undefined;};},
  copyEvent:async id=>{window.__diagnosticCopied=id;},
+ copyResults:async(q,minutes)=>{window.__diagnosticBulkCopy={q,minutes};return 7;},
  pasteText:async()=>window.__diagnosticClipboard||'',
  export:async q=>{window.__diagnosticExport=q;return true;},
  openFolder:async()=>{window.__diagnosticFolder=true;},
@@ -51,8 +52,8 @@ export async function checkDiagnostics(page,output) {
  assert.equal(await panel.getByLabel('Search',{exact:true}).inputValue(),'no_pages');
  await page.waitForFunction(()=>document.querySelectorAll('.log-table tbody tr').length===45);
  assert.equal(await panel.locator('.filter-count').innerText(),'4 filters');
- assert.equal(await panel.locator('.stream-state').innerText(),'Ⅱ Paused');
- await panel.locator('.event-button').first().click();
+ assert.equal(await panel.locator('.stream-state').innerText(),'Paused');
+ await panel.locator('tbody tr').first().locator('td').first().click();
  await panel.getByRole('button',{name:'Copy event',exact:true}).click();
  assert((await page.evaluate(()=>window.__diagnosticCopied))>0);
  await panel.locator('.event-detail').evaluate(el=>el.scrollTop=0);
@@ -60,6 +61,17 @@ export async function checkDiagnostics(page,output) {
  await panel.getByRole('button',{name:'Follow attempt',exact:true}).click();
  await panel.getByRole('button',{name:'Clear attempt filter'}).waitFor();
  await page.waitForFunction(()=>document.querySelectorAll('.log-table tbody tr').length===7);
+ await panel.getByRole('button',{name:'Copy results',exact:true}).click();
+ const copiedAttempt=await page.evaluate(()=>window.__diagnosticBulkCopy);
+ assert(copiedAttempt.q.attempt.startsWith('attempt'));
+ assert.equal(copiedAttempt.q.before,0);
+ assert.equal(copiedAttempt.minutes,0);
+ for (const minutes of [1,5,10,30]) {
+  await panel.getByLabel('Copy time range',{exact:true}).selectOption(String(minutes));
+  await panel.getByRole('button',{name:'Copy results',exact:true}).click();
+  assert.equal((await page.evaluate(()=>window.__diagnosticBulkCopy)).minutes,minutes);
+ }
+ await panel.getByLabel('Copy time range',{exact:true}).selectOption('0');
  await panel.getByRole('button',{name:'Export page',exact:true}).click();
  assert((await page.evaluate(()=>window.__diagnosticExport)).attempt.startsWith('attempt'));
  await panel.getByRole('button',{name:'Clear attempt filter'}).click();

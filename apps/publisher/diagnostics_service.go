@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"catsoup/publisher/internal/diagnostics"
 	"encoding/json"
 	"errors"
@@ -40,6 +41,32 @@ func (s *DiagnosticsService) CopyEvent(id int64) error {
 		}
 	}
 	return errors.New("event expired; refresh the console")
+}
+
+// CopyResults copies chronological JSONL, including matches beyond the UI page.
+// A zero count leaves the clipboard intact.
+func (s *DiagnosticsService) CopyResults(q diagnostics.Query, minutes int) (int, error) {
+	result, err := s.store.CopyResults(q, minutes)
+	if err != nil {
+		return 0, err
+	}
+	if len(result.Events) == 0 {
+		return 0, nil
+	}
+	var raw bytes.Buffer
+	encoder := json.NewEncoder(&raw)
+	for i := len(result.Events) - 1; i >= 0; i-- {
+		if err := encoder.Encode(result.Events[i]); err != nil {
+			return 0, err
+		}
+		if raw.Len() > 8*1024*1024 {
+			return 0, errors.New("copy exceeds 8 MB; narrow the filters or time range")
+		}
+	}
+	if !s.copyText(raw.String()) {
+		return 0, errors.New("could not copy diagnostics")
+	}
+	return len(result.Events), nil
 }
 func (s *DiagnosticsService) Export(q diagnostics.Query) (bool, error) {
 	result, err := s.store.Query(q)

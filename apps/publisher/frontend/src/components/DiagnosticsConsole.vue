@@ -25,6 +25,7 @@ const error = ref('');
 const feedback = ref('');
 const pending = ref(false);
 const actionPending = ref(false);
+const copyMinutes = ref(0);
 const height = ref(360);
 const expanded = ref(false);
 const input = ref<HTMLInputElement | null>(null);
@@ -141,6 +142,17 @@ function copySelected() {
   const id = selected.value?.id;
   if (id) void action(() => diagnostics.copyEvent(id), 'Event copied.');
 }
+async function copyResults() {
+  if (actionPending.value) return;
+  actionPending.value = true;
+  error.value = ''; feedback.value = '';
+  try {
+    const count = await diagnostics.copyResults({...query.value, before:0}, copyMinutes.value);
+    feedback.value = count ? `${count} events copied · oldest first` : 'No matching events · clipboard unchanged';
+  } catch {
+    error.value = 'Could not copy results. Narrow the filters or time range; large selections are limited to 10,000 events / 8 MB.';
+  } finally { actionPending.value = false; }
+}
 function exportPage() { void action(() => diagnostics.export(query.value), 'Diagnostic page exported.'); }
 function keydown(event: KeyboardEvent) {
   if (event.key === 'Escape') { event.preventDefault(); emit('close'); }
@@ -189,7 +201,7 @@ onUnmounted(() => {
    @keydown.up.prevent="resize(32)" @keydown.down.prevent="resize(-32)"></div>
   <header class="console-header">
    <div class="console-heading"><button class="console-title" :aria-label="collapsed ? 'Open console panel' : 'Collapse console'" :aria-expanded="!collapsed" @click="collapsed=!collapsed"><svg viewBox="0 0 16 16" aria-hidden="true" :class="{folded:collapsed}"><path d="m4 6 4 4 4-4"/></svg><span>Console</span></button>
-    <span class="stream-state" :class="{paused:!live}" role="status" :title="!live ? 'Display paused; recording continues' : (collapsed ? 'Display folded; recording continues' : 'Events update automatically')">{{ !live ? 'Ⅱ Paused' : (collapsed ? 'Folded' : '● Live') }}</span>
+    <span class="stream-state" :class="{paused:!live}" role="status" :title="!live ? 'Display paused; recording continues' : (collapsed ? 'Display folded; recording continues' : 'Events update automatically')">{{ !live ? 'Paused' : (collapsed ? 'Folded' : '● Live') }}</span>
     <span v-if="filterCount" class="filter-count">{{ filterCount }} {{ filterCount===1 ? 'filter' : 'filters' }}</span>
    </div>
    <div class="console-actions">
@@ -207,7 +219,12 @@ onUnmounted(() => {
    <label :class="{filtered:language}">Context<select v-model="language" class="ui-field" aria-label="Context"><option value="">All</option><option value="es">ES</option><option value="en">EN</option></select></label>
    <label :class="{filtered:currentSession}">History<select v-model="currentSession" class="ui-field" aria-label="History"><option :value="false">Saved history</option><option :value="true">This session</option></select></label>
   </div>
-  <div v-if="filterCount || after" class="view-controls"><span v-if="filterCount">Filtered results</span><UiButton v-if="filterCount" size="compact" variant="quiet" @click="resetFilters">Reset filters</UiButton><span v-if="after">Since clear</span><UiButton v-if="after" size="compact" variant="quiet" @click="showHistory">Show saved history</UiButton></div>
+  <div class="view-controls"><span v-if="filterCount">Filtered results</span><UiButton v-if="filterCount" size="compact" variant="quiet" @click="resetFilters">Reset filters</UiButton><span v-if="after">Since clear</span><UiButton v-if="after" size="compact" variant="quiet" @click="showHistory">Show saved history</UiButton>
+   <div class="copy-controls" title="Copies all matching saved events, across pages. Active filters and Clear view apply; pausing does not stop recording.">
+    <select v-model="copyMinutes" class="ui-field" aria-label="Copy time range"><option :value="0">All filtered events</option><option :value="1">Last minute</option><option :value="5">Last 5 minutes</option><option :value="10">Last 10 minutes</option><option :value="30">Last 30 minutes</option></select>
+    <UiButton size="compact" variant="quiet" :disabled="actionPending" @click="copyResults">Copy results</UiButton>
+   </div>
+  </div>
   <div v-if="attempt" class="attempt-filter">Attempt <code>{{ attempt }}</code><UiButton size="compact" variant="quiet" @click="attempt=''">Clear attempt filter</UiButton></div>
   <p v-if="warning" class="console-warning" role="status">{{ warning }}</p>
   <p v-if="liveWarning" class="console-warning" role="status">{{ liveWarning }}</p>
@@ -217,7 +234,7 @@ onUnmounted(() => {
     <div v-if="!rows.length" class="log-empty">{{ search || level || service || language || attempt ? 'No matching events' : 'No events' }}</div>
     <table v-else class="log-table">
      <thead><tr><th scope="col">Time</th><th scope="col">Level</th><th scope="col">Source</th><th scope="col">Event</th></tr></thead>
-     <tbody><tr v-for="row in rows" :key="row.id" :class="{selected:selected?.id===row.id}">
+     <tbody><tr v-for="row in rows" :key="row.id" :class="{selected:selected?.id===row.id}" @click="selected=row">
       <td><time :datetime="row.time" :title="new Date(row.time).toLocaleString()">{{ time(row.time) }}</time></td>
       <td><span class="log-level" :class="row.level.toLowerCase()">{{ row.level }}</span></td>
       <td>{{ serviceName[row.service] || row.service }} <span class="log-language">{{ row.language.toUpperCase() }}</span></td>
@@ -297,6 +314,8 @@ onUnmounted(() => {
 .console-filters .filtered {color:var(--warning)}
 .console-filters .filtered .ui-field {border-color:var(--warning)}
 .view-controls {display:flex;align-items:center;gap:8px;padding:0 12px 8px;color:var(--secondary);flex-wrap:wrap}
+.copy-controls {display:flex;align-items:center;gap:4px;margin-left:auto}
+.copy-controls .ui-field {min-height:28px;height:28px;padding:4px 8px;font:inherit;border-radius:4px;max-width:185px}
 .console-body {flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr);border-top:1px solid var(--line)}
 .console-body.inspecting {grid-template-columns:minmax(0,1fr) 272px}
 .log-scroll {min-height:0;overflow:auto;scrollbar-color:var(--control-border) var(--page)}
@@ -316,6 +335,7 @@ onUnmounted(() => {
 .event-button {display:block;border:0;background:transparent;color:inherit;text-align:left;padding:0;width:100%;font:inherit}
 .event-button span {color:var(--secondary)}
 .log-table tr:hover td {background:var(--sidebar)}
+.log-table tbody tr {cursor:pointer}
 .log-table tr.selected td {background:var(--accent-soft)}
 .log-empty {padding:16px 12px;color:var(--muted)}
 .event-detail {overflow:auto;border-left:1px solid var(--line);padding:8px 12px;background:var(--sidebar)}

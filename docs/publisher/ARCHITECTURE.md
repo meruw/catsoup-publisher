@@ -96,8 +96,15 @@ files intact; Show saved history removes the watermark. Filter resets do not
 remove that boundary. Paste reads the OS clipboard only on an explicit click and
 uses the text as a bounded search string; clipboard contents are not logged.
 
-The diagnostics UI chunk is 6.5 kB gzipped (JavaScript and CSS combined). The
-Windows executable is 18,446,848 bytes in the measured production build.
+Copy results reads all matching retained events in one bounded scan, independent
+of UI pagination. It respects active filters and the clear-view boundary, with
+optional rolling windows of 1, 5, 10 or 30 minutes. Chronological JSONL goes
+directly to the native clipboard. Empty results preserve the clipboard; selections
+over 10,000 events or 8 MB fail without copying a partial result. Pausing freezes
+the display only; copying reads saved events at the time of the click.
+
+The diagnostics UI chunk is 6.8 kB gzipped (JavaScript and CSS combined). The
+Windows executable is 18,452,480 bytes in the measured production build.
 No frontend runtime dependency was added.
 
 ## Version and maintenance policy
