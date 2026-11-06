@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {computed,onMounted,ref} from 'vue';
 import UiButton from './UiButton.vue';
+import UiHelp from './UiHelp.vue';
 import {drafts,type Review} from '../services/drafts';
 import type {Episode,Video} from '../services/publisher';
 const props=defineProps<{episode:Episode;language:string;video:Video;locked:boolean}>();
@@ -26,24 +27,33 @@ defineExpose({flush});
 </script>
 <template>
  <section class="review-decision" aria-label="Review decision">
-  <div class="section-header"><h3>Editorial review</h3><span class="review-state" :class="{'valid-label':decision==='reviewed' && !dirty}" role="status">{{status}}</span></div>
+  <div class="section-header"><h3>Video review</h3><span class="review-state" :class="{'valid-label':decision==='reviewed' && !dirty}" role="status">{{status}}</span><UiHelp text="Records that you checked this exact video and audio. Replacing the files requires another review. Production approval is checked separately before sending."/></div>
   <p v-if="!current && review?.revision" class="notice warning">The delivery changed. Review this version again; your notes are kept.</p>
-  <label for="review-notes">Review notes</label>
-  <textarea id="review-notes" v-model="notes" class="ui-field" rows="3" maxlength="4000" :disabled="locked || busy || !final" @input="confirmed=false;emit('state','pending')" placeholder="Optional"></textarea>
   <fieldset :disabled="locked || busy || !review || !final" class="draft-fields review-controls">
    <label v-if="decision!=='reviewed' || dirty" class="review-confirm"><input v-model="confirmed" type="checkbox"> I watched and listened to this final version</label>
    <div class="draft-actions">
-    <UiButton v-if="decision!=='reviewed' || dirty" variant="primary" :disabled="!confirmed" :busy="busy" @click="decide('reviewed')">Mark reviewed</UiButton>
-    <UiButton :disabled="!notes.trim()" title="Record needed changes locally" @click="decide('changes_requested')">Request changes</UiButton>
-    <UiButton v-if="dirty" variant="quiet" @click="decide('pending')">Save notes</UiButton>
+    <UiButton v-if="decision!=='reviewed' || dirty" size="compact" :disabled="!confirmed" :busy="busy" @click="decide('reviewed')">Mark reviewed</UiButton>
    </div>
+   <details class="review-notes">
+    <summary>Notes<span v-if="notes.trim()" class="notes-present">{{dirty?'Unsaved':'Saved note'}}</span></summary>
+    <label for="review-notes" class="sr-only">Review notes</label>
+    <textarea id="review-notes" v-model="notes" class="ui-field" rows="3" maxlength="4000" @input="confirmed=false;emit('state','pending')" placeholder="Changes to make or details to keep"></textarea>
+    <div class="draft-actions"><UiButton :disabled="!notes.trim()" size="compact" title="Record needed changes locally" @click="decide('changes_requested')">Request changes</UiButton><UiButton v-if="dirty" size="compact" variant="quiet" @click="decide('pending')">Save notes</UiButton></div>
+   </details>
   </fieldset>
   <p v-if="!final" class="publication-hint">Select the final version to record a review</p>
   <p v-if="error" class="notice error" role="alert">{{error}}</p>
  </section>
 </template>
 <style scoped>
-.review-decision{padding-top:0}
+.review-decision{padding-top:20px;margin-top:24px;border-top:1px solid var(--line)}
+.review-decision h3{font-size:var(--text-md)}
+.review-state{margin-left:auto;white-space:nowrap}
+.review-decision .section-header{gap:8px;margin-bottom:8px}
+.review-notes{margin-top:16px;font-size:var(--text-sm);color:var(--secondary)}
+.review-notes summary{cursor:pointer}
+.notes-present{font-size:var(--text-xs);color:var(--muted);margin-left:12px}
+.review-notes .draft-actions{margin-top:12px}
 textarea{display:block;width:100%;margin-top:8px;resize:vertical}
 .review-controls{margin-top:16px}.review-confirm{display:flex;align-items:flex-start;gap:8px;margin-bottom:16px}.review-state{font-size:var(--text-xs)}
 </style>

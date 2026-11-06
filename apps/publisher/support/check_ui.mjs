@@ -127,7 +127,11 @@ try {
       await route.fulfill({ contentType: 'video/mp4', headers: { 'Accept-Ranges': 'bytes' }, body: data });
     }
   });
-  const step=async value=>{await page.getByRole('navigation',{name:'Episode workflow'}).getByRole('button',{name:new RegExp(value,'i')}).click();};
+  const step=async value=>{
+    if(value==='Publish') await page.getByRole('button',{name:'Publish\u2026',exact:true}).click();
+    else if(await page.getByRole('button',{name:'Edit post',exact:true}).isVisible()) await page.getByRole('button',{name:'Edit post',exact:true}).click();
+  };
+  const advancedDrafts=async()=>{if(!await page.locator('.draft-library').evaluate(el=>el.open))await page.locator('.draft-library summary').click();};
   const review=async()=>{await step('Review');await page.getByLabel('I watched and listened to this final version').check();await page.getByRole('button',{name:'Mark reviewed',exact:true}).click();await page.getByText('Reviewed',{exact:true}).waitFor();};
   await page.goto(server.resolvedUrls.local[0]);
   await page.getByRole('heading', { name: manifest.internal_title }).waitFor();
@@ -166,13 +170,29 @@ try {
     await page.screenshot({ path: path.join(output, `publisher-${width}.png`), fullPage: true });
   }
   await page.setViewportSize({ width: 1200, height: 808 });
+  assert.equal(await page.getByRole('navigation',{name:'Episode workflow'}).count(),0,'no numbered workflow navigation');
+  assert(await page.locator('video').isVisible());
+  assert(await page.getByLabel('Title',{exact:true}).isVisible(),'video and editor share one workspace');
+  const platformPicker=page.getByRole('group',{name:'Post platform',exact:true});
+  await platformPicker.getByRole('button',{name:'TikTok',exact:true}).click();
+  await page.waitForFunction(()=>document.querySelector('.post-platforms button[aria-pressed="true"]')?.textContent==='TikTok');
+  assert(await page.getByLabel('Title',{exact:true}).isVisible(),'one click opens the platform draft');
+  await platformPicker.getByRole('button',{name:'YouTube',exact:true}).click();
+  await page.getByRole('button',{name:'Publish\u2026',exact:true}).waitFor();
+  const tip=page.getByRole('button',{name:/Text saves on this PC/});
+  await tip.focus();
+  assert(await page.getByRole('tooltip').filter({hasText:'Text saves'}).isVisible());
+  await page.keyboard.press('Escape');
+  assert(!await page.getByRole('tooltip').filter({hasText:'Text saves'}).isVisible());
+  await page.locator('.review-notes summary').click();
   await page.getByLabel('Review notes').fill('Check the voice timing');
   await page.getByRole('button',{name:'Request changes',exact:true}).click();
   await page.getByText('Changes requested',{exact:true}).waitFor();
   await review();
   await page.locator('video').evaluate(async v=>{v.muted=true;await v.play()});
   await step('Prepare');
-  assert(await page.locator('video').evaluate(v=>v.paused),'leaving Review must pause video');
+  assert(!await page.locator('video').evaluate(v=>v.paused),'editing must keep the visible preview playable');
+  await advancedDrafts();
   await page.getByLabel('Account label', { exact: true }).fill('@catsoup_es');
   await page.getByRole('button', { name: 'Open draft', exact: true }).click();
   await page.getByLabel('Title', { exact: true }).fill('Un pequeño misterio');
@@ -186,6 +206,7 @@ try {
   await page.getByRole('button', { name: 'Open video folder', exact: true }).click();
   assert.equal((await page.evaluate(() => window.__revealed)).episode, 'catsoup-demo');
   await step('Publish');
+  assert(await page.locator('video').evaluate(v=>v.paused),'opening publication options must pause the preview');
   await page.getByText('Finish in the browser',{exact:true}).click();
   await page.getByText('Available after the delivery is approved for publishing.').waitFor();
   assert.equal(await page.getByRole('button', { name: 'Copy upload file path' }).count(), 0);
@@ -193,6 +214,7 @@ try {
   // Change language before the debounce fires: leaving must flush the ES draft.
   await page.getByLabel('Title', { exact: true }).fill('Guardado antes de cambiar');
   await page.getByRole('button', { name: 'English', exact: true }).click();
+  await advancedDrafts();
   await page.getByLabel('Account label', { exact: true }).fill('@catsoup_en');
   await page.getByRole('button', { name: 'Open draft', exact: true }).click();
   await page.getByLabel('Title', { exact: true }).fill('A tiny mystery');
@@ -202,7 +224,9 @@ try {
   assert.equal(persisted.find(d => d.key.language === 'es').title, 'Guardado antes de cambiar');
   assert.equal(persisted.find(d => d.key.language === 'en').title, 'A tiny mystery');
   // A destination change also flushes; a separate account/platform stays isolated.
+  await advancedDrafts();
   await page.getByLabel('Platform', { exact: true }).selectOption('tiktok');
+  await advancedDrafts();
   await page.getByLabel('Account label', { exact: true }).fill('@catsoup_second');
   await page.getByRole('button', { name: 'Open draft', exact: true }).click();
   await page.getByLabel('Title', { exact: true }).fill('TikTok draft');
@@ -270,13 +294,14 @@ try {
     id: 'catsoup-handoff-fixture', ready: true, status: 'approved_for_publishing', reason: '',
   }));
   await page.getByRole('button', { name: 'Refresh', exact: true }).click();
+  await advancedDrafts();
   await page.getByLabel('Account label', { exact: true }).fill('@handoff_es');
   await page.getByRole('button', { name: 'Open draft', exact: true }).click();
   await page.getByLabel('Title', { exact: true }).fill('Ready for manual upload');
   await page.getByText('Saved locally', { exact: true }).waitFor();
   await step('Publish');
   await page.getByText('Finish in the browser',{exact:true}).click();
-  await page.getByText('Mark the current final video as reviewed in Review before sending.').waitFor();
+  await page.getByText('Mark the video as reviewed before sending.').waitFor();
   await review();
   await step('Publish');
   await page.getByText('Finish in the browser',{exact:true}).click();
@@ -408,7 +433,8 @@ try {
   ]) {
     await step('Prepare');
     if (platform !== 'youtube') {
-      await page.getByLabel('Platform', {exact:true}).selectOption(platform);
+      await advancedDrafts();
+  await page.getByLabel('Platform', {exact:true}).selectOption(platform);
       await page.getByRole('button', {name:'Open draft',exact:true}).click();
       await page.getByLabel('Title',{exact:true}).fill('Platform fixture');
       await page.getByText('Saved locally', {exact:true}).waitFor();
@@ -464,6 +490,7 @@ try {
   await xRow.getByText('API · Paid',{exact:true}).waitFor();
   await page.getByRole('button',{name:'Publisher',exact:true}).click();
   await step('Prepare');
+  await advancedDrafts();
   await page.getByLabel('Platform',{exact:true}).selectOption('x');
   await page.getByRole('button',{name:'Open draft',exact:true}).click();
   await page.getByLabel('Title',{exact:true}).fill('Approved X fixture');

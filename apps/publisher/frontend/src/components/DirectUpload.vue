@@ -22,7 +22,7 @@ const action=computed(()=>{
 const note=computed(()=>{
  if(localOnly.value) return 'This draft stays on your PC. This connector does not create drafts on the platform.';
  if(platform.value==='youtube') return mode.value==='draft'?'Upload a private video. It will not be public.':'Make this video public on the connected YouTube channel.';
- if(platform.value==='tiktok')return 'Send the video to the TikTok inbox, then finish editing and posting in TikTok. Copy the caption from Prepare.';
+ if(platform.value==='tiktok')return 'Send the video to the TikTok inbox, then finish editing and posting in TikTok.';
  if(browserX.value)return 'Publisher opens the prepared text and copies the video path. Paste it into X’s file picker, then review and post in X.';
  if(platform.value==='x')return 'Post the video and text using your paid X API access. X bills your developer project.';
  return 'Publish a Reel on the connected Instagram profile.';
@@ -54,7 +54,7 @@ function clearAttempt(){void run(async()=>{await uploads.clear(props.draft.key,a
    </fieldset>
    <p v-if="platform==='tiktok'" class="publication-hint">Direct Post is not enabled in this connector. Public posting requires TikTok approval and its publishing flow.</p>
    <p class="send-explanation">{{note}}</p>
-   <p v-if="localOnly" class="local-draft-status" role="status">{{draft.revision?'Saved locally · Return to this destination whenever you are ready':'Save this draft in Prepare to keep it on this PC'}}</p>
+   <p v-if="localOnly" class="local-draft-status" role="status">{{draft.revision?'Saved on this PC':'Choose Edit post to save your draft'}}</p>
    <template v-else-if="privateVideo && mode==='draft'"><p class="publication-hint">Your private upload is already recorded. Choose Publish now to make it public without uploading again.</p></template>
    <template v-else-if="!account.id"><p>No account assigned for {{draft.key.language.toUpperCase()}}</p><UiButton @click="emit('accounts')">Manage accounts</UiButton></template>
    <template v-else>
