@@ -90,7 +90,11 @@ func TestDraftServicePreservesApprovalAndSource(t *testing.T) {
 	if _, err = svc.SaveDraft(invalid); err == nil {
 		t.Fatal("accepted other language's video")
 	}
-	if err = svc.OpenVideoFolder("catsoup-demo", "es_final"); err != nil || revealed != filepath.Join(folder, "video.mp4") {
+	want, err := filepath.EvalSymlinks(filepath.Join(folder, "video.mp4"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = svc.OpenVideoFolder("catsoup-demo", "es_final"); err != nil || revealed != want {
 		t.Fatalf("reveal: %q %v", revealed, err)
 	}
 	revealed = ""

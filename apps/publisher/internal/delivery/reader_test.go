@@ -102,7 +102,11 @@ func TestManualUploadRequiresCurrentApprovedFinal(t *testing.T) {
 			}
 			path, err := reader.UploadPath(tc.id, tc.lang, "es-final", episode.Fingerprint, hash)
 			if tc.allow {
-				if err != nil || path != filepath.Join(base, "test.mp4") {
+				want, resolveErr := filepath.EvalSymlinks(filepath.Join(base, "test.mp4"))
+				if resolveErr != nil {
+					t.Fatal(resolveErr)
+				}
+				if err != nil || path != want {
 					t.Fatalf("path=%q err=%v", path, err)
 				}
 			} else if err == nil || path != "" {
