@@ -18,6 +18,6 @@ Publisher sends an approved MP4 to the TikTok inbox. The creator edits the draft
 Select **Accounts → ES → TikTok → Connect → Sign in with TikTok**. TikTok can reuse the account active in your browser. Check the @username before granting access; use **Change account** if the wrong account is active. Repeat under **EN**. The ES/EN selector in Publisher controls where the resulting connection is stored.
 
 ## Send to the inbox
-Review the video and edit its **TikTok** post, then choose **Publish…**. Keep **Keep as draft** selected, confirm the destination and select **Send to TikTok inbox**. Open the inbox notification in TikTok, paste the prepared caption if desired and finish posting there. **Publish now** is unavailable: Direct Post requires its own connector flow and TikTok approval. An inbox receipt does not mean the video is public.
+Review the video and edit its **TikTok** post, then choose **Publish…**. Confirm the destination and select **Send to TikTok inbox**. Open the inbox notification in TikTok, paste the prepared caption if desired and finish posting there. The dialog offers only an inbox transfer; Direct Post requires its own connector flow and TikTok approval. An inbox receipt does not mean the video is public.
 
 [Desktop Login Kit](https://developers.tiktok.com/docs/en/login-kit-desktop) · [Inbox upload requirements](https://developers.tiktok.com/docs/en/content-posting-api-get-started-upload-content)

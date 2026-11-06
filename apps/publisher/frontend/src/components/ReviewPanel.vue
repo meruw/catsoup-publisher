@@ -7,6 +7,7 @@ import type {Episode,Video} from '../services/publisher';
 const props=defineProps<{episode:Episode;language:string;video:Video;locked:boolean}>();
 const emit=defineEmits<{state:[value:string]}>();
 const review=ref<Review|null>(null),notes=ref(''),confirmed=ref(false),busy=ref(false),error=ref('');
+const panel=ref<HTMLDetailsElement|null>(null);
 const current=computed(()=>review.value?.fingerprint===props.episode.fingerprint && review.value?.videoHash===props.video.sha256);
 const decision=computed(()=>current.value?review.value?.state:'pending');
 const final=computed(()=>props.video.kind==='final' && props.video.lang===props.language);
@@ -18,16 +19,19 @@ async function save(state:string){
  busy.value=true;error.value='';
  try{
  review.value=await drafts.saveReview({...review.value,fingerprint:props.episode.fingerprint,videoHash:props.video.sha256,state,notes:notes.value},confirmed.value);
- confirmed.value=false;emit('state',state);
+ confirmed.value=false;emit('state',state);if(state==='reviewed' && panel.value)panel.value.open=false;
  }catch(e){error.value=String(e);throw e}finally{busy.value=false}
 }
 function decide(state:string){void save(state).catch(()=>{});}
 async function flush(){if(busy.value)throw Error('Wait for the review to finish saving.');if(dirty.value)await save('pending');}
-defineExpose({flush});
+function focusReview(){if(panel.value){panel.value.open=true;panel.value.scrollIntoView({block:'nearest'});panel.value.querySelector<HTMLInputElement>('input[type=checkbox]')?.focus();}}
+defineExpose({flush,focusReview});
 </script>
 <template>
  <section class="review-decision" aria-label="Review decision">
-  <div class="section-header"><h3>Video review</h3><span class="review-state" :class="{'valid-label':decision==='reviewed' && !dirty}" role="status">{{status}}</span><UiHelp text="Records that you checked this exact video and audio. Replacing the files requires another review. Production approval is checked separately before sending."/></div>
+  <details ref="panel" class="review-details">
+  <summary>Video review <span class="review-state" :class="{'valid-label':decision==='reviewed' && !dirty}" role="status">{{status}}</span></summary>
+  <div class="review-help"><UiHelp text="Records that you checked this exact video and audio. Replacing the files requires another review. Production approval is checked separately before sending."/></div>
   <p v-if="!current && review?.revision" class="notice warning">The delivery changed. Review this version again; your notes are kept.</p>
   <fieldset :disabled="locked || busy || !review || !final" class="draft-fields review-controls">
    <label v-if="decision!=='reviewed' || dirty" class="review-confirm"><input v-model="confirmed" type="checkbox"> I watched and listened to this final version</label>
@@ -43,10 +47,14 @@ defineExpose({flush});
   </fieldset>
   <p v-if="!final" class="publication-hint">Select the final version to record a review</p>
   <p v-if="error" class="notice error" role="alert">{{error}}</p>
+  </details>
  </section>
 </template>
 <style scoped>
-.review-decision{padding-top:20px;margin-top:24px;border-top:1px solid var(--line)}
+.review-decision{margin-top:20px}
+.review-details>summary{cursor:pointer;font-size:var(--text-sm);color:var(--secondary)}
+.review-details>summary .review-state{float:right;font-size:var(--text-xs)}
+.review-help{display:flex;justify-content:flex-end;margin-top:8px}
 .review-decision h3{font-size:var(--text-md)}
 .review-state{margin-left:auto;white-space:nowrap}
 .review-decision .section-header{gap:8px;margin-bottom:8px}
