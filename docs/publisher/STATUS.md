@@ -19,4 +19,4 @@ For subsequent release validation, test the packaged validator, media preview an
 
 ## Next action
 
-Complete a real Instagram sign-in and confirm the ES and EN destinations.
+Confirm the Instagram username saved under each language in Accounts after Facebook sign-in. A credential confirmation records the code exchange; the Instagram destination is ready only after the linked profile is found and saved.

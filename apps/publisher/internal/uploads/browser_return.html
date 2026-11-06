@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow,noarchive">
+  <title>{{.Title}} | CATsoup Publisher</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { width: min(42rem, calc(100% - 3rem)); margin: 0 auto; background: #fffcf7; color: #4f281b; font: 1rem/1.6 "Segoe UI", system-ui, sans-serif; }
+    header { padding-block: 1.5rem; border-bottom: 1px solid #e4d7c8; font-size: 1.125rem; }
+    strong, .context span { color: #9d3e15; }
+    header img { width: 2.5rem; height: 2.5rem; vertical-align: middle; margin-right: .75rem; }
+    main { padding-block: clamp(3rem, 10vh, 6rem); }
+    h1 { margin: 1rem 0 1.25rem; max-width: 17ch; font: 500 clamp(2.5rem, 6vw, 4rem)/1.08 Georgia, serif; letter-spacing: -.035em; text-wrap: balance; }
+    p { margin: 0; max-width: 44ch; color: #705446; font-size: 1.125rem; }
+    .context { font-size: .9375rem; }
+    .context span { margin-inline: .5rem; }
+  </style>
+</head>
+<body>
+  <header>{{if .Icon}}<img src="data:image/png;base64,{{.Icon}}" alt="">{{end}}<strong>CATsoup</strong> Publisher</header>
+  <main>
+    <p class="context">{{.Provider}} <span aria-hidden="true">/</span> Account access</p>
+    <h1>{{.Title}}</h1>
+    <p>{{.Detail}}</p>
+  </main>
+</body>
+</html>

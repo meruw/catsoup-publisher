@@ -2,6 +2,11 @@
 const redirect = location.origin + location.pathname;
 const slot = 'catsoup-meta-attempt:' + location.pathname;
 const message = document.getElementById('message');
+function show(heading, detail) {
+  const title = document.getElementById('heading');
+  if (title) title.textContent = heading;
+  message.textContent = detail;
+}
 const encode = bytes => btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 const decode = text => Uint8Array.from(atob(text.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
 const paired = state => /^[a-zA-Z0-9_-]{26,128}$/.test(state || '');
@@ -22,10 +27,14 @@ async function run() {
     const url = new URL('https://www.facebook.com/v25.0/dialog/oauth');
     url.search = new URLSearchParams({client_id:app,config_id:config,state,response_type:'code',
       override_default_response_type:'true',redirect_uri:redirect}).toString();
+    show('Continue on Facebook', 'Choose the Pages linked to your Instagram accounts.');
     location.replace(url.href);
     return;
   }
-  if (!result.size) {message.textContent='Start Instagram sign-in from Accounts in the Windows app.';return;}
+  if (!result.size) {
+    show('Start in Publisher', 'Open Accounts in the desktop app, choose ES or EN, then connect Instagram.');
+    return;
+  }
   const attempt = JSON.parse(sessionStorage.getItem(slot) || 'null');
   if (!attempt || attempt.until <= Date.now() || !paired(result.get('state')) || result.get('state')!==attempt.state)
     throw Error('There is no matching sign-in in this tab. Start again from Publisher.');
@@ -41,7 +50,7 @@ async function run() {
   // Top-level navigation avoids cross-origin fetch and never delegates the host to input.
   const local = new URL('http://127.0.0.1:'+attempt.port+'/callback/');
   local.search = new URLSearchParams({state:attempt.state,reply:encode(sealed)}).toString();
-  message.textContent='Returning to CATsoup Publisher…';
+  show('Returning to Publisher', 'The desktop app will check which Instagram profile belongs to the selected Page.');
   location.replace(local.href);
 }
-run().catch(error => {message.textContent=error instanceof Error && !('code' in error) ? error.message : 'Could not return to Publisher. Start sign-in again.';});
+run().catch(error => show('Sign-in interrupted', error instanceof Error && !('code' in error) ? error.message : 'Open Accounts in Publisher and start sign-in again.'));

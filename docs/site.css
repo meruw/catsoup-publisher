@@ -107,3 +107,12 @@ footer { color: var(--body); border-top: 1px solid var(--line); padding-block: 1
 .service-index li:first-child { border: 0; padding-top: 0; }
 .service-index a { font-weight: 600; }
 .service-index p { color: var(--body); }
+
+.auth-page { width: min(42rem, calc(100% - 3rem)); margin-inline: auto; }
+.auth-mast { padding: 1.5rem 0 1.5rem 3.25rem; border-bottom: 1px solid var(--line); background: url("images/paw.png") left center / 2.5rem auto no-repeat; font-size: 1.125rem; }
+.auth-mast strong { color: var(--link); }
+.auth-content { padding-block: clamp(3rem, 10vh, 6rem); }
+.auth-context { margin-bottom: 1rem; color: var(--body); font-size: .9375rem; }
+.auth-context span { margin-inline: .5rem; color: var(--link); }
+.auth-content h1 { max-width: 17ch; font-size: clamp(2.5rem, 6vw, 4rem); line-height: 1.08; letter-spacing: -.035em; }
+.auth-content #message { max-width: 44ch; margin-top: 1.25rem; color: var(--body); font-size: 1.125rem; }
