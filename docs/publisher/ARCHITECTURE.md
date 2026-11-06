@@ -72,6 +72,31 @@ implement a second incompatible contract.
 - A local malicious process running as the same Windows user is outside this app's
   isolation guarantee. A desktop bridge is not a full sandbox.
 
+## Connection diagnostics
+
+Go `log/slog` writes structured account connection events through pinned Lumberjack
+v2.2.1 to `%LOCALAPPDATA%/CATsoup Publisher/logs`. Files rotate at 10 MB, with five
+backups and a seven-day retention policy. Cleanup runs on rotation, at startup and
+daily while Publisher runs. Queries omit events older than seven days. An exclusive
+Windows lock prevents two instances from sharing a writer; unavailable storage
+falls back to a 2,000-event memory buffer with a visible warning.
+
+Stages, messages and failure reasons use a fixed vocabulary. Events include an
+attempt ID, service, language, elapsed time and numeric HTTP/provider error codes.
+Tokens, authorization codes, URLs, usernames and raw provider bodies are excluded.
+Logs stay local unless the operator explicitly exports or copies them.
+
+The console is a lazy-loaded Vue panel opened from Settings or Ctrl+Shift+D. Its
+typed bridge returns at most 200 events per page and scans bounded log files.
+Live notifications are coalesced and enabled only while the console is open;
+logging continues when it is closed. Export uses the native save dialog and writes
+only the selected query page. No terminal emulator, shell or hosted log service
+is involved.
+
+The diagnostics UI chunk is 5.1 kB gzipped (JavaScript and CSS combined). The
+Windows executable increased by 137,728 bytes to 18,440,704 bytes in the measured
+production build. No frontend runtime dependency was added.
+
 ## Version and maintenance policy
 
 Pin Go/tooling and all runtime packages, commit lockfiles, review security advisories

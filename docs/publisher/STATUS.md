@@ -4,6 +4,7 @@
 
 - Windows x64 desktop workspace with ES/EN playback, custom window controls, an episode catalog and local SQLite drafts.
 - Accounts manages destinations per language. Settings manages shared developer credentials and optional HTTPS callback hosting for Instagram.
+- Settings → Diagnostics (Ctrl+Shift+D) opens a lightweight connection console with search, service/language/level filters, attempt tracking and JSONL export. Local slog/Lumberjack logs rotate at 10 MB with five backups and seven-day retention. Credentials and provider response bodies are excluded.
 - Approved episodes support private YouTube uploads, TikTok inbox transfers and Instagram Reels. X uses the browser composer. [Accounts and uploads](https://publisher.meruw.dev/guides/uploads/)
 - Provider guides and the setup documentation are published on [publisher.meruw.dev](https://publisher.meruw.dev/guides/setup/). The site also serves the privacy policy, terms, optional Meta return page and TikTok verification file.
 
@@ -19,4 +20,4 @@ For subsequent release validation, test the packaged validator, media preview an
 
 ## Next action
 
-Confirm the Instagram username saved under each language in Accounts after Facebook sign-in. A credential confirmation records the code exchange; the Instagram destination is ready only after the linked profile is found and saved.
+Restart the updated Windows build and retry Instagram ES with Diagnostics open, then EN. Inspect the full attempt if a destination is not saved. A credential confirmation records the code exchange; the Instagram destination is ready only after the linked profile is found and saved. Automated diagnostics tests cover persistence, rotation, secret exclusion, filtering and the browser console; the native OAuth retry remains pending.

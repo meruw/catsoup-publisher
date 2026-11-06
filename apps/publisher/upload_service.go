@@ -12,11 +12,13 @@ import (
 	"time"
 
 	"catsoup/publisher/internal/delivery"
+	"catsoup/publisher/internal/diagnostics"
 	"catsoup/publisher/internal/drafts"
 	"catsoup/publisher/internal/uploads"
 )
 
 type UploadService struct {
+	diagnostics *diagnostics.Store
 	store       *drafts.Store
 	reader      *delivery.Reader
 	client      *uploads.Client

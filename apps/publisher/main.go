@@ -11,8 +11,10 @@ import (
 	"os"
 	"path/filepath"
 	"sync/atomic"
+	"time"
 
 	"catsoup/publisher/internal/delivery"
+	"catsoup/publisher/internal/diagnostics"
 	"catsoup/publisher/internal/drafts"
 	"catsoup/publisher/internal/uploads"
 	"github.com/wailsapp/wails/v3/pkg/application"
@@ -88,11 +90,19 @@ func main() {
 	}
 	defer store.Close()
 	draftService := &DraftService{store: store, reader: reader}
+	logRoot, err := os.UserCacheDir()
+	if err != nil {
+		log.Fatal("Could not locate the local application data directory")
+	}
+	diagnosticStore := diagnostics.Open(filepath.Join(logRoot, "CATsoup Publisher", "logs"))
+	defer diagnosticStore.Close()
+	diagnosticService := &DiagnosticsService{store: diagnosticStore}
 	uploadService := &UploadService{store: store, reader: reader, client: uploads.New()}
+	uploadService.diagnostics = diagnosticStore
 	uploadService.client.BrowserIcon = appIcon
 	app := application.New(application.Options{Name: "CATsoup Publisher", Description: "Local release preparation",
 		Icon:     appIcon,
-		Services: []application.Service{application.NewService(&PublisherService{reader: reader}), application.NewService(draftService), application.NewService(uploadService)},
+		Services: []application.Service{application.NewService(&PublisherService{reader: reader}), application.NewService(draftService), application.NewService(uploadService), application.NewService(diagnosticService)},
 		Assets:   application.AssetOptions{Handler: assetHandler(reader, assets)}})
 	window := app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Title: "CATsoup Publisher", Width: 1200, Height: 840, MinWidth: 820, MinHeight: 650, URL: "/", Frameless: true,
@@ -106,6 +116,31 @@ func main() {
 		},
 	})
 	draftService.copyText = app.Clipboard.SetText
+	diagnosticService.copyText = app.Clipboard.SetText
+	diagnosticService.reveal = func(path string) error { return app.Env.OpenFileManager(path, false) }
+	diagnosticService.export = func(raw []byte) (bool, error) {
+		path, err := app.Dialog.SaveFile().SetFilename("catsoup-diagnostics.jsonl").AddFilter("Diagnostic log", "*.jsonl").PromptForSingleSelection()
+		if err != nil || path == "" {
+			return false, err
+		}
+		return true, os.WriteFile(path, raw, 0600)
+	}
+	go func() {
+		for {
+			select {
+			case <-diagnosticStore.Done():
+				return
+			case <-diagnosticStore.Changes():
+				// Coalesce bursts without maintaining a polling loop.
+				select {
+				case <-diagnosticStore.Done():
+					return
+				case <-time.After(200 * time.Millisecond):
+				}
+				app.Event.Emit("publisher:diagnostics-changed")
+			}
+		}
+	}()
 	uploadService.openBrowser = app.Browser.OpenURL
 	draftService.reveal = func(path string) error { return app.Env.OpenFileManager(path, true) }
 	var guarded, closing atomic.Bool

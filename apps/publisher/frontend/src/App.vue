@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue';
+import { computed, defineAsyncComponent, onMounted, onUnmounted, ref } from 'vue';
 import VideoPreview from './components/VideoPreview.vue';
 import UiButton from './components/UiButton.vue';
 import UiSegmented from './components/UiSegmented.vue';
@@ -12,6 +12,20 @@ import { drafts } from './services/drafts';
 import { publisher, mediaURL, type Entry, type Episode } from './services/publisher';
 
 const module = ref<'publisher'|'accounts'|'settings'>('publisher');
+const DiagnosticsConsole = defineAsyncComponent(() => import('./components/DiagnosticsConsole.vue'));
+const consoleOpen = ref(false);
+const diagnosticFilter = ref({service:'',language:''});
+function openDiagnostics(service='', language='') {
+  diagnosticFilter.value={service,language};
+  consoleOpen.value=true;
+}
+function diagnosticShortcut(event:KeyboardEvent) {
+  if(event.ctrlKey && event.shiftKey && event.key.toLowerCase()==='d') {
+    event.preventDefault();
+    if(consoleOpen.value) consoleOpen.value=false;
+    else openDiagnostics();
+  }
+}
 const accountBusy = ref(false);
 const accountLanguage = ref('es');
 const settingsProvider = ref<SetupPlatform|null>(null);
@@ -78,6 +92,7 @@ function switchVideo(event: Event) {
   void navigate(() => { videoID.value = next; });
 }
 onMounted(async () => {
+  window.addEventListener('keydown',diagnosticShortcut);
   stopCloseListener = drafts.onCloseRequested(() => {
     if (module.value==='accounts') void drafts.confirmClose();
     else void navigate(async () => { await drafts.confirmClose(); });
@@ -86,11 +101,12 @@ onMounted(async () => {
   catch { error.value = 'Close protection is unavailable. Save your draft before closing.'; }
   await refresh();
 });
-onUnmounted(() => stopCloseListener?.());
+onUnmounted(() => {stopCloseListener?.();window.removeEventListener('keydown',diagnosticShortcut);});
 </script>
 
 <template>
   <WindowBar />
+  <DiagnosticsConsole v-if="consoleOpen" :service="diagnosticFilter.service" :language="diagnosticFilter.language" @close="consoleOpen=false"/>
   <div class="workspace">
     <aside class="sidebar" aria-label="Modules and episodes">
       <div class="module-label">Modules</div>
@@ -112,8 +128,8 @@ onUnmounted(() => stopCloseListener?.());
       <p v-if="!entries.length && !busy" class="muted">No deliveries yet</p>
       <div class="workspace-note"><span>Local workspace</span><small>Spanish + English</small></div>
     </aside>
-    <AccountManager v-if="module==='accounts'" :initial-language="accountLanguage" @settings="showSettings" @language="accountLanguage=$event" @busy="accountBusy=$event"/>
-    <SettingsPage v-else-if="module==='settings'" :provider="settingsProvider" @select="showSettings" @busy="accountBusy=$event"/>
+    <AccountManager v-if="module==='accounts'" :initial-language="accountLanguage" @settings="showSettings" @language="accountLanguage=$event" @busy="accountBusy=$event" @diagnostics="openDiagnostics"/>
+    <SettingsPage v-else-if="module==='settings'" :provider="settingsProvider" @select="showSettings" @busy="accountBusy=$event" @diagnostics="openDiagnostics()"/>
     <main v-else :aria-busy="busy">
       <header class="page-header">
         <div><h1>Publisher</h1><p>Review deliveries in Spanish and English</p></div>

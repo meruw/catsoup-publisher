@@ -3,11 +3,13 @@ package uploads
 
 import (
 	"bytes"
+	"catsoup/publisher/internal/diagnostics"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"os"
@@ -51,15 +53,30 @@ func (c *Client) request(ctx context.Context, method, endpoint, auth string, hea
 	}
 	resp, err := c.HTTP.Do(req)
 	if err != nil {
+		diagnostics.Record(ctx, slog.LevelError, "provider_failed", diagnostics.Details{Reason: "network"})
 		return nil, errors.New("provider connection interrupted; check the destination before retrying")
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		// Only numeric Meta error identifiers are retained. Response text may
+		// contain identifiers or credentials, so it is never logged.
+		var provider struct {
+			Error struct {
+				Code    int
+				Subcode int `json:"error_subcode"`
+			}
+		}
+		if req.URL.Host == "graph.facebook.com" {
+			_ = json.NewDecoder(io.LimitReader(resp.Body, 16*1024)).Decode(&provider)
+		}
+		diagnostics.Record(ctx, slog.LevelError, "provider_failed", diagnostics.Details{Reason: "provider_rejected", HTTPStatus: resp.StatusCode, ProviderCode: provider.Error.Code, ProviderSubcode: provider.Error.Subcode})
 		return nil, fmt.Errorf("provider returned HTTP %d; check authorization, account permissions and upload limits", resp.StatusCode)
 	}
 	if result != nil && json.NewDecoder(io.LimitReader(resp.Body, 1<<20)).Decode(result) != nil {
+		diagnostics.Record(ctx, slog.LevelError, "provider_failed", diagnostics.Details{Reason: "unreadable_response", HTTPStatus: resp.StatusCode})
 		return nil, errors.New("provider returned an unreadable response")
 	}
+	diagnostics.Record(ctx, slog.LevelDebug, "provider_response", diagnostics.Details{HTTPStatus: resp.StatusCode})
 	return resp.Header, nil
 }
 func jsonBody(value any) io.Reader { b, _ := json.Marshal(value); return bytes.NewReader(b) }
