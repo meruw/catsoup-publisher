@@ -720,6 +720,10 @@ try {
   const unique=await page.evaluate(()=>new Set(Object.values(JSON.parse(localStorage.getItem('draft-fixture'))).map(d=>d.key.episode)).size);
   assert.equal(await page.locator('.video-row').count(),unique,'one row per video, across all languages and platforms');
   await page.getByRole('button',{name:'Filters',exact:true}).click();
+  assert.equal(await page.getByRole('dialog').getByRole('radio').count(),5);
+  await page.getByRole('radio',{name:'Sent',exact:true}).check();
+  await page.getByText('Includes public posts, private uploads and TikTok inbox deliveries.',{exact:true}).waitFor();
+  await page.getByRole('radio',{name:'All',exact:true}).check();
   await page.screenshot({path:path.join(output,'posts-filters.png')});
   await page.getByLabel('Filter language').selectOption('en');
   await page.getByRole('button',{name:'Apply filters',exact:true}).click();
@@ -730,6 +734,8 @@ try {
   await page.getByLabel('Search posts').fill('');
   await page.locator('.video-row').first().waitFor();
   await page.getByLabel('Search posts').focus();
+  await page.locator('.video-row .video-thumbnail img').first().waitFor();
+  assert.equal(await page.locator('.posts-main video').count(),0,'list retains static images, not video players');
   await page.screenshot({path:path.join(output,'posts-overview.png')});
   await page.locator('.video-row').first().click();
   await page.locator('.destination-row').first().waitFor();
@@ -739,6 +745,7 @@ try {
   await page.getByRole('navigation',{name:'Video languages'}).getByRole('button',{name:'All languages',exact:true}).click();
   await page.locator('.destination-row').filter({hasText:'· ES'}).first().waitFor();
   await page.locator('.destination-row').first().waitFor();
+  await page.locator('.video-detail-heading .video-thumbnail img').waitFor();
   await page.screenshot({path:path.join(output,'posts-video-detail.png')});
   await page.locator('.destination-row').first().click();
   await page.getByRole('dialog').waitFor();

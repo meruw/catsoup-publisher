@@ -43,7 +43,7 @@ In **Settings → Developer credentials**, select the provider. When credentials
 
 ## Posts overview
 
-Open **Posts** in the sidebar for one row per saved video, with its languages, platform count and a status summary. Search videos or accounts. **Filters** opens platform, language and status choices; select **Apply filters** to use them. Active filters remain visible beside **Clear filters**.
+Open **Posts** in the sidebar for one row per saved video, with a small video thumbnail, its languages, platform count and a status summary. Search videos or accounts. **Filters** opens platform, language and status choices; select **Apply filters** to use them. Active filters remain visible beside **Clear filters**. Status choices are **Not sent** (drafts and approved posts), **In progress**, **Sent** (public, private, limited-visibility and inbox deliveries), and **Needs attention** (failed or uncertain results). Account details retain the precise outcome.
 
 Select any video row to see its destinations. The language tabs narrow that list; selecting an account opens its status, version and transfer reference. **Open post** returns to that account's editor. Disconnected accounts remain readable.
 
