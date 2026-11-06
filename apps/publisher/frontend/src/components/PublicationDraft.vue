@@ -1,17 +1,16 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import UiButton from './UiButton.vue';
-import UiHelp from './UiHelp.vue';
+import UiDialog from './UiDialog.vue';
 import {uploads,type Profile} from '../services/uploads';
 import DirectUpload from './DirectUpload.vue';
-import DestinationQueue from './DestinationQueue.vue';
 import { drafts, type Draft, type DraftKey } from '../services/drafts';
 import type { Episode, Video } from '../services/publisher';
 
 const props = defineProps<{ episode: Episode; language: string; video: Video; locked: boolean; stage:'prepare'|'publish'; reviewed:boolean }>();
 const region = ref<HTMLElement | null>(null);
 const platforms = { youtube: 'YouTube', tiktok: 'TikTok', instagram: 'Instagram', x: 'X' };
-const emit=defineEmits<{accounts:[];prepare:[];publish:[];busy:[value:boolean]}>();
+const emit=defineEmits<{accounts:[];prepare:[];publish:[];review:[];busy:[value:boolean]}>();
 const profiles=ref<Profile[]>([]);
 const suggestedAccount=computed(()=>profiles.value.find(p=>p.platform===platform.value && p.language===props.language)?.name || '');
 const destination=computed(()=>profiles.value.find(p=>p.platform===form.value?.key.platform && p.language===props.language));
@@ -124,7 +123,11 @@ async function choosePlatform(value:string) {
 async function publishingOptions() {
   if (loading.value || props.locked || !form.value) return;
   await saveNow();
-  if (!error.value && !dirty.value) emit('publish');
+  if (!error.value && !dirty.value) {
+    feedback.value='';uploadError.value='';accountConfirmed.value=false;
+    region.value?.querySelector('.post-tools-menu')?.removeAttribute('open');
+    emit('publish');
+  }
 }
 function selectSaved(event: Event) {
   const select = event.target as HTMLSelectElement;
@@ -195,73 +198,71 @@ defineExpose({ flush: beforeLeaving, focusEditor });
 
 <template>
   <section ref="region" class="publication" aria-label="Publication">
-    <div class="section-header post-header">
-      <h2>{{stage==='prepare'?'Post':'Publish'}}</h2>
-      <UiButton v-if="stage==='prepare'" variant="primary" :disabled="locked || loading || !form" :busy="saving" @click="publishingOptions">Publish…</UiButton>
-      <UiButton v-else variant="quiet" :disabled="locked || loading || platformBusy" @click="emit('prepare')">Edit post</UiButton>
-    </div>
     <fieldset :disabled="locked || loading || preparingUpload || platformBusy" class="draft-fields">
-      <div class="post-platforms" role="group" aria-label="Post platform">
-        <button v-for="(label,value) in platforms" :key="value" type="button" :aria-pressed="form?.key.platform===value" @click="choosePlatform(value)">{{label}}</button>
+      <div class="compose-destination">
+        <label for="post-platform" class="sr-only">Post platform</label>
+        <select id="post-platform" :value="form?.key.platform || platform" class="ui-field" @change="choosePlatform(($event.target as HTMLSelectElement).value)">
+          <option v-for="(label,value) in platforms" :key="value" :value="value">{{label}}{{profiles.find(p=>p.platform===value && p.language===language)?.name ? ' / '+profiles.find(p=>p.platform===value && p.language===language)?.name : ''}}</option>
+        </select>
+        <UiButton id="open-publishing" variant="primary" :disabled="!form" :busy="saving" @click="publishingOptions">Publish…</UiButton>
       </div>
-      <div class="post-account">
-        <span v-if="destination">To <strong>{{destination.name}}</strong><span class="post-account-language"> · {{languageName}}</span></span>
-        <span v-else class="muted">No {{platforms[form?.key.platform as keyof typeof platforms] || 'platform'}} account connected</span>
-        <UiButton v-if="!destination" variant="quiet" size="compact" @click="emit('accounts')">Connect</UiButton>
-      </div>
+      <div v-if="!destination && form" class="compose-connect"><UiButton variant="quiet" size="compact" @click="emit('accounts')">Connect {{platforms[form.key.platform as keyof typeof platforms]}}</UiButton></div>
       <template v-if="form">
-        <div class="draft-heading"><span role="status" :class="{ warning: dirty }">{{ status }}</span><UiHelp text="Text saves on this PC after you pause typing. Publish… opens the destination and visibility options; it does not send anything."/></div>
         <div v-if="differentVideo || stale" class="draft-video">
-          <span>Linked video: <span class="mono">{{ form.videoId }}</span></span>
+          <span>{{stale?'The video files changed':'A different video is selected'}}</span>
           <UiButton size="compact" :disabled="saving" @click="useSelectedVideo">Use selected video</UiButton>
         </div>
-        <p v-if="stale" class="notice warning">The delivery changed since this draft was linked. Review the current video before using it. Your text is preserved.</p>
-        <p v-else-if="differentVideo" class="notice warning">The preview shows a different version. Choose “Use selected video” to link it to this draft.</p>
-        <template v-if="stage==='prepare'">
+        <p v-if="stale" class="notice warning">The delivery changed since this draft was linked. Your text is preserved.</p>
         <div class="field-group"><label for="draft-title">Title</label><input id="draft-title" v-model="form.title" class="ui-field" maxlength="500" @input="edited"></div>
-        <div class="field-group"><label for="draft-description">Description</label><textarea id="draft-description" v-model="form.description" class="ui-field" rows="5" maxlength="10000" @input="edited"></textarea></div>
-        <div class="field-group"><label for="draft-hashtags">Hashtags</label><textarea id="draft-hashtags" v-model="form.hashtags" class="ui-field" rows="2" maxlength="2000" placeholder="#catsoup" @input="edited"></textarea></div>
-        <div class="draft-actions post-tools">
-          <UiButton v-if="dirty || !form.revision" variant="quiet" size="compact" :busy="saving" @click="saveNow">Save draft</UiButton>
-          <UiButton variant="quiet" size="compact" :disabled="saving || !form.title.trim()" @click="copy('title')">Copy title</UiButton>
-          <UiButton variant="quiet" size="compact" :disabled="saving || !(form.description.trim() || form.hashtags.trim())" title="Copy description and hashtags" @click="copy('caption')">Copy caption</UiButton>
-          <UiButton variant="quiet" size="compact" @click="reveal">Open video folder</UiButton>
+        <div class="field-group"><label for="draft-description">Description</label><textarea id="draft-description" v-model="form.description" class="ui-field" rows="6" maxlength="10000" @input="edited"></textarea></div>
+        <div class="field-group"><label for="draft-hashtags">Hashtags</label><input id="draft-hashtags" v-model="form.hashtags" class="ui-field" maxlength="2000" placeholder="#catsoup" @input="edited"></div>
+        <div class="compose-footer">
+          <span role="status" :class="{warning:dirty}" title="Your edits save automatically on this PC">{{status}}</span>
+          <details class="post-tools-menu">
+            <summary>More</summary>
+            <div class="post-tools-content">
+              <div class="draft-actions">
+                <UiButton v-if="dirty || !form.revision" variant="quiet" size="compact" :busy="saving" @click="saveNow">Save draft</UiButton>
+                <UiButton variant="quiet" size="compact" :disabled="saving || !form.title.trim()" @click="copy('title')">Copy title</UiButton>
+                <UiButton variant="quiet" size="compact" :disabled="saving || !(form.description.trim() || form.hashtags.trim())" title="Copy description and hashtags" @click="copy('caption')">Copy caption</UiButton>
+                <UiButton variant="quiet" size="compact" @click="reveal">Open video folder</UiButton>
+              </div>
+              <details class="draft-library">
+                <summary>Saved drafts<span v-if="saved.length" class="mono">{{saved.length}}</span></summary>
+                <div v-if="saved.length" class="field-group saved-destinations">
+                  <label for="saved-destination">Saved destinations</label>
+                  <select id="saved-destination" class="ui-field" @change="selectSaved"><option value="">Choose a draft...</option><option v-for="(draft,index) in saved" :key="JSON.stringify(draft.key)" :value="index">{{name(draft.key)}}</option></select>
+                </div>
+                <form class="destination-row" @submit.prevent="openDestination">
+                  <div class="field-group"><label for="draft-platform">Platform</label><select id="draft-platform" v-model="platform" @change="account=''" class="ui-field"><option v-for="(label,value) in platforms" :value="value" :key="value">{{label}}</option></select></div>
+                  <div class="field-group"><label for="draft-account">Account label</label><input id="draft-account" v-model="account" class="ui-field" maxlength="100" :placeholder="suggestedAccount" autocomplete="off" title="Labels organize drafts. Accounts controls the actual destination."></div>
+                  <UiButton type="submit" :busy="loading">Open draft</UiButton>
+                </form>
+              </details>
+            </div>
+          </details>
         </div>
-        </template>
-        <template v-else>
-        <details class="post-proof"><summary>Post preview</summary><strong>{{form.title || 'No title'}}</strong><p>{{form.description}}</p><p class="post-tags">{{form.hashtags}}</p></details>
-        <DirectUpload :key="JSON.stringify([form.key, form.videoHash])" :draft="form" :hint="uploadHint" :flush="flush" @busy="platformBusy = $event; emit('busy',$event)" @accounts="emit('accounts')" />
-        <details v-if="form.key.platform!=='x'" class="manual-handoff">
-        <summary>Finish in the browser</summary>
-        <div class="draft-actions"><UiButton @click="copy('title')">Copy title</UiButton><UiButton @click="copy('caption')">Copy caption</UiButton></div>
-        <p v-if="uploadHint" class="publication-hint">{{ uploadHint }}</p>
-        <template v-else>
-          <label><input v-model="accountConfirmed" type="checkbox"> I checked that {{ name(form.key) }} is open in my browser.</label>
-          <div class="draft-actions"><UiButton :disabled="!accountConfirmed || saving" :busy="preparingUpload" @click="copyUploadPath">Copy upload file path</UiButton></div>
-        </template>
-        <p v-if="uploadError" class="notice error" role="alert">{{ uploadError }}</p>
-        </details>
-        </template>
       </template>
-      <details class="draft-library">
-      <summary>Saved drafts<span v-if="saved.length" class="mono">{{saved.length}}</span></summary>
-      <DestinationQueue v-if="stage==='publish' && saved.length" :key="saved.map(d=>d.revision).join(':')+':'+platformBusy" :drafts="saved" :selected="form?JSON.stringify(form.key):''" :locked="locked || loading || platformBusy" @select="d=>open(d.key)"/>
-      <div v-if="stage==='prepare' && saved.length" class="field-group saved-destinations">
-        <label for="saved-destination">Saved destinations</label>
-        <select id="saved-destination" class="ui-field" @change="selectSaved"><option value="">Choose a draft…</option><option v-for="(draft, index) in saved" :key="JSON.stringify(draft.key)" :value="index">{{ name(draft.key) }}</option></select>
-      </div>
-      <form v-show="stage==='prepare'" class="destination-row" @submit.prevent="openDestination">
-        <div class="field-group"><label for="draft-platform">Platform</label><select id="draft-platform" v-model="platform" @change="account=''" class="ui-field"><option v-for="(label, value) in platforms" :value="value" :key="value">{{ label }}</option></select></div>
-        <div class="field-group"><label for="draft-account">Account label</label><input id="draft-account" v-model="account" class="ui-field" maxlength="100" :placeholder="suggestedAccount || (language==='es'?'@catsoup_es':'@catsoup_en')" autocomplete="off"></div>
-        <UiButton type="submit" :busy="loading">Open draft</UiButton>
-      </form>
-      </details>
     </fieldset>
-    <p v-if="feedback" class="ui-status ui-status--success" role="status">{{ feedback }}</p>
-    <div v-if="error" class="notice error" role="alert">
-      <p>{{ error }}</p>
-      <UiButton v-if="form?.revision && !reloadPrompt" variant="quiet" size="compact" :disabled="saving || locked" @click="reloadPrompt = true">Reload saved draft</UiButton>
-      <div v-if="reloadPrompt" class="reload-prompt"><p>Replace your unsaved changes with the saved version?</p><UiButton size="compact" :disabled="loading || saving || locked" @click="reloadSaved">Reload and replace edits</UiButton><UiButton size="compact" variant="quiet" @click="reloadPrompt = false">Keep editing</UiButton></div>
+    <UiDialog v-if="stage==='publish' && form" :title="'Publish to '+platforms[form.key.platform as keyof typeof platforms]" return-focus-id="open-publishing" :busy="platformBusy || preparingUpload" @close="emit('prepare')">
+      <DirectUpload :key="JSON.stringify([form.key,form.videoHash])" :draft="form" :hint="uploadHint" :flush="flush" @busy="platformBusy=$event;emit('busy',$event)" @accounts="emit('accounts')" @review="emit('review')"/>
+      <details v-if="!uploadHint && form.key.platform!=='x'" class="manual-handoff">
+        <summary>Upload manually</summary>
+        <fieldset :disabled="platformBusy || preparingUpload" class="draft-fields">
+          <div class="draft-actions"><UiButton variant="quiet" size="compact" @click="copy('title')">Copy title</UiButton><UiButton variant="quiet" size="compact" @click="copy('caption')">Copy caption</UiButton></div>
+          <label><input v-model="accountConfirmed" type="checkbox"> I checked that {{name(form.key)}} is open in my browser.</label>
+          <div class="draft-actions"><UiButton :disabled="!accountConfirmed || saving" :busy="preparingUpload" @click="copyUploadPath">Copy upload file path</UiButton></div>
+        </fieldset>
+        <p v-if="uploadError" class="notice error" role="alert">{{uploadError}}</p>
+      </details>
+      <p v-if="feedback" class="ui-status ui-status--success" role="status">{{feedback}}</p>
+      <p v-if="error" class="notice error" role="alert">{{error}}</p>
+    </UiDialog>
+    <p v-if="feedback && stage==='prepare'" class="ui-status ui-status--success" role="status">{{feedback}}</p>
+    <div v-if="error && stage==='prepare'" class="notice error" role="alert">
+      <p>{{error}}</p>
+      <UiButton v-if="form?.revision && !reloadPrompt" variant="quiet" size="compact" :disabled="saving || locked" @click="reloadPrompt=true">Reload saved draft</UiButton>
+      <div v-if="reloadPrompt" class="reload-prompt"><p>Replace your unsaved changes with the saved version?</p><UiButton size="compact" :disabled="loading || saving || locked" @click="reloadSaved">Reload and replace edits</UiButton><UiButton size="compact" variant="quiet" @click="reloadPrompt=false">Keep editing</UiButton></div>
     </div>
   </section>
 </template>

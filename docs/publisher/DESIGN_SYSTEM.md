@@ -107,8 +107,7 @@ methods for minimize, maximize/restore and close, with accessible names and keyb
 focus. Window state is event-driven; never poll it. Native behavior remains native,
 including OS drag/resize mechanics and the system keyboard close shortcut.
 
-The sidebar starts with Modules. Publisher is available; Trends is explicitly
-disabled/planned. Episodes form a separate group within Publisher. Delivery review
+The sidebar starts with Modules. Publisher, Accounts and Settings are available. Episodes form a separate group within Publisher. Delivery review
 is a Publisher task, not the application's top-level identity. This navigation does
 not merge the independent Trends backend or introduce an unimplemented module.
 
@@ -140,18 +139,21 @@ selection and font availability; it renders `work/publisher-ui-check/design-syst
 Run `check_ui.mjs` for delivery playback regression and responsive app screenshots.
 Check playback and seeking in the Windows executable as part of native QA.
 
-The episode workspace follows an editing desk direction: warm, deliberate and
-quiet. The selected episode is the page title. ES/EN stays above a shared video
-and post editor. The video carries the visual detail; the paw remains the brand
-signature. Flat platform buttons open a destination draft directly and show the
-connected account. Notes, file details and additional labeled drafts use native
-disclosures. Publish… is the main action and opens sending options in the post
-area, with Edit post returning to the text. There is no numbered progress navigator.
-Native radio controls select draft/public delivery; unsupported actions carry an
-explanation. Keep consequences and blocking reasons visible. UiHelp supplies short
-hover/focus tooltips for save and review semantics, with Escape dismissal. Open
-sections and hairline tables replace nested cards. No animation, new icon set,
-menu framework or runtime dependency is needed for these screens.
+The episode workspace is a quiet editing desk. Its first view contains the episode
+name, language, video, destination selector and three text fields. The video carries
+the visual detail; the paw remains the brand signature. Video review and technical
+details are folded below the preview. More contains secondary draft and copy tools.
+There are no numbered steps, destination tables or instructional paragraphs on the
+editing surface. The selected destination includes its connected account name.
+
+Publish… opens UiDialog, a native HTML dialog with a restrained backdrop, focus
+containment, Escape dismissal and focus restoration to the trigger. The dialog
+cannot close during a transfer. It shows one account, the applicable delivery mode,
+required consent and one sending action. TikTok shows only its inbox action. A
+blocked delivery replaces the sending form with one reason. Provider IDs are in
+tooltips rather than always visible. Technical details, duplicate status labels and
+browser handoff do not compete with the main action. Short UiHelp text remains
+available on hover/focus for review semantics. No runtime dependency is needed.
 
 New screens must use these foundations. Add a token or variant only for a repeated
 semantic need, not to accommodate arbitrary one-off styling. A broad brand change

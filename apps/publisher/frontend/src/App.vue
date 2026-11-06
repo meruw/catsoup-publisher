@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import { computed, defineAsyncComponent, onMounted, onUnmounted, ref } from 'vue';
+import { computed, defineAsyncComponent, nextTick, onMounted, onUnmounted, ref } from 'vue';
 import VideoPreview from './components/VideoPreview.vue';
 import UiButton from './components/UiButton.vue';
-import UiHelp from './components/UiHelp.vue';
 import UiSegmented from './components/UiSegmented.vue';
 import WindowBar from './components/WindowBar.vue';
 import SettingsPage from './components/SettingsPage.vue';
@@ -102,6 +101,7 @@ function switchVideo(event: Event) {
   const next = select.value; select.value = videoID.value;
   void navigate(() => { videoID.value = next; reviewState.value='pending'; });
 }
+async function reviewVideo(){await navigate(()=>{stage.value='prepare';});await nextTick();if(stage.value==='prepare')reviewPanel.value?.focusReview();}
 onMounted(async () => {
   window.addEventListener('keydown',diagnosticShortcut);
   stopCloseListener = drafts.onCloseRequested(() => {
@@ -125,7 +125,6 @@ onUnmounted(() => {stopCloseListener?.();window.removeEventListener('keydown',di
         <button class="module-item" :aria-current="module==='publisher'?'page':undefined" :disabled="busy || navigating || accountBusy" @click="navigate(async () => { module='publisher'; await refresh(); })">Publisher</button>
         <button class="module-item" :aria-current="module==='accounts'?'page':undefined" :disabled="navigating || accountBusy" @click="showAccounts">Accounts</button>
         <button class="module-item" :aria-current="module==='settings'?'page':undefined" :disabled="busy || navigating || accountBusy" @click="showSettings()">Settings</button>
-        <button class="module-item" disabled title="Trends is not available yet">Trends<span>Planned</span></button>
       </nav>
       <div class="library-label"><span>Episodes</span><span class="mono">{{ entries.length }}</span></div>
       <nav aria-label="Publisher episodes">
@@ -133,7 +132,7 @@ onUnmounted(() => {stopCloseListener?.();window.removeEventListener('keydown',di
           :aria-current="episode?.id === entry.id ? 'true' : undefined"
           :disabled="busy || navigating || accountBusy" @click="navigate(async () => { module='publisher'; await select(entry.id); })">
           <span>{{ entry.title }}</span>
-          <small>{{ entry.valid ? 'Available to preview' : 'Needs attention' }}</small>
+          <small v-if="!entry.valid">Needs attention</small>
         </button>
       </nav>
       <p v-if="!entries.length && !busy" class="muted">No deliveries yet</p>
@@ -141,27 +140,22 @@ onUnmounted(() => {stopCloseListener?.();window.removeEventListener('keydown',di
     </aside>
     <AccountManager v-if="module==='accounts'" :initial-language="accountLanguage" @settings="showSettings" @language="accountLanguage=$event" @busy="accountBusy=$event" @diagnostics="openDiagnostics"/>
     <SettingsPage v-else-if="module==='settings'" :provider="settingsProvider" @select="showSettings" @busy="accountBusy=$event"/>
-    <main v-else :aria-busy="busy">
+    <main v-else class="publisher-main" :aria-busy="busy">
       <header class="page-header">
         <h1>{{ episode?.title || 'Publisher' }}</h1>
         <div class="page-actions">
-          <UiButton variant="quiet" :busy="busy" :disabled="navigating" @click="navigate(refresh)">{{ busy ? 'Checking…' : 'Refresh' }}</UiButton>
+          <UiSegmented v-if="episode" :model-value="language" label="Workspace language" :disabled="navigating" :options="(episode.languages || []).map(lang => ({value:lang,label:lang.toUpperCase(),accessibleLabel:languageName(lang)}))" @update:model-value="lang=>navigate(()=>chooseLanguage(lang))"/>
+          <UiButton variant="quiet" :busy="busy" :disabled="navigating" aria-label="Refresh" title="Refresh delivery files" @click="navigate(refresh)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5M6 7a7 7 0 0 1 12-1l2 3M4 15l2 3a7 7 0 0 0 12-1"/></svg></UiButton>
         </div>
       </header>
       <div v-if="error" class="notice error" role="alert">{{ error }}</div>
       <div v-if="busy" class="notice" role="status">Checking delivery files…</div>
       <section v-if="episode && !busy" class="episode-workspace" aria-label="Selected delivery">
-        <div class="workspace-toolbar">
-          <UiSegmented :model-value="language" label="Workspace language" :disabled="navigating" :options="(episode.languages || []).map(lang => ({value:lang,label:lang.toUpperCase(),accessibleLabel:languageName(lang)}))" @update:model-value="lang=>navigate(()=>chooseLanguage(lang))"/>
-          <div class="approval-strip" :class="{ approved: episode.ready }">
-            <span class="status-dot" aria-hidden="true"></span>
-            <span>{{ episode.ready ? 'Approved for publishing' : 'Not approved for publishing' }}</span>
-            <UiHelp :text="episode.reason || (episode.ready ? 'Production approval matches these delivery files.' : 'Production approval is required to send. You can still review the video and edit your posts.')"/>
-          </div>
-        </div>
         <div class="editor-layout">
           <section class="preview-panel" aria-label="Video preview">
             <VideoPreview v-if="source" :key="source" :source="source" :language="languageName(language)" :active="stage==='prepare'" />
+            <ReviewPanel v-if="video" :key="episode.fingerprint+':'+language+':'+video.id" ref="reviewPanel" :episode="episode" :language="language" :video="video" :locked="navigating || transferBusy" @state="reviewState=$event"/>
+            <details class="delivery-check"><summary>Video details</summary>
             <div class="variant-control">
               <label for="variant">Version</label>
               <select id="variant" :value="videoID" :disabled="navigating" class="ui-field" @change="switchVideo">
@@ -171,8 +165,6 @@ onUnmounted(() => {stopCloseListener?.();window.removeEventListener('keydown',di
             <div v-if="video" class="video-specs mono" aria-label="Video specifications">
               <span>{{ video.measured.resolution }}</span><span>{{ video.measured.fps }} fps</span><span>{{ video.measured.duration_s }} s</span>
             </div>
-            <ReviewPanel v-if="video" :key="episode.fingerprint+':'+language+':'+video.id" ref="reviewPanel" :episode="episode" :language="language" :video="video" :locked="navigating || transferBusy" @state="reviewState=$event"/>
-            <details class="delivery-check"><summary>File details</summary>
             <dl>
               <div><dt>Episode</dt><dd class="mono">{{ episode.id }}</dd></div>
               <div><dt>Version</dt><dd>{{ episode.version }}</dd></div>
@@ -187,13 +179,12 @@ onUnmounted(() => {stopCloseListener?.();window.removeEventListener('keydown',di
             </details>
           </section>
           <PublicationDraft v-if="video" :key="episode.id + ':' + language" ref="editor"
-            :episode="episode" :language="language" :video="video" :locked="navigating" :stage="stage" :reviewed="reviewState==='reviewed'" @busy="transferBusy=$event" @accounts="showAccounts" @prepare="navigate(()=>{stage='prepare'})" @publish="navigate(()=>{stage='publish'})" />
+            :episode="episode" :language="language" :video="video" :locked="navigating" :stage="stage" :reviewed="reviewState==='reviewed'" @busy="transferBusy=$event" @accounts="showAccounts" @review="reviewVideo" @prepare="navigate(()=>{stage='prepare'})" @publish="navigate(()=>{stage='publish'})" />
         </div>
       </section>
       <section v-if="!episode && !busy && !error" class="empty">
         <h2>No delivery to preview</h2><p>Add a production delivery, then refresh</p>
       </section>
-      <footer><span>CATsoup Publisher</span><span>Your workspace stays on this PC</span></footer>
     </main>
   </div>
 </template>
