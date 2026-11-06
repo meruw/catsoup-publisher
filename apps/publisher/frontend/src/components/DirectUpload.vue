@@ -5,7 +5,7 @@ import {uploads,type Profile} from '../services/uploads';
 import {accountKey,modeLabel,transfer} from '../services/publication';
 import {type Draft} from '../services/drafts';
 const props=defineProps<{draft:Draft;hint:string;flush:()=>Promise<void>}>();
-const emit=defineEmits<{busy:[value:boolean];accounts:[];review:[]}>();
+const emit=defineEmits<{busy:[value:boolean];accounts:[]}>();
 const account=ref<Profile>({id:'',name:'',api:false,platform:'',language:''});
 const receipt=ref({state:'',reference:'',retryAllowed:false});
 const loading=ref(true);
@@ -53,7 +53,6 @@ function clearAttempt(){void run(async()=>{await uploads.clear(props.draft.key,a
   <template v-if="!completed && (!receipt.state || privateVideo)">
    <template v-if="hint">
     <p class="send-blocker" role="status">{{hint}}</p>
-    <UiButton v-if="hint==='Mark the video as reviewed before sending.'" @click="emit('review')">Review video</UiButton>
    </template>
    <template v-else>
    <p class="delivery-mode-label">{{modeLabel(platform,mode,account)}}</p>

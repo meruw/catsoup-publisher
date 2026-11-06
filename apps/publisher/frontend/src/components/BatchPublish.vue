@@ -4,8 +4,8 @@ import UiButton from './UiButton.vue';
 import {drafts,type Draft} from '../services/drafts';
 import {uploads,type Profile} from '../services/uploads';
 import type {Episode,Video} from '../services/publisher';
-import {accountKey,draftBlocker,localDraft,modeLabel,receiptBlocker,transfer,type TransferReceipt} from '../services/publication';
-const props=defineProps<{episode:Episode;language:string;video:Video;reviewed:boolean;profiles:Profile[];saved:Draft[]}>();
+import {accountKey,postApproved,draftBlocker,localDraft,modeLabel,receiptBlocker,transfer,type TransferReceipt} from '../services/publication';
+const props=defineProps<{episode:Episode;language:string;video:Video;profiles:Profile[];saved:Draft[]}>();
 const emit=defineEmits<{busy:[value:boolean]}>();
 type Row={profile:Profile;draft?:Draft;selected:boolean;reason:string;result:string;receipt:TransferReceipt};
 const rows=ref<Row[]>([]),loading=ref(true),busy=ref(false),finished=ref(false),error=ref('');
@@ -18,9 +18,10 @@ onMounted(async()=>{
  try{
   for(const profile of props.profiles.filter(p=>p.language===props.language)){
    const draft=props.saved.find(d=>d.key.platform===profile.platform&&d.key.account===accountKey(profile));
-   let reason=draftBlocker(draft,profile,props.episode,props.video,props.reviewed);
+   let reason=draftBlocker(draft,profile,props.episode,props.video);
    const receipt=draft&&!localDraft(draft)&&!(profile.platform==='x'&&!profile.api)?await uploads.receipt(draft.key,profile.id):{state:'',reference:'',retryAllowed:false};
    if(!reason&&draft)reason=receiptBlocker(draft,receipt);
+   if(!postApproved(draft))error.value='Every connected account must have an approved post. Close this dialog and approve the missing accounts.';
    rows.value.push({profile,draft,selected:!reason,reason,result:'',receipt});
   }
  }catch(e){error.value=String(e);}finally{loading.value=false;}
@@ -31,11 +32,17 @@ async function sendAll(){
  try{
   // Check every selected snapshot before making the first external request.
   const current=await uploads.accounts() || [];
+  const connected=current.filter(p=>p.language===props.language);
+  if(connected.length!==rows.value.length)throw new Error('Connected accounts changed. Review the destinations again.');
+  for(const profile of connected){
+   const row=rows.value.find(r=>r.profile.platform===profile.platform&&r.profile.id===profile.id);
+   if(!row?.draft || !postApproved(await drafts.get(row.draft.key)))throw new Error('Every connected account needs a current approval.');
+  }
   for(const row of selected.value){
    const d=row.draft!;const latest=await drafts.get(d.key);
    const profile=current.find(p=>p.platform===row.profile.platform&&p.language===props.language);
    if(profile?.id!==row.profile.id||profile.api!==row.profile.api||latest.revision!==d.revision)throw new Error('A draft or account changed. Close this dialog and review the destinations again.');
-   const blocked=draftBlocker(latest,profile,props.episode,props.video,props.reviewed);if(blocked)throw new Error(blocked);
+   const blocked=draftBlocker(latest,profile,props.episode,props.video);if(blocked)throw new Error(blocked);
    if(!localDraft(d)&&!(profile.platform==='x'&&!profile.api)){
     row.receipt=await uploads.receipt(d.key,profile.id);
     const reason=receiptBlocker(d,row.receipt);if(reason)throw new Error(`${profile.name}: ${reason}`);

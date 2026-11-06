@@ -137,4 +137,46 @@ func TestDraftServicePreservesApprovalAndSource(t *testing.T) {
 	if _, err := upload.Send(input.Key, d.Revision, "test-channel", true); err == nil || !strings.Contains(err.Error(), "approved delivery") {
 		t.Fatalf("demo was not blocked by approval: %v", err)
 	}
+	// Account-level approval is explicit and cannot authorize a preview-only source.
+	bound := input
+	bound.Key.Account = "account:test-channel"
+	bound.Revision = 0
+	bound.AttachVideo = true
+	post, err := svc.SaveDraft(bound)
+	if err != nil {
+		t.Fatal(err)
+	}
+	post, err = svc.SetPostApproval(post.Key, post.Revision, true)
+	if err != nil || post.ApprovedRevision != post.Revision {
+		t.Fatalf("approve post: %v", err)
+	}
+	if raw, _ := os.ReadFile(path); string(raw) != string(changed) {
+		t.Fatal("post approval changed production manifest")
+	}
+	if err := svc.CopyUploadPath(post.Key, post.Revision, true); err == nil {
+		t.Fatal("local approval unlocked demo")
+	}
+	if _, err := svc.SetPostApproval(post.Key, post.Revision-1, true); err == nil {
+		t.Fatal("approved stale revision")
+	}
+	man.Version = "v3"
+	changedAgain, _ := json.Marshal(man)
+	os.WriteFile(path, changedAgain, 0600)
+	if _, err := svc.SetPostApproval(post.Key, post.Revision, true); err == nil {
+		t.Fatal("approved changed manifest")
+	}
+	if _, err := svc.SetPostApproval(post.Key, post.Revision, false); err != nil {
+		t.Fatal("revocation should work for stale delivery", err)
+	}
+	os.WriteFile(path, changed, 0600)
+	invalidPost := post
+	invalidPost.VideoID = "other_final"
+	invalidPost, err = store.Save(context.Background(), invalidPost)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.SetPostApproval(invalidPost.Key, invalidPost.Revision, true); err == nil {
+		t.Fatal("approved wrong video")
+	}
+
 }

@@ -118,12 +118,9 @@ loaded by the Publisher page.
 
 ## Source of truth and preview
 
-Publication uses a separate open section below delivery review. Destination labels
-are distinct from the active draft heading; changing a label does not silently
-switch the edited draft. Fields use `.ui-field`, visible labels and shared buttons.
-Saved/unsaved/error states are text, not color alone. Copy title and caption are
-separate operations. Failed saves retain the form, and replacing edits with a saved
-version requires an inline confirmation. No cards or new icon framework.
+The workspace places video and text side by side. Version selection stays below the player. The selected account owns its draft and approval; its send action describes the actual delivery mode. Save and restore remain visible. Publish all stays in the scrolling workspace header, with an adjacent keyboard-accessible information tooltip for blockers.
+
+Technical file details and copy tools use disclosure. Approval is a deliberate post action, separate from saving. Saved, unsaved, approved and error states use text as well as color. Failed saves retain edits; restoring saved text is explicit. Use the shared fields and buttons, without cards or an icon framework.
 
 - `frontend/src/design/tokens.css`: colors, typography, spacing, dimensions, motion.
 - `frontend/src/design/primitives.css`: shared styles and interaction states.

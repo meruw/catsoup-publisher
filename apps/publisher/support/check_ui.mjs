@@ -137,8 +137,7 @@ try {
     else {await closePublishing();if(value==='Prepare')await moreTools();}
   };
 
-  const openReview=async()=>{if(!await page.locator('.review-details').evaluate(el=>el.open))await page.locator('.review-details>summary').click();};
-  const review=async()=>{await step('Review');await openReview();await page.getByLabel('I watched and listened to this final version').check();await page.getByRole('button',{name:'Mark reviewed',exact:true}).click();await page.getByText('Reviewed',{exact:true}).waitFor();};
+  const review=async()=>{await closePublishing();await page.getByRole('button',{name:'Save draft',exact:true}).click();const button=page.getByRole('button',{name:'Approve post',exact:true});if(await button.isVisible())await button.click();await page.getByRole('button',{name:'Undo approval',exact:true}).waitFor();};
   await page.addInitScript(()=>{
     if(!localStorage.getItem('initial-accounts')){
       localStorage.setItem('initial-accounts','yes');
@@ -176,7 +175,15 @@ try {
   await page.waitForFunction(() => document.querySelector('video')?.readyState >= 2);
   await page.locator('video').evaluate(v => { v.currentTime = 4; });
   await page.waitForFunction(() => !document.querySelector('video').seeking && Math.abs(document.querySelector('video').currentTime - 4) < .1);
-  assert(!await page.getByLabel('Review notes').isVisible(),'optional review details start folded');
+  assert(await page.getByLabel('Version',{exact:true}).isVisible(),'version is always visible');
+  assert.equal(await page.locator('.review-details').count(),0);
+  assert.equal(await page.locator('#open-publishing').count(),1,'only selected account has an individual action');
+  assert.equal(await page.locator('.destination-plan-row .ui-button').count(),0);
+  await page.locator('.publisher-main').evaluate(el=>el.scrollTop=el.scrollHeight);
+  const pinned=await page.locator('#publish-all').boundingBox();
+  assert(pinned.y>=40 && pinned.y+pinned.height<650,'Publish all remains in view while scrolling');
+  await page.locator('.publisher-main').evaluate(el=>el.scrollTop=0);
+  assert(await page.locator('#publish-all').isDisabled());
   for (const [width, height] of [[1200, 808], [820, 650]]) {
     await page.setViewportSize({ width, height });
     assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'horizontal overflow');
@@ -190,18 +197,16 @@ try {
   await platformPicker.selectOption('tiktok');
   await page.waitForFunction(()=>document.querySelector('#post-platform')?.value==='tiktok');
   assert(await page.getByLabel('Title',{exact:true}).isVisible());
-  await platformPicker.selectOption('youtube');
-  await openReview();
-  const tip=page.getByRole('button',{name:/Records that you checked this exact video/});
-  await tip.focus();
-  assert(await page.getByRole('tooltip').filter({hasText:'Records that you checked'}).isVisible());
+  assert(await page.getByLabel('TikTok delivery mode',{exact:true}).isDisabled());
+  await page.locator('.destination-mode .help-tip button').focus();
+  await page.getByRole('tooltip').filter({hasText:'Direct Post is not implemented'}).waitFor();
   await page.keyboard.press('Escape');
-  assert(!await page.getByRole('tooltip').filter({hasText:'Records that you checked'}).isVisible());
-  await page.locator('.review-notes summary').click();
-  await page.getByLabel('Review notes').fill('Check the voice timing');
-  await page.getByRole('button',{name:'Request changes',exact:true}).click();
-  await page.getByText('Changes requested',{exact:true}).waitFor();
-  await review();
+  await platformPicker.selectOption('youtube');
+  const tip=page.locator('.approval-control .help-tip button');
+  await tip.focus();
+  assert(await page.getByRole('tooltip').filter({hasText:'Add post text first'}).isVisible());
+  await page.keyboard.press('Escape');
+  assert(!await page.getByRole('tooltip').filter({hasText:'Add post text first'}).isVisible());
   await page.locator('video').evaluate(async v=>{v.muted=true;await v.play()});
   await step('Prepare');
   assert(!await page.locator('video').evaluate(v=>v.paused),'editing must keep the visible preview playable');
@@ -215,19 +220,19 @@ try {
   assert.equal(await page.evaluate(() => window.__copied), 'La luz se apagó. ¿Qué pasó después?\n\n#catsoup #animación');
   await page.getByRole('button', { name: 'Open video folder', exact: true }).click();
   assert.equal((await page.evaluate(() => window.__revealed)).episode, 'catsoup-demo');
-  await step('Publish');
-  assert(await page.locator('video').evaluate(v=>v.paused),'opening publication options must pause the preview');
-  await page.getByRole('dialog').getByText('Available after the delivery is approved for publishing.').waitFor();
-  assert.equal(await page.getByRole('dialog').getByRole('radio').count(),0,'blocked delivery has one reason, no sending form');
+  await review();
+  assert(await page.locator('#open-publishing').isDisabled(),'PoC remains non-publicable even when locally approved');
+  assert(await page.locator('#publish-all').isDisabled(),'other accounts still need approval');
+  await page.locator('.selected-send .help-tip button').focus();
+  await page.getByRole('tooltip').filter({hasText:'production manifest'}).waitFor();
   await page.screenshot({path:path.join(output,'publish-blocked.png')});
   await page.keyboard.press('Escape');
-  await page.getByRole('dialog').waitFor({state:'detached'});
-  await page.waitForFunction(()=>document.activeElement?.id==='open-publishing');
-  await step('Publish');
-  assert.equal(await page.getByRole('button', { name: 'Copy upload file path' }).count(), 0);
-  await step('Prepare');
+  await page.getByRole('button',{name:'Save draft',exact:true}).click();
+  await page.getByText(/Draft saved ·/).waitFor();
+  assert(await page.getByRole('button',{name:'Undo approval',exact:true}).isVisible(),'no-op save preserves approval');
   // Change language before the debounce fires: leaving must flush the ES draft.
   await page.getByLabel('Title', { exact: true }).fill('Guardado antes de cambiar');
+  assert(await page.getByRole('button',{name:'Approve post',exact:true}).isVisible(),'editing invalidates selected approval');
   await page.getByRole('button', { name: 'English', exact: true }).click();
   await page.getByLabel('Title', { exact: true }).fill('A tiny mystery');
   await page.getByText('Saved locally', { exact: true }).waitFor();
@@ -280,8 +285,7 @@ try {
   assert.equal(await page.getByText(/The delivery changed since this draft was linked/).count(), 0);
   // Reload the page: the fixture persists data, while production persistence is tested in Go.
   await page.reload();
-  await page.getByText('Reviewed',{exact:true}).waitFor();
-  assert.equal(await page.getByLabel('Review notes').inputValue(),'Check the voice timing');
+  await page.getByRole('button',{name:'Approve post',exact:true}).waitFor();
   await step('Prepare');
   await page.getByText('Saved locally', { exact: true }).waitFor();
   assert.equal(await page.getByLabel('Title', { exact: true }).inputValue(), 'Keep this unsaved edit');
@@ -305,10 +309,7 @@ try {
   await page.getByRole('button', { name: 'Refresh', exact: true }).click();
   await page.getByLabel('Title', { exact: true }).fill('Ready for manual upload');
   await page.getByText('Saved locally', { exact: true }).waitFor();
-  await step('Publish');
-  await page.getByRole('dialog').getByText('Mark the video as reviewed before sending.').waitFor();
-  await page.getByRole('dialog').getByRole('button',{name:'Review video',exact:true}).click();
-  await page.waitForFunction(()=>document.activeElement?.matches('.review-details input[type=checkbox]'));
+  assert(await page.locator('#open-publishing').isDisabled());
   await review();
   await step('Publish');
   await page.getByText('Upload manually',{exact:true}).click();
@@ -450,6 +451,7 @@ try {
       await page.getByText('Saved locally', {exact:true}).waitFor();
     }
     if(['instagram','x'].includes(platform))await page.getByLabel((platform==='instagram'?'Instagram':'X')+' delivery mode',{exact:true}).selectOption('publish');
+    await review();
     await step('Publish');
     if(platform==='tiktok'){assert.equal(await page.getByRole('dialog').getByRole('radio').count(),0);await page.screenshot({path:path.join(output,'publish-tiktok.png')});}
     if(platform==='youtube')await page.getByLabel('Audience',{exact:true}).selectOption('general');
@@ -473,7 +475,7 @@ try {
       assert(await page.getByRole('dialog').isVisible(),'cannot dismiss an in-flight transfer');
     }
     await page.getByRole('region',{name:'Platform upload'}).getByText(result,{exact:true}).waitFor();
-    if(platform==='youtube'){await closePublishing();await page.getByLabel('YouTube delivery mode',{exact:true}).selectOption('publish');await step('Publish');await page.getByLabel('Audience',{exact:true}).selectOption('general');await page.getByLabel('I confirm Fixture es and this public post.').check();await page.getByRole('button',{name:'Publish existing YouTube video'}).click();await page.getByRole('region',{name:'Platform upload'}).getByText('Published',{exact:true}).waitFor();assert.equal((await page.evaluate(()=>window.__promotion)).reference,'fixture-post');}
+    if(platform==='youtube'){await closePublishing();await page.getByLabel('YouTube delivery mode',{exact:true}).selectOption('publish');await review();await step('Publish');await page.getByLabel('Audience',{exact:true}).selectOption('general');await page.getByLabel('I confirm Fixture es and this public post.').check();await page.getByRole('button',{name:'Publish existing YouTube video'}).click();await page.getByRole('region',{name:'Platform upload'}).getByText('Published',{exact:true}).waitFor();assert.equal((await page.evaluate(()=>window.__promotion)).reference,'fixture-post');}
   }
   // X stays free until the user explicitly connects API mode. All calls below
   // are local fixture adapters, including paid consent and the post receipt.
@@ -512,6 +514,7 @@ try {
   await page.getByLabel('Title',{exact:true}).fill('Approved X fixture');
   await page.getByText('Saved locally',{exact:true}).waitFor();
   await page.getByLabel('X delivery mode',{exact:true}).selectOption('publish');
+  await review();
   await step('Publish');
   const paidSend=page.getByRole('button',{name:'Publish on X · Paid API',exact:true});
   await paidSend.waitFor();assert(await paidSend.isDisabled());
@@ -534,7 +537,7 @@ try {
   });
   await page.getByRole('button',{name:'Refresh',exact:true}).click();
   await moreTools();
-  await page.getByText('Recover unassigned text',{exact:true}).click();
+  await page.getByRole('button',{name:'Restore draft',exact:true}).click();
   await page.locator('#recover-draft').selectOption('Unassigned fixture');
   await page.getByRole('button',{name:'Replace current text',exact:true}).click();
   await page.waitForFunction(()=>document.querySelector('#draft-title')?.value==='Recovered text');
@@ -566,7 +569,17 @@ try {
     await page.getByRole('button',{name:'Save draft',exact:true}).click();
     if(platform!=='tiktok')await page.getByLabel(label+' delivery mode',{exact:true}).selectOption(mode);
     await page.getByText('Saved locally',{exact:true}).waitFor();
+    await review();
   }
+  await page.getByRole('button',{name:'Undo approval',exact:true}).click();
+  assert(await page.locator('#publish-all').isDisabled(),'one missing approval blocks the entire batch');
+  await page.locator('.batch-header-action .help-tip button').focus();
+  await page.getByRole('tooltip').filter({hasText:'Approval needed: X'}).waitFor();
+  await page.keyboard.press('Escape');
+  await review();
+  await page.getByRole('button',{name:'Restore draft',exact:true}).click();
+  await page.getByRole('dialog').getByRole('button',{name:'Reload saved draft',exact:true}).click();
+  await page.getByText('Saved draft restored',{exact:true}).waitFor();
   await page.getByRole('button',{name:'Refresh',exact:true}).click();
   assert.equal(await page.getByLabel('Instagram delivery mode',{exact:true}).inputValue(),'publish');
   assert.equal(await page.getByLabel('X delivery mode',{exact:true}).inputValue(),'draft');
@@ -587,6 +600,18 @@ try {
   await batch.getByText('Already uploaded privately',{exact:true}).waitFor();
   assert.equal(await batch.locator('.batch-row input:checked').count(),1,'only the local X draft remains');
   await closePublishing();
+  // Revoking any account while confirmation is open stops every send.
+  await page.evaluate(()=>{window.__clearReceipts();window.__sendCalls=[];});
+  await page.locator('#publish-all').click();
+  await batch.getByLabel('YouTube audience').selectOption('general');
+  await batch.getByLabel('I confirm the selected accounts and delivery modes.').check();
+  await page.evaluate(()=>{const all=JSON.parse(localStorage.getItem('draft-fixture'));const d=Object.values(all).find(d=>d.key.episode==='catsoup-handoff-fixture'&&d.key.platform==='x'&&d.key.language==='es');d.approvedRevision=0;localStorage.setItem('draft-fixture',JSON.stringify(all));});
+  await batch.getByRole('button',{name:'Send to 4 destinations',exact:true}).click();
+  await batch.getByText('Every connected account needs a current approval.').waitFor();
+  assert.equal((await page.evaluate(()=>window.__sendCalls)).length,0);
+  await closePublishing();
+  await page.getByLabel('Post platform',{exact:true}).selectOption('x');
+  await review();
   // A partial failure stops the batch; no automatic retries or later requests.
   await page.evaluate(()=>{window.__clearReceipts();window.__sendCalls=[];window.__failPlatform='tiktok';});
   await page.getByRole('button',{name:'Publish all…',exact:true}).click();
@@ -609,7 +634,7 @@ try {
     localStorage.setItem('account-fixture',JSON.stringify(rows));
   });
   await batch.getByRole('button',{name:'Send to 4 destinations',exact:true}).click();
-  await batch.getByText(/A draft or account changed/).waitFor();
+  await batch.getByText(/Every connected account needs a current approval|A draft or account changed/).waitFor();
   assert.equal((await page.evaluate(()=>window.__sendCalls)).length,0);
   await closePublishing();
   await checkDiagnostics(page,output);
@@ -619,7 +644,7 @@ try {
   await page.getByRole('heading', { name: 'No delivery to preview' }).waitFor();
   assert.equal(await page.locator('video').count(), 0);
   assert.deepEqual(errors, []);
-  const report = { passed: true, checks: ['account ID isolation with identical names', 'saved per-account delivery modes', 'batch language routing, duplicate protection, preflight and stop on failure', 'visible save action', 'native dialog focus, Escape and busy dismissal guard', 'minimal composer and folded secondary actions', 'review persistence, requested changes and version invalidation', 'review and approval gates', 'private/public modes and same-ID promotion', 'per-destination receipts and duplicate prevention', 'ES/EN decode and playback', 'seek', 'variant selection', 'refresh keeps language', 'non-publishable state', 'empty state', '1200/820px layout', 'module navigation', 'window controls with fixture adapter', 'draft autosave and reload', 'language/platform/account isolation', 'typing during save', 'failed saves block navigation and close', 'conflict recovery', 'delivery change and explicit rebind', 'copy/reveal adapters', 'close flush', 'diagnostics search and filters', 'attempt grouping and export', 'history pagination and pause', 'live diagnostics and keyboard access', 'console collapse and expansion preserve filters', 'no JS errors'], native: false };
+  const report = { passed: true, checks: ['account ID isolation with identical names', 'saved per-account delivery modes', 'batch language routing, duplicate protection, preflight and stop on failure', 'visible save action', 'native dialog focus, Escape and busy dismissal guard', 'minimal composer and folded secondary actions', 'per-account approval persistence and edit invalidation', 'review and approval gates', 'private/public modes and same-ID promotion', 'per-destination receipts and duplicate prevention', 'ES/EN decode and playback', 'seek', 'variant selection', 'refresh keeps language', 'non-publishable state', 'empty state', '1200/820px layout', 'module navigation', 'window controls with fixture adapter', 'draft autosave and reload', 'language/platform/account isolation', 'typing during save', 'failed saves block navigation and close', 'conflict recovery', 'delivery change and explicit rebind', 'copy/reveal adapters', 'close flush', 'diagnostics search and filters', 'attempt grouping and export', 'history pagination and pause', 'live diagnostics and keyboard access', 'console collapse and expansion preserve filters', 'no JS errors'], native: false };
   await writeFile(path.join(output, 'report.json'), JSON.stringify(report, null, 2));
   console.log(JSON.stringify(report));
 } catch (error) {

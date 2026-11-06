@@ -156,3 +156,20 @@ footer { display: flex; justify-content: space-between; gap: var(--space-4); pad
 .delivery-check[open]{padding:16px 0}.delivery-check .variant-control{display:grid;gap:8px;margin-top:20px}.delivery-check .video-specs{margin:20px 0;display:flex;flex-wrap:wrap;gap:16px}
 .delivery-check .video-facts{margin:20px 0;display:grid;gap:12px}.delivery-check .video-facts>div{padding:0;border:0;display:flex;justify-content:space-between;gap:20px}.delivery-check .notice{padding:0;margin:16px 0 0;border:0;font-size:var(--text-sm);line-height:1.6;background:none}
 @media(max-width:900px){.destination-plan-row{grid-template-columns:1fr auto;gap:8px}.destination-plan-row select{grid-row:2;grid-column:1/-1}.destination-plan-row>button:last-child{grid-column:2;grid-row:1}}
+
+/* Keep the global action visible while the account editor scrolls. */
+.publisher-main .page-header{position:sticky;top:0;z-index:10;background:var(--page);gap:16px}
+.batch-header-action,.approval-control,.selected-send,.destination-mode,.production-lock{display:flex;align-items:center;gap:8px}
+.page-header h1{min-width:0;overflow-wrap:anywhere}.page-actions{flex-shrink:0}
+.compose-destination{flex-wrap:wrap;gap:8px}.compose-destination select{flex-basis:100%;margin-bottom:4px}
+.account-post-actions{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;margin:4px 0 24px}
+.approval-control{min-height:40px}.selected-send{margin-left:auto}.post-approved{color:var(--success)}
+.destination-plan-row{grid-template-columns:minmax(88px,1fr) minmax(140px,1.3fr) auto;padding:14px 0}
+.destination-mode{min-width:0}.destination-mode select{flex:1}.destination-approval{font-size:var(--text-xs);color:var(--secondary);text-align:right}.destination-approval.post-approved{color:var(--success)}
+.production-lock{margin:16px 0;color:var(--warning);font-size:var(--text-sm)}
+.preview-panel>.variant-control{display:grid;grid-template-columns:auto minmax(0,1fr);margin:16px 0;gap:12px}
+.delivery-check[open]{padding:0}.delivery-check .video-specs{margin:16px 0;gap:12px}.delivery-check .video-facts{margin:16px 0}
+.restore-account{font-weight:500;margin-bottom:12px}.restore-legacy{display:grid;gap:12px;margin-top:28px;padding-top:20px;border-top:1px solid var(--line)}
+@media(max-width:1050px){.publisher-main .page-header{flex-wrap:wrap}.destination-plan-row{grid-template-columns:minmax(88px,1fr) auto}.destination-mode{grid-row:2;grid-column:1/-1}.destination-approval{grid-row:1;grid-column:2}.selected-send{margin-left:0}}
+
+.save-feedback{flex-basis:100%;font-size:var(--text-xs);color:var(--success);padding-top:4px}

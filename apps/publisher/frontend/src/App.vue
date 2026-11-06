@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, defineAsyncComponent, nextTick, onMounted, onUnmounted, ref } from 'vue';
+import { computed, defineAsyncComponent, onMounted, onUnmounted, ref } from 'vue';
 import VideoPreview from './components/VideoPreview.vue';
 import UiButton from './components/UiButton.vue';
 import UiSegmented from './components/UiSegmented.vue';
@@ -8,7 +8,7 @@ import SettingsPage from './components/SettingsPage.vue';
 import type { SetupPlatform } from './services/uploads';
 import AccountManager from './components/AccountManager.vue';
 import PublicationDraft from './components/PublicationDraft.vue';
-import ReviewPanel from './components/ReviewPanel.vue';
+import UiHelp from './components/UiHelp.vue';
 import { drafts } from './services/drafts';
 import { publisher, mediaURL, type Entry, type Episode } from './services/publisher';
 
@@ -44,9 +44,7 @@ const error = ref('');
 const language = ref('es');
 const videoID = ref('');
 const stage = ref<'prepare'|'publish'>('prepare');
-const reviewState = ref('pending');
 const transferBusy = ref(false);
-const reviewPanel = ref<InstanceType<typeof ReviewPanel>|null>(null);
 const editor = ref<InstanceType<typeof PublicationDraft> | null>(null);
 const navigating = ref(false);
 let stopCloseListener: (() => void) | undefined;
@@ -57,7 +55,6 @@ const languageName = (lang: string) => lang === 'es' ? 'Spanish' : 'English';
 
 function chooseLanguage(lang: string) {
   stage.value='prepare';
-  reviewState.value='pending';
   language.value = lang;
   videoID.value = variants.value.find(v => v.kind === 'final' && v.narration)?.id || variants.value[0]?.id || '';
 }
@@ -92,16 +89,16 @@ async function refresh() {
 async function navigate(action: () => void | Promise<void>) {
   if (navigating.value || busy.value || accountBusy.value) return;
   navigating.value = true;
-  try { await editor.value?.flush(); await reviewPanel.value?.flush(); error.value = ''; await action(); }
+  try { await editor.value?.flush(); error.value = ''; await action(); }
   catch (e) { error.value = `Could not leave this view. ${String(e)}`; }
   finally { navigating.value = false; }
 }
 function switchVideo(event: Event) {
   const select = event.target as HTMLSelectElement;
   const next = select.value; select.value = videoID.value;
-  void navigate(() => { videoID.value = next; reviewState.value='pending'; });
+  void navigate(() => { videoID.value = next; });
 }
-async function reviewVideo(){await navigate(()=>{stage.value='prepare';});await nextTick();if(stage.value==='prepare')reviewPanel.value?.focusReview();}
+
 onMounted(async () => {
   window.addEventListener('keydown',diagnosticShortcut);
   stopCloseListener = drafts.onCloseRequested(() => {
@@ -144,6 +141,7 @@ onUnmounted(() => {stopCloseListener?.();window.removeEventListener('keydown',di
       <header class="page-header">
         <h1>{{ episode?.title || 'Publisher' }}</h1>
         <div class="page-actions">
+          <div v-if="episode" class="batch-header-action"><UiButton id="publish-all" variant="primary" :disabled="navigating || transferBusy || !editor || !!editor.batchBlocker" @click="editor?.publishAll()">Publish all…</UiButton><UiHelp symbol="i" :text="editor?.batchBlocker || 'Confirm delivery to all connected accounts for the selected language, using each saved mode.'"/></div>
           <UiSegmented v-if="episode" :model-value="language" label="Workspace language" :disabled="navigating" :options="(episode.languages || []).map(lang => ({value:lang,label:lang.toUpperCase(),accessibleLabel:languageName(lang)}))" @update:model-value="lang=>navigate(()=>chooseLanguage(lang))"/>
           <UiButton variant="quiet" :busy="busy" :disabled="navigating" aria-label="Refresh" title="Refresh delivery files" @click="navigate(refresh)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5M6 7a7 7 0 0 1 12-1l2 3M4 15l2 3a7 7 0 0 0 12-1"/></svg></UiButton>
         </div>
@@ -154,14 +152,14 @@ onUnmounted(() => {stopCloseListener?.();window.removeEventListener('keydown',di
         <div class="editor-layout">
           <section class="preview-panel" aria-label="Video preview">
             <VideoPreview v-if="source" :key="source" :source="source" :language="languageName(language)" :active="stage==='prepare'" />
-            <ReviewPanel v-if="video" :key="episode.fingerprint+':'+language+':'+video.id" ref="reviewPanel" :episode="episode" :language="language" :video="video" :locked="navigating || transferBusy" @state="reviewState=$event"/>
-            <details class="delivery-check"><summary>Video details</summary>
             <div class="variant-control">
               <label for="variant">Version</label>
               <select id="variant" :value="videoID" :disabled="navigating" class="ui-field" @change="switchVideo">
                 <option v-for="v in variants" :key="v.id" :value="v.id">{{ v.kind === 'final' ? 'Final' : 'Clean' }} · {{ v.narration ? 'with narration' : 'no narration' }}</option>
               </select>
             </div>
+            <div v-if="!episode.ready" class="production-lock"><span>Production approval missing</span><UiHelp symbol="i" :text="(episode.reason ? episode.reason+' ' : '')+'This delivery is not authorized for upload. Approval comes from its production manifest. Approve the delivery in the production project and refresh Publisher; test deliveries remain preview-only.'"/></div>
+            <details class="delivery-check"><summary>Video details</summary>
             <div v-if="video" class="video-specs mono" aria-label="Video specifications">
               <span>{{ video.measured.resolution }}</span><span>{{ video.measured.fps }} fps</span><span>{{ video.measured.duration_s }} s</span>
             </div>
@@ -174,7 +172,7 @@ onUnmounted(() => {stopCloseListener?.();window.removeEventListener('keydown',di
             </details>
           </section>
           <PublicationDraft v-if="video" :key="episode.id + ':' + language" ref="editor"
-            :episode="episode" :language="language" :video="video" :locked="navigating" :stage="stage" :reviewed="reviewState==='reviewed'" @busy="transferBusy=$event" @accounts="showAccounts" @review="reviewVideo" @prepare="navigate(()=>{stage='prepare'})" @publish="navigate(()=>{stage='publish'})" />
+            :episode="episode" :language="language" :video="video" :locked="navigating" :stage="stage" @busy="transferBusy=$event" @accounts="showAccounts" @prepare="navigate(()=>{stage='prepare'})" @publish="navigate(()=>{stage='publish'})" />
         </div>
       </section>
       <section v-if="!episode && !busy && !error" class="empty">

@@ -31,6 +31,6 @@ Check that the Facebook profile has access to the correct Page, that the Page li
 
 ## Publish a Reel
 
-Review the approved video and edit its **Instagram** post. Set the Instagram row to **Publish now**, choose **Publish…**, confirm the connected account and select **Publish Reel on Instagram**. **Local draft** retains a local draft on this PC; it does not create a draft in Instagram. Check the receipt and the Instagram profile before retrying an uncertain transfer. For manual sign-in, **Other sign-in options** accepts an existing Facebook Page access token.
+Review the approved video and edit its **Instagram** post. Set the Instagram row to **Publish now**, choose **Approve post** and the send action above the editor, confirm the connected account and select **Publish Reel on Instagram**. **Local draft** retains a local draft on this PC; it does not create a draft in Instagram. Check the receipt and the Instagram profile before retrying an uncertain transfer. For manual sign-in, **Other sign-in options** accepts an existing Facebook Page access token.
 
 [Meta's Instagram API guide](https://www.postman.com/meta/instagram/documentation/6yqw8pt/instagram-api)

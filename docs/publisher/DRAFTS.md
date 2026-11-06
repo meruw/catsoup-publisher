@@ -15,28 +15,18 @@ account's text. Reconnecting the same ID restores its draft. Full edit history
 and deletion are not implemented.
 
 Stored fields are title, description, hashtags, delivery mode (`draft` or `publish`),
-linked video ID/hash, manifest fingerprint, revision and UTC update time. Every new
+linked video ID/hash, manifest fingerprint, revision, approved revision and UTC update time. Every new
 draft starts in draft mode; TikTok rejects public mode. Storage limits are
 500/10,000/2,000 characters for title/description/hashtags and 100 for the account
 key. They are not platform API limits. Credentials are stored separately and encrypted.
 
-## Editorial review
+## Account approval
 
-The workspace shows video review and post editing together for ES/EN. Publishing
-options open in a native browser dialog over the editor. Each final
-video has a local review keyed by episode, language and video ID, with its manifest
-fingerprint, video hash, notes, decision, revision and timestamp. Decisions are
-pending, changes_requested or reviewed. Only an explicit watched/listened
-confirmation records reviewed; typing notes and leaving saves them as pending.
-The bridge revalidates the current delivery and refuses stale sources and other
-languages. Review writes use optimistic revision checks and never modify manifests.
+**Approve post** records `approved_revision` for exactly one episode/language/platform/account key. The bridge verifies the final video hash, manifest fingerprint, language, current draft revision and connected account identity. Approval never changes the production manifest. Text, mode and linked-source saves increment the revision and clear approval. A no-op UI Save draft does not write a new revision.
 
-API transfers, YouTube visibility changes and browser file handoff require both a
-matching reviewed record and the delivery contract's existing owner approval.
-SQLite checks the review again when reserving a transfer or visibility change.
-Changing the manifest invalidates a review even when its video bytes are unchanged.
-Notes remain available for the next review. Local metadata preparation does not
-require approval. The production demo remains non-publicable.
+Remote transfers, YouTube visibility changes and browser file handoff require a current account approval and the contract's production approval. SQLite rechecks approval atomically when reserving transfers and promotions, so an in-memory approved draft cannot override a revoked decision. The source is revalidated before sending. Local preparation and local account approval are available without production approval; test deliveries remain non-publicable.
+
+The review table and bridge remain supported for label-keyed records. They do not approve account-bound drafts. The workspace uses the per-account post action and does not display review notes or a changes-requested workflow.
 
 ## Saving and conflicts
 
@@ -53,7 +43,7 @@ Reload is not automatic after a conflict. Users can select/copy unsaved text man
 before replacing it. Save draft remains visible and mode changes use the same
 revision checks. Navigation is blocked while a mode write is in progress.
 Unbound text is stored under `unassigned`; other label-keyed drafts remain intact.
-More exposes explicit text recovery scoped to the selected platform, copying into
+Restore draft exposes explicit text recovery scoped to the selected platform, copying into
 the connected account without changing the source or any existing receipts.
 Drafts for disconnected provider IDs remain stored and reappear on reconnection.
 
@@ -69,9 +59,9 @@ anything; copy/reveal are also usable with non-publishable test material.
 
 ## Migrations, backup and recovery
 
-Schema version 5 contains drafts with persisted delivery modes, language-specific
+Schema version 6 contains drafts with persisted delivery modes and approved revisions, language-specific
 accounts, encrypted credentials, upload receipts and local reviews. Transactional
-migration adds the draft mode default while preserving all text, revisions, links
+migration initializes approval to zero while preserving all text, revisions, links
 and receipts. Restored credentials
 require the Windows user and DPAPI keys that protected them. Unsupported newer versions and invalid/corrupt databases fail explicitly.
 The app never silently deletes or resets a database. Future migrations must add
@@ -104,9 +94,9 @@ interpreted as private uploads. No background polling or job framework is requir
 Both entry points use the shared frontend transfer adapter and the same Go
 publication methods, account checks and durable receipt reservations. A batch is
 an explicit, foreground sequence for one language, not a background queue. Before
-the first send it refreshes every selected account, draft revision and receipt.
+the first send it refreshes all connected account identities and approvals, plus every selected draft revision and receipt. The header action is blocked until all connected accounts in the current language have approved posts.
 New account-bound keys are checked against the destination in Go as well as the UI.
-All remote sends retain approval, review and file-integrity validation in Go.
+All remote sends retain account approval, production approval and file-integrity validation in Go.
 The sequence stops on error and cannot be dismissed while busy. It never rolls
 back completed publications or retries automatically. Partial results are shown in
 the dialog; remote transfer receipts survive restart. Local-only and X browser
