@@ -1,6 +1,6 @@
 # Delivery contract (v2)
 
-Shared between production (Claude, writes it) and Publisher (Codex, reads it).
+A producer writes a delivery package. Publisher validates it and reads its assets.
 Tool and executable spec: [delivery.py](delivery.py). If this document and the
 script disagree, fix both and bump `contract_version`.
 
@@ -13,16 +13,11 @@ deliveries/<episode_id>/
   text/    <lang>.json, timings.json
 ```
 
-All manifest paths are **relative to the manifest's folder**. New episodes
-keep every file inside their delivery folder (`apps/production/package.py`
-builds it). The PoC is the only exception (`"location": "legacy: …"`): its
-paths point to `../../render/` because it predates the contract and its
-files are frozen.
+Asset paths are **relative to the manifest's folder**. Package video and text assets inside that folder. Publisher supports a read-only compatibility exception for the reserved pilot ID `catsoup-poc-streetlight`.
 
 ## manifest.json
 
-Template: [manifest.template.json](manifest.template.json). Real, valid
-example: `deliveries/catsoup-poc-streetlight/manifest.json`.
+Use [manifest.template.json](manifest.template.json) to author a package. For a working example, run the [synthetic demo generator](../../apps/publisher/support/create_demo.py) after [setup](https://publisher.meruw.dev/guides/setup/). It creates `deliveries/catsoup-demo/manifest.json` with ES and EN video files and `publishable: false`.
 
 | Field | Content |
 |---|---|
@@ -47,7 +42,7 @@ There must be at least one `final` video per language. `clean` versions
 
 | Status | Meaning | Set by | Requires |
 |---|---|---|---|
-| `exported` | Files generated and technically checked | tools / Claude | `validate` passes |
+| `exported` | Files generated and technically checked | producer | `validate` passes |
 | `reviewed` | Watched and listened to by a person, with notes | owner: `delivery.py review --by NAME` | `review.files` equal to the current sha256 of every item |
 | `approved_for_publishing` | Authorised to publish | owner: `delivery.py approve --by NAME` | a matching review, `publishable: true`, `approval.files` equal to the current sha256 |
 
@@ -61,15 +56,3 @@ There must be at least one `final` video per language. `clean` versions
   - **PUBLISHABLE**: valid, `status: approved_for_publishing` and
     `publishable: true`. Only then may Publisher publish.
   `validate --require-publishable` exits 1 unless publishable.
-
-## Changes from v1
-
-Field names in English; id `catsoup-poc-farola` became `catsoup-poc-streetlight`;
-review and approval are tied to file hashes and voided when a file changes;
-Publisher may ingest non-approved material (only publishing is blocked).
-
-## PoC
-
-`catsoup-poc-streetlight`: `exported`, `publishable: false` (technical test,
-not creatively approved, audio not listened to, no watermark). It must not be
-published.

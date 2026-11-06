@@ -49,12 +49,30 @@ Reports/screenshots go into ignored `work/`. Browser checks use a fixture bridge
 they do not prove native Wails behavior. Also check the desktop app when changing
 window controls, keyboard navigation or playback. Never commit generated media.
 
+## Publish documentation
+
+Edit the guide in `docs/guides/`. Its Markdown filename is its GitHub wiki page name. Its Jekyll permalink is its address on the Publisher site.
+
+From the repository root, update a clean wiki checkout (clone it once), then review the generated changes:
+
+```powershell
+git clone https://github.com/meruw/catsoup-publisher.wiki.git work/wiki-publication
+git -C work/wiki-publication pull --ff-only
+python scripts/sync_wiki.py work/wiki-publication
+python scripts/sync_wiki.py work/wiki-publication --check
+git -C work/wiki-publication status --short
+git -C work/wiki-publication diff
+```
+
+Commit the updated guide files in the wiki checkout and push them to publish. The command copies only the guide bodies. Maintain the wiki home, sidebar and footer directly in the wiki.
+
 ## Structure and boundaries
 
 - `apps/publisher/`: desktop application, build scripts and checks.
 - `contracts/delivery/`: contract v2 and shared validator. Preserve compatibility;
   contract changes need explicit versioning and review.
-- `docs/publisher/`: architecture, design and status.
+- `docs/guides/`: setup, provider and upload guides for the website and wiki.
+- `docs/publisher/`: architecture, design, draft storage and project status.
 - `deliveries/`, `data/`, `work/`: local ignored files.
 
 Do not add background polling, a routing framework or an icon library for basic

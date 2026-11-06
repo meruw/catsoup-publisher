@@ -5,7 +5,7 @@ $repoRoot = [System.IO.Path]::GetFullPath((Join-Path $appRoot '..\..'))
 $go = Join-Path $repoRoot '.tools\go\bin\go.exe'
 $wails = Join-Path $repoRoot '.tools\bin\wails3.exe'
 if (-not (Test-Path -LiteralPath $go) -or -not (Test-Path -LiteralPath $wails)) {
-    throw 'Build tools are missing. Follow docs/publisher/README.md first.'
+    throw 'Build tools are missing. Run apps/publisher/setup.ps1 first.'
 }
 $env:GOPATH = Join-Path $repoRoot '.tools\gopath'
 $env:GOCACHE = Join-Path $repoRoot '.tools\gocache'

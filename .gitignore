@@ -8,6 +8,11 @@ __pycache__/
 *.log
 .env
 .env.*
+client_secret*.json
+google-desktop.json
+tiktok-desktop.json
+meta-desktop.json
+credentials.json
 *.pem
 *.key
 *.pfx
