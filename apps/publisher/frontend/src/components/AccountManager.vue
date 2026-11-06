@@ -74,7 +74,7 @@ onMounted(()=>{void run(async()=>{
      <small v-if="p==='x' && account(p)" :title="account(p)?.api?'X bills API usage to your developer project. Publisher adds no posting fee.':'A saved handle is a reminder; check the active account in your browser.'">{{ account(p)?.api?'API · Paid':'Browser · Free' }}</small>
      <details v-if="editing!==p && remove!==p && (account(p) || (p==='instagram' && (!configured.instagram || !metaCallbackReady)))" :key="language">
       <summary>{{ account(p)?'Account details':'Other sign-in options' }}</summary>
-      <small v-if="account(p) && p!=='x'" class="mono">ID Â· {{ account(p)?.id }}</small>
+      <small v-if="account(p) && p!=='x'" class="mono">ID &middot; {{ account(p)?.id }}</small>
       <div class="draft-actions">
        <UiButton v-if="p==='instagram' && (!configured.instagram || !metaCallbackReady)" size="compact" variant="quiet" :disabled="pending" @click="reset(); editing=p; advanced=true; handle=account(p)?.name||''">Use Page token</UiButton>
        <UiButton v-if="account(p)" size="compact" variant="quiet" :disabled="pending" @click="reset(); remove=p">Remove</UiButton>

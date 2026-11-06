@@ -30,4 +30,6 @@ For subsequent release validation, test the packaged validator, media preview an
 
 ## Next action
 
-Restart the updated desktop build and verify the free X handoff for ES and EN. Live X API validation is optional and requires the owner's explicit decision to use paid access plus separately approved content. The production demo remains non-publicable; there is no release while the PoC is incomplete.
+Design the episode workspace around Review, Prepare and Publish, with per-language/per-platform state and explicit draft versus immediate-publication actions. This workflow is proposed, not implemented. Keep local drafts distinct from remote drafts, private uploads and completed publications. TikTok public Direct Post depends on provider approval; do not expose unsupported actions as available.
+
+The Accounts ID separator uses an HTML entity to prevent malformed text. The corrected desktop build and existing tests pass. Live X API validation remains optional and requires the owner's explicit decision to use paid access plus separately approved content. The production demo remains non-publicable; there is no release while the PoC is incomplete.
