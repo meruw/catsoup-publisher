@@ -119,9 +119,7 @@ footer { display: flex; justify-content: space-between; gap: var(--space-4); pad
 .workflow-steps button[aria-current='step']{color:var(--text)}
 .step-number{display:grid;place-items:center;width:28px;height:28px;border:1px solid var(--line);border-radius:8px;font-size:12px}
 [aria-current='step'] .step-number{background:var(--accent);border-color:var(--accent);color:var(--text)}
-.workflow-steps small{display:block;font-size:var(--text-xs);color:var(--muted);margin-top:4px}
-.workflow-footer{display:flex;align-items:center;justify-content:space-between;gap:16px;border-top:1px solid var(--line);padding:20px 0;margin-top:32px}
-.workflow-footer>span{font-size:var(--text-xs);color:var(--secondary)}
+.workflow-footer{display:flex;align-items:center;justify-content:flex-end;gap:16px;border-top:1px solid var(--line);padding:20px 0;margin-top:32px}
 .episode-workspace .publication{border:0;padding-top:24px;margin-top:0}
 .post-proof{border-block:1px solid var(--line);padding:16px 0;margin-bottom:24px;overflow-wrap:anywhere}
 .post-proof p{white-space:pre-wrap;margin-top:8px;font-size:var(--text-sm)}
@@ -129,4 +127,4 @@ footer { display: flex; justify-content: space-between; gap: var(--space-4); pad
 .manual-handoff{margin-top:24px;padding-top:16px;border-top:1px solid var(--line)}
 .manual-handoff summary{cursor:pointer;font-size:var(--text-sm);color:var(--secondary);margin-bottom:16px}
 .delivery-check{margin-top:24px;border-top:1px solid var(--line);padding-top:16px}.delivery-check summary{cursor:pointer;color:var(--secondary);font-size:var(--text-sm);margin-bottom:16px}
-@media(max-width:1050px){.workflow-steps{gap:16px}.workflow-steps small{display:none}}
+@media(max-width:1050px){.workflow-steps{gap:16px}}

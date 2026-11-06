@@ -27,20 +27,18 @@ defineExpose({flush});
 <template>
  <section class="review-decision" aria-label="Review decision">
   <div class="section-header"><h3>Editorial review</h3><span class="review-state" :class="{'valid-label':decision==='reviewed' && !dirty}" role="status">{{status}}</span></div>
-  <p class="section-description">Check the picture, voice, timing and text in this language</p>
   <p v-if="!current && review?.revision" class="notice warning">The delivery changed. Review this version again; your notes are kept.</p>
   <label for="review-notes">Review notes</label>
-  <textarea id="review-notes" v-model="notes" class="ui-field" rows="3" maxlength="4000" :disabled="locked || busy || !final" @input="confirmed=false;emit('state','pending')" placeholder="Changes to make or details to keep"></textarea>
+  <textarea id="review-notes" v-model="notes" class="ui-field" rows="3" maxlength="4000" :disabled="locked || busy || !final" @input="confirmed=false;emit('state','pending')" placeholder="Optional"></textarea>
   <fieldset :disabled="locked || busy || !review || !final" class="draft-fields review-controls">
-   <label class="review-confirm"><input v-model="confirmed" type="checkbox"> I watched and listened to this final version</label>
+   <label v-if="decision!=='reviewed' || dirty" class="review-confirm"><input v-model="confirmed" type="checkbox"> I watched and listened to this final version</label>
    <div class="draft-actions">
-    <UiButton variant="primary" :disabled="!confirmed" :busy="busy" @click="decide('reviewed')">Mark reviewed</UiButton>
-    <UiButton :disabled="!notes.trim()" @click="decide('changes_requested')">Request changes</UiButton>
-    <UiButton variant="quiet" :disabled="!dirty" @click="decide('pending')">Save notes</UiButton>
+    <UiButton v-if="decision!=='reviewed' || dirty" variant="primary" :disabled="!confirmed" :busy="busy" @click="decide('reviewed')">Mark reviewed</UiButton>
+    <UiButton :disabled="!notes.trim()" title="Record needed changes locally" @click="decide('changes_requested')">Request changes</UiButton>
+    <UiButton v-if="dirty" variant="quiet" @click="decide('pending')">Save notes</UiButton>
    </div>
   </fieldset>
   <p v-if="!final" class="publication-hint">Select the final version to record a review</p>
-  <p class="publication-hint">Review is saved on this PC for these files. Production approval is still required to send.</p>
   <p v-if="error" class="notice error" role="alert">{{error}}</p>
  </section>
 </template>

@@ -153,5 +153,11 @@ New screens must use these foundations. Add a token or variant only for a repeat
 semantic need, not to accommodate arbitrary one-off styling. A broad brand change
 belongs in these shared files and this document, not a cascade of screen overrides.
 
+Use a subtitle only when it adds information needed for a decision. Page and step
+names do not need slogans or explanatory taglines. A disclosure summary is its
+heading; do not repeat that heading inside. Keep errors, blocking reasons and
+delivery-mode consequences visible where the user acts. A completed review shows
+its status without asking the user to repeat the same confirmation.
+
 Design process informed by [Unslop](https://github.com/heydamir/unslop), by Damir
 Sokolovsky, CC BY 4.0. CATsoup's paw artwork was supplied separately by the owner.

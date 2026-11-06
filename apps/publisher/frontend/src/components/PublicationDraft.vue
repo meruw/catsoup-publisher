@@ -180,7 +180,6 @@ defineExpose({ flush: beforeLeaving, focusEditor });
 <template>
   <section ref="region" class="publication" aria-label="Publication">
     <div class="section-header"><h2>{{stage==='prepare'?'Prepare your post':'Publish to a destination'}}</h2><span class="publication-language">{{ languageName }}</span></div>
-    <p class="section-description">{{stage==='prepare'?'Write once per destination. Keep working locally until you are ready to send.':'Check the saved text and connected account, then choose how to send this video.'}}</p>
     <fieldset :disabled="locked || loading || preparingUpload || platformBusy" class="draft-fields">
       <DestinationQueue v-if="stage==='publish' && saved.length" :key="saved.map(d=>d.revision).join(':')+':'+platformBusy" :drafts="saved" :selected="form?JSON.stringify(form.key):''" :locked="locked || loading || platformBusy" @select="d=>open(d.key)"/>
       <div v-if="stage==='prepare' && saved.length" class="field-group saved-destinations">
