@@ -53,6 +53,28 @@ func TestHistoryFiltersPaginationAndRestart(t *testing.T) {
 	}
 }
 
+func TestClearWatermarkPreservesSavedHistory(t *testing.T) {
+	s := Open(t.TempDir())
+	defer s.Close()
+	ctx := Start(context.Background(), s, "instagram", "es")
+	Record(ctx, slog.LevelError, "pages_failed", Details{Reason: "no_pages"})
+	all, _ := s.Query(Query{})
+	watermark := all.Events[0].ID
+	cleared, err := s.Query(Query{After: watermark})
+	if err != nil || len(cleared.Events) != 0 || cleared.More {
+		t.Fatal("clear must hide all existing events", cleared, err)
+	}
+	Record(ctx, slog.LevelInfo, "connection_finished", Details{})
+	newEvents, _ := s.Query(Query{After: watermark, Language: "es"})
+	if len(newEvents.Events) != 1 || newEvents.Events[0].Stage != "connection_finished" {
+		t.Fatal("new events must remain visible", newEvents)
+	}
+	history, _ := s.Query(Query{})
+	if len(history.Events) != len(all.Events)+1 {
+		t.Fatal("clear deleted saved history")
+	}
+}
+
 func TestBoundedMemoryAndExclusiveWriter(t *testing.T) {
 	dir := t.TempDir()
 	first := Open(dir)
@@ -134,7 +156,7 @@ func TestRotationAndInterruptedTail(t *testing.T) {
 func TestRejectInvalidFiltersAndUntrustedEventFields(t *testing.T) {
 	s := Open(t.TempDir())
 	defer s.Close()
-	for _, q := range []Query{{Search: strings.Repeat("x", 201)}, {Before: -1}, {Before: 9007199254740992}, {Level: "SECRET"}, {Service: "other"}, {Language: "other"}} {
+	for _, q := range []Query{{Search: strings.Repeat("x", 201)}, {Before: -1}, {Before: 9007199254740992}, {After: -1}, {After: 9007199254740992}, {Level: "SECRET"}, {Service: "other"}, {Language: "other"}} {
 		if _, err := s.Query(q); err == nil {
 			t.Fatalf("accepted invalid filter: %+v", q)
 		}

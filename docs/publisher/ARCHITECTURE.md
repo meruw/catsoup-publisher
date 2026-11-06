@@ -91,10 +91,13 @@ typed bridge returns at most 200 events per page and scans bounded log files.
 Live notifications are coalesced and enabled only while the console is open and unfolded;
 logging continues when it is closed. Export uses the native save dialog and writes
 only the selected query page. No terminal emulator, shell or hosted log service
-is involved.
+is involved. Clear view uses an event-ID watermark in the query, leaving saved
+files intact; Show saved history removes the watermark. Filter resets do not
+remove that boundary. Paste reads the OS clipboard only on an explicit click and
+uses the text as a bounded search string; clipboard contents are not logged.
 
-The diagnostics UI chunk is 5.6 kB gzipped (JavaScript and CSS combined). The
-Windows executable is 18,443,264 bytes in the measured production build.
+The diagnostics UI chunk is 6.5 kB gzipped (JavaScript and CSS combined). The
+Windows executable is 18,446,848 bytes in the measured production build.
 No frontend runtime dependency was added.
 
 ## Version and maintenance policy

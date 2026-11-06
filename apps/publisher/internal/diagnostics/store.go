@@ -51,6 +51,7 @@ type Query struct {
 	Attempt        string `json:"attempt"`
 	CurrentSession bool   `json:"currentSession"`
 	Before         int64  `json:"before"`
+	After          int64  `json:"after"`
 }
 
 type Result struct {
@@ -261,7 +262,7 @@ func validEvent(e Event) bool {
 }
 
 func (s *Store) Query(q Query) (Result, error) {
-	if len(q.Search) > 200 || len(q.Attempt) > 64 || q.Before < 0 || q.Before > 9007199254740991 ||
+	if len(q.Search) > 200 || len(q.Attempt) > 64 || q.Before < 0 || q.Before > 9007199254740991 || q.After < 0 || q.After > 9007199254740991 ||
 		(q.Level != "" && q.Level != "DEBUG" && q.Level != "INFO" && q.Level != "WARN" && q.Level != "ERROR") ||
 		(q.Service != "" && q.Service != "youtube" && q.Service != "tiktok" && q.Service != "instagram" && q.Service != "x") ||
 		(q.Language != "" && q.Language != "es" && q.Language != "en") {
@@ -280,7 +281,7 @@ func (s *Store) Query(q Query) (Result, error) {
 	}
 	cutoff := time.Now().Add(-retention)
 	accept := func(e Event) {
-		if e.ID > maxID || e.Time.Before(cutoff) || (q.Before > 0 && e.ID >= q.Before) {
+		if e.ID > maxID || e.ID <= q.After || e.Time.Before(cutoff) || (q.Before > 0 && e.ID >= q.Before) {
 			return
 		}
 		if q.CurrentSession && e.Session != session || q.Level != "" && e.Level != q.Level || q.Service != "" && e.Service != q.Service || q.Language != "" && e.Language != q.Language || q.Attempt != "" && e.Attempt != q.Attempt {
