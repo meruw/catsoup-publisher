@@ -25,6 +25,8 @@ type Account struct {
 }
 type Media struct {
 	Title, Caption, Language string
+	Mode, Audience           string
+	Synthetic                bool
 	File                     *os.File
 	Size                     int64
 }
@@ -180,6 +182,9 @@ func Validate(platform string, m Media) error {
 			return errors.New("shorten the X text to 280 weighted characters; Publisher counts long URLs and combined emoji conservatively")
 		}
 	case "youtube":
+		if m.Mode != "" && m.Audience != "kids" && m.Audience != "general" {
+			return errors.New("choose the YouTube audience before sending")
+		}
 		if strings.TrimSpace(m.Title) == "" || utf8.RuneCountInString(m.Title) > 100 || len(m.Caption) > 5000 || strings.ContainsAny(m.Title+m.Caption, "<>") {
 			return errors.New("YouTube requires a title up to 100 characters and a description up to 5000 bytes, without angle brackets")
 		}
@@ -214,7 +219,16 @@ func (c *Client) Send(ctx context.Context, platform, token string, a Account, m 
 
 func (c *Client) youtube(ctx context.Context, token string, m Media) (string, error) {
 	auth := "Bearer " + token
-	meta := map[string]any{"snippet": map[string]string{"title": m.Title, "description": m.Caption, "defaultLanguage": m.Language, "categoryId": "24"}, "status": map[string]string{"privacyStatus": "private"}}
+	privacy := "private"
+	if m.Mode == "publish" {
+		privacy = "public"
+	}
+	status := map[string]any{"privacyStatus": privacy}
+	if m.Audience != "" {
+		status["selfDeclaredMadeForKids"] = m.Audience == "kids"
+		status["containsSyntheticMedia"] = m.Synthetic
+	}
+	meta := map[string]any{"snippet": map[string]string{"title": m.Title, "description": m.Caption, "defaultLanguage": m.Language, "categoryId": "24"}, "status": status}
 	h, err := c.request(ctx, "POST", "https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status&notifySubscribers=false", auth, map[string]string{"Content-Type": "application/json", "X-Upload-Content-Type": "video/mp4", "X-Upload-Content-Length": fmt.Sprint(m.Size)}, jsonBody(meta), -1, nil)
 	if err != nil {
 		return "", err
@@ -223,13 +237,21 @@ func (c *Client) youtube(ctx context.Context, token string, m Media) (string, er
 	if !safeSession(session, "www.googleapis.com", "youtube.googleapis.com") {
 		return "", errors.New("unexpected Google upload host")
 	}
-	var out struct{ ID string }
+	var out struct {
+		ID     string
+		Status struct {
+			Privacy string `json:"privacyStatus"`
+		}
+	}
 	_, err = c.request(ctx, "PUT", session, auth, map[string]string{"Content-Type": "video/mp4"}, io.NewSectionReader(m.File, 0, m.Size), m.Size, &out)
 	if err != nil {
 		return "", err
 	}
 	if !safeID.MatchString(out.ID) {
 		return "", errors.New("YouTube did not return a video ID")
+	}
+	if m.Mode != "" && out.Status.Privacy != privacy {
+		return out.ID, errors.New("YouTube did not confirm the requested visibility; check YouTube Studio")
 	}
 	return out.ID, nil
 }

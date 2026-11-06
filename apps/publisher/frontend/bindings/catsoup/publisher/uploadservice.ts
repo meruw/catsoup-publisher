@@ -64,12 +64,23 @@ export function OpenXSetup(step: string): $CancellablePromise<void> {
     return $Call.ByID(3723970617, step);
 }
 
+export function PublishYouTube(key: drafts$0.Key, revision: number, id: string, confirmed: boolean, audience: string, synthetic: boolean): $CancellablePromise<drafts$0.Receipt> {
+    return $Call.ByID(2668659532, key, revision, id, confirmed, audience, synthetic);
+}
+
 export function Receipt(key: drafts$0.Key, id: string): $CancellablePromise<drafts$0.Receipt> {
     return $Call.ByID(2960871504, key, id);
 }
 
 export function Send(key: drafts$0.Key, revision: number, id: string, confirmed: boolean): $CancellablePromise<drafts$0.Receipt> {
     return $Call.ByID(3695715954, key, revision, id, confirmed);
+}
+
+/**
+ * SendMode accepts only capabilities actually implemented by each connector.
+ */
+export function SendMode(key: drafts$0.Key, revision: number, id: string, mode: string, confirmed: boolean, paidAccepted: boolean, audience: string, synthetic: boolean): $CancellablePromise<drafts$0.Receipt> {
+    return $Call.ByID(301800697, key, revision, id, mode, confirmed, paidAccepted, audience, synthetic);
 }
 
 export function SendX(key: drafts$0.Key, revision: number, id: string, confirmed: boolean, paidAccepted: boolean): $CancellablePromise<drafts$0.Receipt> {

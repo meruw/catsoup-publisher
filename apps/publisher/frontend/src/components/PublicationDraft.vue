@@ -3,13 +3,14 @@ import { computed, onMounted, onUnmounted, ref } from 'vue';
 import UiButton from './UiButton.vue';
 import {uploads,type Profile} from '../services/uploads';
 import DirectUpload from './DirectUpload.vue';
+import DestinationQueue from './DestinationQueue.vue';
 import { drafts, type Draft, type DraftKey } from '../services/drafts';
 import type { Episode, Video } from '../services/publisher';
 
-const props = defineProps<{ episode: Episode; language: string; video: Video; locked: boolean }>();
+const props = defineProps<{ episode: Episode; language: string; video: Video; locked: boolean; stage:'prepare'|'publish'; reviewed:boolean }>();
 const region = ref<HTMLElement | null>(null);
 const platforms = { youtube: 'YouTube', tiktok: 'TikTok', instagram: 'Instagram', x: 'X' };
-const emit=defineEmits<{accounts:[]}>();
+const emit=defineEmits<{accounts:[];prepare:[]}>();
 const profiles=ref<Profile[]>([]);
 const suggestedAccount=computed(()=>profiles.value.find(p=>p.platform===platform.value && p.language===props.language)?.name || '');
 const platform = ref('youtube');
@@ -37,6 +38,7 @@ const stale = computed(() => !!form.value?.revision && (form.value.deliveryFinge
 const differentVideo = computed(() => form.value?.videoId !== props.video.id);
 const uploadHint = computed(() => {
   if (!props.episode.ready) return 'Available after the delivery is approved for publishing.';
+  if (!props.reviewed) return 'Mark the current final video as reviewed in Review before sending.';
   if (!form.value?.revision) return 'Save this draft to prepare an upload.';
   if (stale.value || differentVideo.value || props.video.kind !== 'final' || props.video.lang !== props.language)
     return 'Select and link the current final video for this language.';
@@ -177,14 +179,15 @@ defineExpose({ flush: beforeLeaving, focusEditor });
 
 <template>
   <section ref="region" class="publication" aria-label="Publication">
-    <div class="section-header"><h2>Publication</h2><span class="publication-language">{{ languageName }}</span></div>
-    <p class="section-description">Choose a destination to edit its draft and upload the approved video.</p>
+    <div class="section-header"><h2>{{stage==='prepare'?'Prepare your post':'Publish to a destination'}}</h2><span class="publication-language">{{ languageName }}</span></div>
+    <p class="section-description">{{stage==='prepare'?'Write once per destination. Keep working locally until you are ready to send.':'Check the saved text and connected account, then choose how to send this video.'}}</p>
     <fieldset :disabled="locked || loading || preparingUpload || platformBusy" class="draft-fields">
-      <div v-if="saved.length" class="field-group saved-destinations">
+      <DestinationQueue v-if="stage==='publish' && saved.length" :key="saved.map(d=>d.revision).join(':')+':'+platformBusy" :drafts="saved" :selected="form?JSON.stringify(form.key):''" :locked="locked || loading || platformBusy" @select="d=>open(d.key)"/>
+      <div v-if="stage==='prepare' && saved.length" class="field-group saved-destinations">
         <label for="saved-destination">Saved destinations</label>
         <select id="saved-destination" class="ui-field" @change="selectSaved"><option value="">Choose a draft…</option><option v-for="(draft, index) in saved" :key="JSON.stringify(draft.key)" :value="index">{{ name(draft.key) }}</option></select>
       </div>
-      <form class="destination-row" @submit.prevent="openDestination">
+      <form v-show="stage==='prepare'" class="destination-row" @submit.prevent="openDestination">
         <div class="field-group"><label for="draft-platform">Platform</label><select id="draft-platform" v-model="platform" @change="account=''" class="ui-field"><option v-for="(label, value) in platforms" :value="value" :key="value">{{ label }}</option></select></div>
         <div class="field-group"><label for="draft-account">Account label</label><input id="draft-account" v-model="account" class="ui-field" maxlength="100" :placeholder="suggestedAccount || (language==='es'?'@catsoup_es':'@catsoup_en')" autocomplete="off"></div>
         <UiButton type="submit" :busy="loading">Open draft</UiButton>
@@ -197,6 +200,7 @@ defineExpose({ flush: beforeLeaving, focusEditor });
         </div>
         <p v-if="stale" class="notice warning">The delivery changed since this draft was linked. Review the current video before using it. Your text is preserved.</p>
         <p v-else-if="differentVideo" class="notice warning">The preview shows a different version. Choose “Use selected video” to link it to this draft.</p>
+        <template v-if="stage==='prepare'">
         <div class="field-group"><label for="draft-title">Title</label><input id="draft-title" v-model="form.title" class="ui-field" maxlength="500" @input="edited"></div>
         <div class="field-group"><label for="draft-description">Description</label><textarea id="draft-description" v-model="form.description" class="ui-field" rows="4" maxlength="10000" @input="edited"></textarea></div>
         <div class="field-group"><label for="draft-hashtags">Hashtags</label><textarea id="draft-hashtags" v-model="form.hashtags" class="ui-field" rows="2" maxlength="2000" placeholder="#catsoup" @input="edited"></textarea></div>
@@ -207,17 +211,23 @@ defineExpose({ flush: beforeLeaving, focusEditor });
           <UiButton variant="quiet" @click="reveal">Open video folder</UiButton>
         </div>
         <p class="publication-hint">Changes save after you pause typing. Caption copies description and hashtags. Check platform limits before uploading.</p>
+        </template>
+        <template v-else>
+        <section class="post-proof" aria-label="Post preview"><div class="section-header"><h3>Saved text</h3><UiButton variant="quiet" size="compact" @click="emit('prepare')">Edit in Prepare</UiButton></div><strong>{{form.title || 'No title'}}</strong><p>{{form.description}}</p><p class="post-tags">{{form.hashtags}}</p></section>
         <DirectUpload :key="JSON.stringify([form.key, form.videoHash])" :draft="form" :hint="uploadHint" :flush="flush" @busy="platformBusy = $event" @accounts="emit('accounts')" />
-        <template v-if="form.key.platform!=='x'">
-        <h3>Manual upload</h3>
+        <details v-if="form.key.platform!=='x'" class="manual-handoff">
+        <summary>Finish in the browser</summary>
+        <div class="draft-actions"><UiButton @click="copy('title')">Copy title</UiButton><UiButton @click="copy('caption')">Copy caption</UiButton></div>
         <p v-if="uploadHint" class="publication-hint">{{ uploadHint }}</p>
         <template v-else>
           <label><input v-model="accountConfirmed" type="checkbox"> I checked that {{ name(form.key) }} is open in my browser.</label>
           <div class="draft-actions"><UiButton :disabled="!accountConfirmed || saving" :busy="preparingUpload" @click="copyUploadPath">Copy upload file path</UiButton></div>
         </template>
         <p v-if="uploadError" class="notice error" role="alert">{{ uploadError }}</p>
+        </details>
         </template>
       </template>
+      <p v-else-if="stage==='publish'" class="notice">Prepare a local draft for a destination first. <UiButton variant="quiet" @click="emit('prepare')">Go to Prepare</UiButton></p>
     </fieldset>
     <p v-if="feedback" class="ui-status ui-status--success" role="status">{{ feedback }}</p>
     <div v-if="error" class="notice error" role="alert">

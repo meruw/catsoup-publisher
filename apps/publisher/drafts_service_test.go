@@ -120,6 +120,20 @@ func TestDraftServicePreservesApprovalAndSource(t *testing.T) {
 		t.Fatal(err)
 	}
 	upload := UploadService{store: store, reader: reader}
+	// Local review never edits or approves the production manifest, including demo.
+	r := drafts.Review{Episode: d.Key.Episode, Language: d.Key.Language, VideoID: d.VideoID, Fingerprint: d.DeliveryFingerprint, VideoHash: d.VideoHash, State: "reviewed", Notes: "Fixture only"}
+	if _, err := svc.SaveReview(r, false); err == nil {
+		t.Fatal("review did not require confirmation")
+	}
+	if _, err := svc.SaveReview(r, true); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.SaveReview(drafts.Review{Episode: r.Episode, Language: "en", VideoID: r.VideoID, Fingerprint: r.Fingerprint, VideoHash: r.VideoHash, State: "reviewed"}, true); err == nil {
+		t.Fatal("cross-language review accepted")
+	}
+	if raw, _ := os.ReadFile(path); string(raw) != string(changed) {
+		t.Fatal("review changed production approval")
+	}
 	if _, err := upload.Send(input.Key, d.Revision, "test-channel", true); err == nil || !strings.Contains(err.Error(), "approved delivery") {
 		t.Fatalf("demo was not blocked by approval: %v", err)
 	}

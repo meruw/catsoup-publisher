@@ -5,5 +5,6 @@ export type {
     Draft,
     Key,
     Profile,
-    Receipt
+    Receipt,
+    Review
 } from "./models.js";

@@ -16,7 +16,24 @@ Each key has one current draft; full edit history and deletion are not implement
 Stored fields are title, description, hashtags, linked video ID/hash, delivery
 manifest fingerprint, monotonic revision and UTC update time. Local limits are
 500/10,000/2,000 characters for title/description/hashtags and 100 for the account
-label. They are storage bounds, not platform API limits. No credential storage.
+label. They are storage bounds, not platform API limits. Draft text contains no credentials; the separate accounts table stores encrypted connection data.
+
+## Editorial review
+
+The workspace has Review, Prepare and Publish steps shared across ES/EN. Each final
+video has a local review keyed by episode, language and video ID, with its manifest
+fingerprint, video hash, notes, decision, revision and timestamp. Decisions are
+pending, changes_requested or reviewed. Only an explicit watched/listened
+confirmation records reviewed; typing notes and leaving saves them as pending.
+The bridge revalidates the current delivery and refuses stale sources and other
+languages. Review writes use optimistic revision checks and never modify manifests.
+
+API transfers, YouTube visibility changes and browser file handoff require both a
+matching reviewed record and the delivery contract's existing owner approval.
+SQLite checks the review again when reserving a transfer or visibility change.
+Changing the manifest invalidates a review even when its video bytes are unchanged.
+Notes remain available for the next review. Local metadata preparation does not
+require approval. The production demo remains non-publicable.
 
 ## Saving and conflicts
 
@@ -45,8 +62,8 @@ anything; copy/reveal are also usable with non-publishable test material.
 
 ## Migrations, backup and recovery
 
-Schema version 3 adds language-specific accounts and encrypted credentials,
-preserving version-1 drafts and version-2 upload receipts. Restored credentials
+Schema version 4 contains drafts, language-specific accounts, encrypted credentials,
+upload receipts and local reviews. Transactional migration preserves existing data. Restored credentials
 require the Windows user and DPAPI keys that protected them. Unsupported newer versions and invalid/corrupt databases fail explicitly.
 The app never silently deletes or resets a database. Future migrations must add
 versioned transactional steps and tests preserving existing drafts.
@@ -66,3 +83,9 @@ unchanged manifests, source rebinds and restricted clipboard/folder arguments.
 Browser fixtures cover autosave, in-flight editing, language changes, copy/reveal
 dispatch, conflicts, failed-save navigation/close protection and reloading.
 Fixtures do not verify real clipboard/file-manager behavior or native close timing.
+
+Receipts record private, inbox, published, sending or check states. YouTube
+promotion reserves publishing for the same remote ID; failures become check_publish.
+That state cannot be cleared to permit a duplicate upload. An abandoned promotion
+can be explicitly retried after 30 minutes. Older successful YouTube receipts are
+interpreted as private uploads. No background polling or job framework is required.

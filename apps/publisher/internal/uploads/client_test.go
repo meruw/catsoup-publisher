@@ -104,7 +104,7 @@ func TestTransfers(t *testing.T) {
 				t.Fatalf("unexpected network request %s", r.URL.Host)
 				return nil, nil
 			})
-			ref, err := c.Send(context.Background(), platform, "local", Account{"account", "CATsoup"}, Media{"title", "#cats", "es", f, int64(len(raw))}, func(ref string) error { recorded = ref; return nil })
+			ref, err := c.Send(context.Background(), platform, "local", Account{"account", "CATsoup"}, Media{Title: "title", Caption: "#cats", Language: "es", File: f, Size: int64(len(raw))}, func(ref string) error { recorded = ref; return nil })
 			if err != nil || ref == "" || !bytes.Equal(raw, sent) {
 				t.Fatalf("ref=%s err=%v transferred=%d", ref, err, len(sent))
 			}

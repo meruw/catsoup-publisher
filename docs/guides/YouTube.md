@@ -7,7 +7,7 @@ permalink: /guides/youtube/
 ---
 # Connect a YouTube channel
 
-Publisher uploads an approved video privately to the channel you select. Review it in YouTube Studio before making it public.
+Publisher can upload an approved video privately or publicly to the selected channel. A recorded private upload can be made public without uploading its video file again.
 
 ## Set up Google
 1. In [Google Cloud](https://console.cloud.google.com/), select the project for Publisher and enable **YouTube Data API v3**.
@@ -18,6 +18,10 @@ Publisher uploads an approved video privately to the channel you select. Review 
 In **Accounts → ES → YouTube**, select **Connect → Sign in with Google**. Select the account and channel for Spanish and verify the returned channel name. Repeat under **EN** for the English channel. If the channels have similar names, open **Account details** to compare their IDs.
 
 ## Send an approved video
-In **Publication**, choose the language, select YouTube and review the destination. **Upload privately to YouTube** returns a video ID. Check that video in Studio before retrying an interrupted upload.
+Complete **Review**, save the YouTube text in **Prepare**, then select its destination in **Publish**. Choose **Keep as draft** for a private upload or **Publish now** for a public video. Select the audience (made for kids or not), indicate realistic altered/synthetic content when applicable, and confirm the account and action. The delivery must already have production approval.
+
+After a private upload, **Publish now → Publish existing YouTube video** applies the saved text and public visibility to that same ID. Publisher verifies its channel, preserves other editable metadata and never uploads a duplicate. If the visibility change is uncertain, check YouTube Studio before retrying it.
+
+Google sign-in requests upload, channel reading and `youtube.force-ssl` permissions. Updating an existing video's visibility needs the management permission; reconnect in **Accounts** if the saved authorization does not include it. [Video update authorization](https://developers.google.com/youtube/v3/docs/videos/update)
 
 Google returns the authorization to an available local port on your computer. [Desktop OAuth reference](https://developers.google.com/identity/protocols/oauth2/native-app) · [Video uploads](https://developers.google.com/youtube/data/guides/uploading_a_video)
