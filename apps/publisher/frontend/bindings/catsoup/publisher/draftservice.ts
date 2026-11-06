@@ -36,6 +36,10 @@ export function GetDraft(key: drafts$0.Key): $CancellablePromise<drafts$0.Draft>
     return $Call.ByID(2170648933, key);
 }
 
+export function GetReview(episode: string, language: string, video: string): $CancellablePromise<drafts$0.Review> {
+    return $Call.ByID(2133563182, episode, language, video);
+}
+
 export function ListDrafts(episode: string, language: string): $CancellablePromise<drafts$0.Draft[] | null> {
     return $Call.ByID(1158615170, episode, language);
 }
@@ -46,4 +50,8 @@ export function OpenVideoFolder(episodeID: string, videoID: string): $Cancellabl
 
 export function SaveDraft(input: $models.SaveDraftInput): $CancellablePromise<drafts$0.Draft> {
     return $Call.ByID(1150757330, input);
+}
+
+export function SaveReview(input: drafts$0.Review, confirmed: boolean): $CancellablePromise<drafts$0.Review> {
+    return $Call.ByID(3210540495, input, confirmed);
 }

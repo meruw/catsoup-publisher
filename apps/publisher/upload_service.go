@@ -39,6 +39,9 @@ func (s *UploadService) OpenXComposer(key drafts.Key, revision int64) error {
 	if _, err = s.reader.UploadPath(key.Episode, key.Language, d.VideoID, d.DeliveryFingerprint, d.VideoHash); err != nil {
 		return err
 	}
+	if err = s.store.RequireReview(context.Background(), d); err != nil {
+		return err
+	}
 	text := strings.TrimSpace(d.Title + "\n\n" + d.Description + "\n\n" + d.Hashtags)
 	return s.openBrowser("https://x.com/intent/tweet?" + url.Values{"text": {text}}.Encode())
 }
@@ -91,15 +94,30 @@ func stage(path, hash string) (*os.File, int64, error) {
 	return file, size, nil
 }
 func (s *UploadService) Send(key drafts.Key, revision int64, id string, confirmed bool) (drafts.Receipt, error) {
-	return s.send(key, revision, id, confirmed, false)
+	mode := "publish"
+	if key.Platform == "youtube" || key.Platform == "tiktok" {
+		mode = "draft"
+	}
+	return s.SendMode(key, revision, id, mode, confirmed, false, "", false)
 }
 func (s *UploadService) SendX(key drafts.Key, revision int64, id string, confirmed, paidAccepted bool) (drafts.Receipt, error) {
 	if key.Platform != "x" {
 		return drafts.Receipt{}, errors.New("select an X draft")
 	}
-	return s.send(key, revision, id, confirmed, paidAccepted)
+	return s.SendMode(key, revision, id, "publish", confirmed, paidAccepted, "", false)
 }
-func (s *UploadService) send(key drafts.Key, revision int64, id string, confirmed, paidAccepted bool) (drafts.Receipt, error) {
+
+// SendMode accepts only capabilities actually implemented by each connector.
+func (s *UploadService) SendMode(key drafts.Key, revision int64, id, mode string, confirmed, paidAccepted bool, audience string, synthetic bool) (drafts.Receipt, error) {
+	if mode != "draft" && mode != "publish" {
+		return drafts.Receipt{}, errors.New("choose a delivery mode")
+	}
+	if mode == "draft" && key.Platform != "youtube" && key.Platform != "tiktok" {
+		return drafts.Receipt{}, errors.New("this platform supports local drafts only")
+	}
+	if mode == "publish" && key.Platform == "tiktok" {
+		return drafts.Receipt{}, errors.New("TikTok Direct Post is not enabled; send to the inbox instead")
+	}
 	if key.Platform == "x" && !paidAccepted {
 		return drafts.Receipt{}, errors.New("acknowledge X API usage charges before publishing")
 	}
@@ -126,6 +144,9 @@ func (s *UploadService) send(key drafts.Key, revision int64, id string, confirme
 	if err != nil {
 		return drafts.Receipt{}, err
 	}
+	if err = s.store.RequireReview(ctx, d); err != nil {
+		return drafts.Receipt{}, err
+	}
 	file, size, err := stage(path, d.VideoHash)
 	if err != nil {
 		return drafts.Receipt{}, err
@@ -136,7 +157,7 @@ func (s *UploadService) send(key drafts.Key, revision int64, id string, confirme
 	if (key.Platform == "instagram" || key.Platform == "x") && strings.TrimSpace(d.Title) != "" {
 		caption = strings.TrimSpace(d.Title + "\n\n" + caption)
 	}
-	m := uploads.Media{Title: d.Title, Caption: caption, Language: key.Language, File: file, Size: size}
+	m := uploads.Media{Title: d.Title, Caption: caption, Language: key.Language, File: file, Size: size, Mode: mode, Audience: audience, Synthetic: synthetic}
 	if err = uploads.Validate(key.Platform, m); err != nil {
 		return drafts.Receipt{}, err
 	}
@@ -155,7 +176,13 @@ func (s *UploadService) send(key drafts.Key, revision int64, id string, confirme
 		return drafts.Receipt{}, err
 	}
 	ref, sendErr := s.client.Send(ctx, key.Platform, token, current, m, func(ref string) error { return s.store.SaveReceipt(d, id, "sending", ref) })
-	state := "sent"
+	state := "published"
+	if key.Platform == "youtube" && mode == "draft" {
+		state = "private"
+	}
+	if key.Platform == "tiktok" {
+		state = "inbox"
+	}
 	if sendErr != nil {
 		state = "check"
 	}

@@ -74,6 +74,15 @@ implement a second incompatible contract.
 
 ## Connection diagnostics
 
+The episode workspace uses local Vue step state and existing typed services, with
+no router, state framework or additional runtime dependency. Review decisions are
+stored in SQLite independently from the read-only production contract. Prepare
+owns the autosaved metadata; Publish shows a destination table, explicit delivery
+modes and durable receipts. The video pauses when Review is hidden. Unsupported
+remote draft/publication modes are rejected by Go as well as the UI. YouTube can
+promote an existing private ID with a separate atomic reservation, preserving
+provider metadata and preventing a second upload. See [storage](DRAFTS.md).
+
 Go `log/slog` writes structured account connection events through pinned Lumberjack
 v2.2.1 to `%LOCALAPPDATA%/CATsoup Publisher/logs`. Files rotate at 10 MB, with five
 backups and a seven-day retention policy. Cleanup runs on rotation, at startup and

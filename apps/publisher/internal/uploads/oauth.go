@@ -91,7 +91,7 @@ func desktopConfig(platform string) (desktopOAuth, error) {
 	if err = json.Unmarshal(raw, &cfg); err != nil || !fieldsPresent(cfg.Installed.ID, cfg.Installed.Secret) {
 		return desktopOAuth{}, errors.New("Google desktop client configuration is invalid")
 	}
-	return desktopOAuth{"https://accounts.google.com/o/oauth2/v2/auth", "https://oauth2.googleapis.com/token", "client_id", cfg.Installed.ID, cfg.Installed.Secret, "https://www.googleapis.com/auth/youtube.upload https://www.googleapis.com/auth/youtube.readonly", "/"}, nil
+	return desktopOAuth{"https://accounts.google.com/o/oauth2/v2/auth", "https://oauth2.googleapis.com/token", "client_id", cfg.Installed.ID, cfg.Installed.Secret, "https://www.googleapis.com/auth/youtube.upload https://www.googleapis.com/auth/youtube.readonly https://www.googleapis.com/auth/youtube.force-ssl", "/"}, nil
 }
 
 // The receipt identifies the client used in a successful exchange, not an active account.

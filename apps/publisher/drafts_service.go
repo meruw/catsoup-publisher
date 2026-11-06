@@ -125,6 +125,9 @@ func (s *DraftService) CopyUploadPath(key drafts.Key, revision int64, accountCon
 	if err != nil {
 		return err
 	}
+	if err = s.store.RequireReview(context.Background(), d); err != nil {
+		return err
+	}
 	if s.copyText == nil || !s.copyText(path) {
 		return errors.New("clipboard unavailable; try again")
 	}

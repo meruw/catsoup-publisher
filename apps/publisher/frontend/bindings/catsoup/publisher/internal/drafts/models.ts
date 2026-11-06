@@ -33,3 +33,18 @@ export interface Receipt {
     "reference": string;
     "retryAllowed": boolean;
 }
+
+/**
+ * Review is an operator's local assessment. It never grants delivery approval.
+ */
+export interface Review {
+    "episode": string;
+    "language": string;
+    "videoId": string;
+    "fingerprint": string;
+    "videoHash": string;
+    "state": string;
+    "notes": string;
+    "revision": number;
+    "updatedAt": string;
+}

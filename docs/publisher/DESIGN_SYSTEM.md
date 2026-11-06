@@ -140,6 +140,15 @@ selection and font availability; it renders `work/publisher-ui-check/design-syst
 Run `check_ui.mjs` for delivery playback regression and responsive app screenshots.
 Check playback and seeking in the Windows executable as part of native QA.
 
+The episode workspace follows the editing desk direction: warm, deliberate and
+quiet. Review, Prepare and Publish use numbered navigation with one active accent;
+ES/EN stays at the same position across steps. The video carries the visual detail.
+Review notes sit beside it, while technical delivery details are folded. Prepare
+keeps the local editor separate from Publish's destination table and post preview.
+Native radio controls select draft/public delivery; unsupported actions carry an
+explanation. Open sections and hairline tables replace nested cards. No animation,
+new icon set, menu framework or runtime dependency is needed for these screens.
+
 New screens must use these foundations. Add a token or variant only for a repeated
 semantic need, not to accommodate arbitrary one-off styling. A broad brand change
 belongs in these shared files and this document, not a cascade of screen overrides.

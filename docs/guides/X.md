@@ -20,7 +20,7 @@ In **Accounts → ES → X**, choose **Set handle**, keep **Browser · Free** an
 
 You can keep both X accounts signed in within one browser and use [X's account switcher](https://help.x.com/en/managing-your-account/managing-multiple-x-accounts). Separate browser profiles are optional. Publisher opens the system's default browser and cannot inspect or select its active X account.
 
-1. Switch to the intended account in X. In Publisher, open the approved episode's X draft and review its language and text.
+1. Switch to the intended account in X. In Publisher, complete **Review**, prepare the X draft, then select **Publish → Publish now**. Check its language and text.
 2. Confirm the browser account and choose **Copy video path and open X**. This copies the approved file's path and opens the composer with the title, description and hashtags.
 3. In X, attach a video, paste the copied path into the file picker and confirm the selection. Review the account, text and video, then post.
 
@@ -40,7 +40,7 @@ If the callback port is occupied, Publisher stops before opening the browser. Cl
 
 ## Publish through the API
 
-Open the approved episode's X draft. The destination comes from its language's connected account, not the editable draft label. Confirm the destination and accept X API usage charges for this attempt, then choose **Publish on X · Paid API**. This creates a post visible according to the account's settings; it is not a private staging upload.
+Complete **Review** and **Prepare** for the approved episode, then select the X destination in **Publish** and choose **Publish now**. The destination comes from its language's connected account, not the editable draft label. Confirm the destination and accept X API usage charges for this attempt, then choose **Publish on X · Paid API**. This creates a post visible according to the account's settings; it is not a private staging upload. **Keep as draft** keeps the metadata on this PC without an X request.
 
 Publisher validates the approved file, uploads it in bounded chunks, waits for processing and creates the post. The receipt contains the post URL. Keep Publisher open until the result appears. The implementation follows X's [chunked media workflow](https://docs.x.com/x-api/media/quickstart/media-upload-chunked).
 
