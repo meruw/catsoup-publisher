@@ -29,6 +29,18 @@ var xHandle = regexp.MustCompile("^[A-Za-z0-9_]{1,15}$")
 var igHandle = regexp.MustCompile("^[A-Za-z0-9._]{1,30}$")
 
 func (s *UploadService) LinkAccount(platform, language, expectedID, handle, pageToken string) (profile drafts.Profile, failure error) {
+	return s.linkAccount(platform, language, expectedID, handle, pageToken, false)
+}
+func (s *UploadService) LinkXAccount(language, expectedID, handle string, paidAccepted bool) (drafts.Profile, error) {
+	if !paidAccepted {
+		return drafts.Profile{}, errors.New("acknowledge X API usage charges before connecting")
+	}
+	if !xHandle.MatchString(strings.TrimPrefix(strings.TrimSpace(handle), "@")) {
+		return drafts.Profile{}, errors.New("enter the expected X username")
+	}
+	return s.linkAccount("x", language, expectedID, handle, "", true)
+}
+func (s *UploadService) linkAccount(platform, language, expectedID, handle, pageToken string, xAPI bool) (profile drafts.Profile, failure error) {
 	var p drafts.Profile
 	if err := validateSlot(platform, language); err != nil {
 		return p, err
@@ -48,7 +60,7 @@ func (s *UploadService) LinkAccount(platform, language, expectedID, handle, page
 		}
 	}()
 	handle = strings.TrimPrefix(strings.TrimSpace(handle), "@")
-	if platform == "x" {
+	if platform == "x" && !xAPI {
 		if !xHandle.MatchString(handle) {
 			return p, errors.New("enter a valid X handle")
 		}
@@ -89,8 +101,12 @@ func (s *UploadService) LinkAccount(platform, language, expectedID, handle, page
 		reason = "username_mismatch"
 		return p, errors.New("the connected Instagram account does not match this username")
 	}
+	if platform == "x" && !strings.EqualFold(handle, strings.TrimPrefix(account.Name, "@")) {
+		reason = "username_mismatch"
+		return p, errors.New("the authorized X account does not match the expected username; switch accounts in X and retry")
+	}
 	diagnostics.Record(ctx, slog.LevelInfo, "identity_finished", diagnostics.Details{})
-	p = drafts.Profile{Platform: platform, Language: language, ID: account.ID, Name: account.Name}
+	p = drafts.Profile{Platform: platform, Language: language, ID: account.ID, Name: account.Name, API: true}
 	reason = "credential_storage"
 	diagnostics.Record(ctx, slog.LevelInfo, "credential_saving", diagnostics.Details{})
 	sealed, err := token.Seal(platform + "/" + language + "/" + account.ID)
@@ -116,6 +132,11 @@ func (s *UploadService) access(ctx context.Context, platform, language, id strin
 	if err != nil {
 		return "", err
 	}
+	if platform == "x" {
+		if err = uploads.CheckXClient(token); err != nil {
+			return "", err
+		}
+	}
 	if !token.Due() {
 		return token.Access, nil
 	}
@@ -140,11 +161,24 @@ func (s *UploadService) ConfigureClient(platform, raw string) error {
 
 func (s *UploadService) GoogleClientReady() bool { return uploads.ClientReady("youtube") }
 
+func (s *UploadService) OpenXSetup(step string) error {
+	switch step {
+	case "console":
+		return s.openBrowser("https://console.x.com/")
+	case "pricing":
+		return s.openBrowser("https://docs.x.com/x-api/getting-started/pricing")
+	case "guide":
+		return s.openBrowser("https://publisher.meruw.dev/guides/x/")
+	default:
+		return errors.New("unknown X setup page")
+	}
+}
+
 func (s *UploadService) ClientReady(platform string) bool { return uploads.ClientReady(platform) }
 
 func (s *UploadService) CredentialStatuses() map[string]string {
 	result := make(map[string]string, 3)
-	for _, platform := range []string{"youtube", "tiktok", "instagram"} {
+	for _, platform := range []string{"youtube", "tiktok", "instagram", "x"} {
 		result[platform] = uploads.ClientStatus(platform)
 	}
 	return result

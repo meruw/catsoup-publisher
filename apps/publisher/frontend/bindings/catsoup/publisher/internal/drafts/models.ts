@@ -25,6 +25,7 @@ export interface Profile {
     "language": string;
     "id": string;
     "name": string;
+    "api": boolean;
 }
 
 export interface Receipt {

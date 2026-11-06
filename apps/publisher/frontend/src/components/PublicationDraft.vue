@@ -208,6 +208,7 @@ defineExpose({ flush: beforeLeaving, focusEditor });
         </div>
         <p class="publication-hint">Changes save after you pause typing. Caption copies description and hashtags. Check platform limits before uploading.</p>
         <DirectUpload :key="JSON.stringify([form.key, form.videoHash])" :draft="form" :hint="uploadHint" :flush="flush" @busy="platformBusy = $event" @accounts="emit('accounts')" />
+        <template v-if="form.key.platform!=='x'">
         <h3>Manual upload</h3>
         <p v-if="uploadHint" class="publication-hint">{{ uploadHint }}</p>
         <template v-else>
@@ -215,6 +216,7 @@ defineExpose({ flush: beforeLeaving, focusEditor });
           <div class="draft-actions"><UiButton :disabled="!accountConfirmed || saving" :busy="preparingUpload" @click="copyUploadPath">Copy upload file path</UiButton></div>
         </template>
         <p v-if="uploadError" class="notice error" role="alert">{{ uploadError }}</p>
+        </template>
       </template>
     </fieldset>
     <p v-if="feedback" class="ui-status ui-status--success" role="status">{{ feedback }}</p>

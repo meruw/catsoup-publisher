@@ -21,12 +21,21 @@ func Configure(platform, raw string) error {
 		App       string `json:"app_id"`
 		AppSecret string `json:"app_secret"`
 		Config    string `json:"config_id"`
+		ID        string `json:"client_id"`
+		Redirect  string `json:"redirect_uri"`
 	}
 	if json.Unmarshal([]byte(raw), &data) != nil {
 		return errors.New("select a valid client JSON file")
 	}
 	var file string
 	switch platform {
+	case "x":
+		if !fieldsPresent(data.ID) || !validXCallback(data.Redirect) || data.Secret != "" {
+			return errors.New("use an X Native App Client ID and an HTTP 127.0.0.1 callback with a fixed port; no client secret")
+		}
+		// Store only the public native-client settings.
+		b, _ := json.Marshal(map[string]string{"client_id": data.ID, "redirect_uri": data.Redirect})
+		return saveConfiguration("x-desktop.json", string(b))
 	case "youtube":
 		if !fieldsPresent(data.Installed.ID, data.Installed.Secret) {
 			return errors.New("select Google Desktop app JSON")

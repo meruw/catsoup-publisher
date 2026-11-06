@@ -42,10 +42,16 @@ const server = await createServer({
         metaCallback: async () => localStorage.getItem('meta-callback-fixture') || '',
         enableHostedMetaCallback: async () => {const url='https://publisher.meruw.dev/auth/meta/';localStorage.setItem('meta-callback-fixture',url);return url;},
         setMetaCallback: async url => {localStorage.setItem('meta-callback-fixture',url);return url;},
-        credentialStatuses: async () => Object.fromEntries(['youtube','tiktok','instagram'].map(p=>[p,localStorage.getItem(p+'-client-fixture')==='ready'?'saved':'missing'])),
+        credentialStatuses: async () => Object.fromEntries(['youtube','tiktok','instagram','x'].map(p=>[p,localStorage.getItem(p+'-client-fixture')==='ready'?'saved':'missing'])),
         clientReady: async p => localStorage.getItem(p+'-client-fixture')==='ready',
         googleSetup: async step => { window.__googleSetupStep=step; },
+        xSetup: async step => { window.__xSetupStep=step; },
         configure: async (platform,raw) => {
+          if(platform==='x') {
+            const data=JSON.parse(raw);
+            if(!data.client_id || data.redirect_uri!=='http://127.0.0.1:48173/callback/' || data.client_secret) throw Error('Invalid X Native App fixture');
+            localStorage.setItem('x-client-fixture','ready');return;
+          }
           if(platform==='tiktok') {
             const data=JSON.parse(raw);
             if(data.client_key!=='fixture-key' || data.client_secret!=='fixture-secret') throw Error('Invalid fixture credentials');
@@ -63,9 +69,17 @@ const server = await createServer({
           localStorage.setItem('youtube-client-fixture','ready');
         },
         accounts: async () => profiles(),
+        linkX: async (language,expected,handle,paid) => {
+          if(!paid || !handle) throw Error('Missing paid consent or username');
+          const p={platform:'x',language,id:'x-'+language,name:handle,api:true};const rows=profiles().filter(row=>row.platform!=='x'||row.language!==language);localStorage.setItem('account-fixture',JSON.stringify([...rows,p]));return p;
+        },
         link: async (platform,language) => {const p={platform,language,id:platform+'-'+language,name:'Fixture '+language};const rows=profiles().filter(row=>row.platform!==platform||row.language!==language);localStorage.setItem('account-fixture',JSON.stringify([...rows,p]));return p;},
         unlink: async (platform,language) => localStorage.setItem('account-fixture',JSON.stringify(profiles().filter(row=>row.platform!==platform||row.language!==language))),
         receipt: async (_,id) => receipts.get(id)||none,
+        sendX: async (key,revision,id,confirmed,paid) => {
+          if(!confirmed || !paid || key.platform!=='x' || id!=='x-'+key.language || revision<1) throw Error('Unsafe X upload');
+          window.__xPaidRequest={key,revision,id,confirmed,paid};const receipt={state:'sent',reference:'https://x.com/i/status/123',retryAllowed:false};receipts.set(id,receipt);return receipt;
+        },
         send: async (key, revision, id, confirmed) => {
           if (!confirmed || id !== key.platform+'-'+key.language || key.episode !== 'catsoup-handoff-fixture' || revision < 1) throw Error('unsafe fixture upload');
           const receipt = {state:'sent',reference:'fixture-post',retryAllowed:false};receipts.set(id,receipt);return receipt;
@@ -367,7 +381,7 @@ try {
     ['youtube','Sign in with Google','Upload privately to YouTube','Private video uploaded'],
     ['tiktok','Sign in with TikTok','Send to TikTok inbox','Sent to TikTok inbox'],
     ['instagram','Connect account','Publish Reel on Instagram','Reel published'],
-    ['x','','Open X composer',''],
+    ['x','','Copy video path and open X',''],
   ]) {
     if (platform !== 'youtube') {
       await page.getByLabel('Platform', {exact:true}).selectOption(platform);
@@ -376,8 +390,11 @@ try {
       await page.getByText('Saved locally', {exact:true}).waitFor();
     }
     if (platform === 'x') {
+      assert(await page.getByRole('button', {name:action,exact:true}).isDisabled());
+      await page.getByLabel('I checked the active account in X for ES.').check();
       await page.getByRole('button', {name:action,exact:true}).click();
       assert.equal(await page.evaluate(()=>window.__xComposer),'x');
+      assert.equal(await page.evaluate(()=>window.__uploadPathRequest.key.platform),'x');
       continue;
     }
     const send=page.getByRole('button',{name:action,exact:true});
@@ -387,6 +404,51 @@ try {
     await send.click();
     await page.getByText(result+' · fixture-post',{exact:true}).waitFor();
   }
+  // X stays free until the user explicitly connects API mode. All calls below
+  // are local fixture adapters, including paid consent and the post receipt.
+  await page.getByRole('button',{name:'Accounts',exact:true}).click();
+  await page.getByRole('button',{name:'Spanish accounts',exact:true}).click();
+  const xRow=page.getByRole('region',{name:'X',exact:true});
+  await xRow.getByText('Browser · Free',{exact:true}).waitFor();
+  await xRow.getByRole('button',{name:'Change',exact:true}).click();
+  await xRow.getByRole('button',{name:'API · Paid',exact:true}).click();
+  await xRow.getByRole('button',{name:'Set up X credentials'}).click();
+  const xSetup=page.getByRole('region',{name:'X settings'});
+  assert.equal(await xSetup.getByLabel('Client secret',{exact:true}).count(),0);
+  await xSetup.getByText('X Developer setup',{exact:true}).click();
+  await xSetup.getByRole('button',{name:'X pricing'}).click();
+  assert.equal(await page.evaluate(()=>window.__xSetupStep),'pricing');
+  await xSetup.getByLabel('Client ID',{exact:true}).fill('fixture-client');
+  await xSetup.getByRole('button',{name:'Save X credentials'}).click();
+  await xSetup.getByText('X credentials saved for both languages.').waitFor();
+  await page.screenshot({path:path.join(output,'x-developer-settings.png')});
+  await page.getByRole('button',{name:'Accounts',exact:true}).click();
+  await xRow.getByRole('button',{name:'Change',exact:true}).click();
+  assert.equal(await xRow.getByRole('button',{name:'Browser · Free',exact:true}).getAttribute('aria-pressed'),'true');
+  await xRow.getByRole('button',{name:'API · Paid',exact:true}).click();
+  await xRow.getByLabel('X username').fill('@cats_es');
+  assert(await xRow.getByRole('button',{name:'Sign in with X',exact:true}).isDisabled());
+  await xRow.getByLabel('I understand X may charge my developer project for API usage.').check();
+  await page.screenshot({path:path.join(output,'x-account-api.png')});
+  await xRow.getByRole('button',{name:'Sign in with X',exact:true}).click();
+  await xRow.getByText('@cats_es',{exact:true}).waitFor();
+  await xRow.getByText('API · Paid',{exact:true}).waitFor();
+  await page.getByRole('button',{name:'Publisher',exact:true}).click();
+  await page.getByLabel('Platform',{exact:true}).selectOption('x');
+  await page.getByRole('button',{name:'Open draft',exact:true}).click();
+  await page.getByLabel('Title',{exact:true}).fill('Approved X fixture');
+  await page.getByText('Saved locally',{exact:true}).waitFor();
+  const paidSend=page.getByRole('button',{name:'Publish on X · Paid API',exact:true});
+  await paidSend.waitFor();assert(await paidSend.isDisabled());
+  await page.getByLabel('Send the ES video to @cats_es.').check();
+  assert(await paidSend.isDisabled());
+  await page.getByLabel('I accept X API usage charges for this attempt.').check();
+  await paidSend.scrollIntoViewIfNeeded();
+  await page.screenshot({path:path.join(output,'x-publish-paid.png')});
+  await paidSend.click();
+  await page.getByText('Post published · https://x.com/i/status/123',{exact:true}).waitFor();
+  assert.equal(await page.evaluate(()=>window.__xPaidRequest.key.language),'es');
+  assert.equal(await paidSend.count(),0,'successful receipt prevents another post');
   await checkDiagnostics(page,output);
   await page.getByRole('button',{name:'Publisher',exact:true}).click();
   await page.evaluate(() => { window.__empty = true; });

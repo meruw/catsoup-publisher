@@ -91,12 +91,27 @@ func stage(path, hash string) (*os.File, int64, error) {
 	return file, size, nil
 }
 func (s *UploadService) Send(key drafts.Key, revision int64, id string, confirmed bool) (drafts.Receipt, error) {
+	return s.send(key, revision, id, confirmed, false)
+}
+func (s *UploadService) SendX(key drafts.Key, revision int64, id string, confirmed, paidAccepted bool) (drafts.Receipt, error) {
+	if key.Platform != "x" {
+		return drafts.Receipt{}, errors.New("select an X draft")
+	}
+	return s.send(key, revision, id, confirmed, paidAccepted)
+}
+func (s *UploadService) send(key drafts.Key, revision int64, id string, confirmed, paidAccepted bool) (drafts.Receipt, error) {
+	if key.Platform == "x" && !paidAccepted {
+		return drafts.Receipt{}, errors.New("acknowledge X API usage charges before publishing")
+	}
 	if !confirmed {
 		return drafts.Receipt{}, errors.New("confirm the destination and upload action")
 	}
-	_, err := s.store.Credential(key.Platform, key.Language, id)
+	credential, err := s.store.Credential(key.Platform, key.Language, id)
 	if err != nil {
 		return drafts.Receipt{}, err
+	}
+	if key.Platform == "x" && len(credential) == 0 {
+		return drafts.Receipt{}, errors.New("connect X in API mode in Accounts before publishing")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
 	defer cancel()
@@ -118,7 +133,7 @@ func (s *UploadService) Send(key drafts.Key, revision int64, id string, confirme
 	defer os.Remove(file.Name())
 	defer file.Close()
 	caption := strings.TrimSpace(d.Description + "\n\n" + d.Hashtags)
-	if key.Platform == "instagram" && strings.TrimSpace(d.Title) != "" {
+	if (key.Platform == "instagram" || key.Platform == "x") && strings.TrimSpace(d.Title) != "" {
 		caption = strings.TrimSpace(d.Title + "\n\n" + caption)
 	}
 	m := uploads.Media{Title: d.Title, Caption: caption, Language: key.Language, File: file, Size: size}

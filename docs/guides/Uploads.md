@@ -13,7 +13,7 @@ Open **Accounts** in the sidebar. Select **ES** or **EN**, choose the platform a
 | [YouTube](https://publisher.meruw.dev/guides/youtube/) | Upload privately. Review the video in YouTube Studio. |
 | [TikTok](https://publisher.meruw.dev/guides/tiktok/) | Send a draft to the creator's inbox. Finish posting in TikTok. |
 | [Meta](https://publisher.meruw.dev/guides/meta/) | Publish a Reel on the connected Instagram profile. |
-| [X](https://publisher.meruw.dev/guides/x/) | Open the composer. Attach the video and submit in the browser. |
+| [X](https://publisher.meruw.dev/guides/x/) | Free browser handoff, or direct posting with optional paid API access. |
 
 ## Connect your accounts
 
@@ -25,6 +25,6 @@ In **Settings → Developer credentials**, select the provider. When credentials
 
 Publisher revalidates the delivery and stages a temporary copy matching the approved hash before sending. SQLite records one attempt per platform, verified account ID and video hash. The same file can go to another account. A confirmed transfer cannot be repeated to the same destination through Publisher. Keep the app open while uploading. A receipt displays the returned reference.
 
-If a response is lost, check the destination before doing anything else. Look in YouTube Studio (including private videos), the TikTok inbox or the professional Instagram profile. Only choose **Allow another attempt** after confirming the upload is absent. If Publisher exited during a transfer, an in-flight receipt becomes eligible for manual recovery after 30 minutes. **Refresh receipt** reads the local receipt. Publisher does not automatically retry, schedule posts or resume partial transfers.
+If a response is lost, check the destination before doing anything else. Look in YouTube Studio (including private videos), the TikTok inbox, the professional Instagram profile or the connected X account. Only choose **Allow another attempt** after confirming the upload is absent. If Publisher exited during a transfer, an in-flight receipt becomes eligible for manual recovery after 30 minutes. **Refresh receipt** reads the local receipt. Publisher does not automatically retry, schedule posts or resume partial transfers. X API publishing requires a separate cost acknowledgment for every attempt; failed or retried requests can also affect usage. Free browser handoffs do not create transfer receipts.
 
 Protocol and interface tests use local fixtures. A live transfer with an operator-owned account and an approved episode is still required to verify each provider end to end.
