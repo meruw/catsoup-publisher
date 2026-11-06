@@ -4,7 +4,7 @@ import { uploads, type Profile, type SetupPlatform } from '../services/uploads';
 import UiButton from './UiButton.vue';
 import UiSegmented from './UiSegmented.vue';
 
-const emit=defineEmits<{busy:[value:boolean];settings:[platform:SetupPlatform,language:string];language:[value:string]}>();
+const emit=defineEmits<{busy:[value:boolean];settings:[platform:SetupPlatform,language:string];language:[value:string];diagnostics:[service:string,language:string]}>();
 const platforms = {youtube:'YouTube',tiktok:'TikTok',instagram:'Instagram',x:'X'};
 type Platform = keyof typeof platforms;
 const rows=ref<Profile[]>([]);
@@ -89,7 +89,7 @@ onMounted(()=>{void run(async()=>{
     </details>
     <div class="draft-actions"><UiButton v-if="p==='x'||(configured[p] && (p!=='instagram'||metaCallbackReady))||(p==='instagram'&&advanced)" variant="primary" :busy="pending" :disabled="advanced ? !pageToken.trim() : p==='instagram' && !handle.trim()" @click="link(p)">{{ p==='x'?'Save handle':p==='instagram'?(advanced?'Connect Page':'Sign in with Facebook'):p==='youtube'?'Sign in with Google':'Sign in with TikTok' }}</UiButton><UiButton variant="quiet" :disabled="pending" @click="reset">Cancel</UiButton></div>
     <p v-if="pending" role="status">Connecting to {{ name }}…</p>
-    <p v-else-if="error" class="notice error" role="alert">{{ error }}</p>
+    <div v-else-if="error"><p class="notice error" role="alert">{{ error }}</p><UiButton size="compact" variant="quiet" @click="emit('diagnostics',p,language)">View diagnostics</UiButton></div>
    </div>
   </section>
   <p v-if="message" role="status">{{ message }}</p>

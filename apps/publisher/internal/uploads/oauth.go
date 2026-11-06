@@ -1,6 +1,7 @@
 package uploads
 
 import (
+	"catsoup/publisher/internal/diagnostics"
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
@@ -10,6 +11,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/url"
@@ -155,6 +157,9 @@ func (c *Client) SignIn(ctx context.Context, platform string, open func(string) 
 	srv := &http.Server{ReadHeaderTimeout: 3 * time.Second, WriteTimeout: 5 * time.Second, MaxHeaderBytes: 8192, Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
 		if r.Method != "GET" || r.URL.Path != cfg.callback || r.Host != host || subtle.ConstantTimeCompare([]byte(r.URL.Query().Get("state")), []byte(state)) != 1 {
+			if r.URL.Path != "/favicon.ico" {
+				diagnostics.Record(ctx, slog.LevelWarn, "callback_rejected", diagnostics.Details{Reason: "invalid_callback"})
+			}
 			c.writeBrowserReturn(w, platform, 400, "Sign-in interrupted", "This browser response does not match the sign-in in Publisher. Open Accounts and try again.")
 			return
 		}
@@ -163,6 +168,7 @@ func (c *Client) SignIn(ctx context.Context, platform string, open func(string) 
 			var ok bool
 			result, ok = bridge.code(r.URL.Query().Get("reply"), state)
 			if !ok {
+				diagnostics.Record(ctx, slog.LevelWarn, "callback_rejected", diagnostics.Details{Reason: "invalid_callback"})
 				c.writeBrowserReturn(w, platform, 400, "Sign-in interrupted", "Publisher could not verify the return from Meta. Start again from Accounts and use the same browser tab.")
 				return
 			}
@@ -172,6 +178,7 @@ func (c *Client) SignIn(ctx context.Context, platform string, open func(string) 
 		} else {
 			c.writeBrowserReturn(w, platform, 200, "Return to Publisher", "Close this tab and open Accounts. Check the account name under the language you selected to confirm the connection.")
 		}
+		diagnostics.Record(ctx, slog.LevelInfo, "callback_received", diagnostics.Details{})
 		// Finish the browser response before the sign-in goroutine closes the listener.
 		_ = http.NewResponseController(w).Flush()
 		select {
@@ -185,24 +192,30 @@ func (c *Client) SignIn(ctx context.Context, platform string, open func(string) 
 	if bridge != nil {
 		launch = bridge.launch(redirect, strconv.Itoa(ln.Addr().(*net.TCPAddr).Port), state, cfg)
 	}
+	diagnostics.Record(ctx, slog.LevelInfo, "browser_opening", diagnostics.Details{})
 	if err = open(launch); err != nil {
+		diagnostics.Record(ctx, slog.LevelError, "sign_in_failed", diagnostics.Details{Reason: "unknown"})
 		return Token{}, errors.New("could not open the browser for sign-in")
 	}
 	var authCode string
 	select {
 	case authCode = <-code:
 	case <-ctx.Done():
+		diagnostics.Record(ctx, slog.LevelWarn, "sign_in_failed", diagnostics.Details{Reason: "timeout"})
 		return Token{}, errors.New("sign-in timed out")
 	}
 	if authCode == "" {
+		diagnostics.Record(ctx, slog.LevelWarn, "sign_in_failed", diagnostics.Details{Reason: "cancelled"})
 		return Token{}, errors.New("sign-in was cancelled")
 	}
 	form := url.Values{"grant_type": {"authorization_code"}, "code": {authCode}, "redirect_uri": {redirect}, cfg.keyField: {cfg.id}, "client_secret": {cfg.secret}, "code_verifier": {verifier}}
 	if platform == "instagram" {
 		form.Del("code_verifier")
 	}
+	diagnostics.Record(ctx, slog.LevelInfo, "exchange_started", diagnostics.Details{})
 	token, err := c.exchange(ctx, cfg.tokenURL, form)
 	if err == nil {
+		diagnostics.Record(ctx, slog.LevelInfo, "exchange_finished", diagnostics.Details{})
 		// A status indicator must not prevent a successful sign-in.
 		if path, e := receiptPath(platform); e == nil {
 			_ = os.WriteFile(path, []byte(cfg.fingerprint()), 0600)

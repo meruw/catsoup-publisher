@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import assert from 'node:assert/strict';
 import { draftFixture } from './draft_fixture.mjs';
+import { diagnosticsFixture, checkDiagnostics } from './diagnostics_fixture.mjs';
 import { createServer } from '../frontend/node_modules/vite/dist/node/index.js';
 import vue from '../frontend/node_modules/@vitejs/plugin-vue/dist/index.mjs';
 import { chromium } from '../../../.tools/visual-qa/node_modules/playwright/index.mjs';
@@ -33,6 +34,7 @@ const server = await createServer({
   configFile: false, root: frontend,
   plugins: [{ name: 'test-only-bridge', enforce: 'pre', load(id) {
     if (id.replaceAll('\\', '/').endsWith('/src/services/drafts.ts')) return draftFixture;
+    if (id.replaceAll('\\', '/').endsWith('/src/services/diagnostics.ts')) return diagnosticsFixture;
     if (id.replaceAll('\\', '/').endsWith('/src/services/uploads.ts')) return `
       const none = {state:'',reference:'',retryAllowed:false};
       const receipts = new Map(); const profiles = () => JSON.parse(localStorage.getItem('account-fixture') || '[]');
@@ -385,12 +387,14 @@ try {
     await send.click();
     await page.getByText(result+' · fixture-post',{exact:true}).waitFor();
   }
+  await checkDiagnostics(page,output);
+  await page.getByRole('button',{name:'Publisher',exact:true}).click();
   await page.evaluate(() => { window.__empty = true; });
   await page.getByRole('button', { name: 'Refresh', exact: true }).click();
   await page.getByRole('heading', { name: 'No delivery to preview' }).waitFor();
   assert.equal(await page.locator('video').count(), 0);
   assert.deepEqual(errors, []);
-  const report = { passed: true, checks: ['ES/EN decode and playback', 'seek', 'variant selection', 'refresh keeps language', 'non-publishable state', 'empty state', '1200/820px layout', 'module navigation', 'window controls with fixture adapter', 'draft autosave and reload', 'language/platform/account isolation', 'typing during save', 'failed saves block navigation and close', 'conflict recovery', 'delivery change and explicit rebind', 'copy/reveal adapters', 'close flush', 'no JS errors'], native: false };
+  const report = { passed: true, checks: ['ES/EN decode and playback', 'seek', 'variant selection', 'refresh keeps language', 'non-publishable state', 'empty state', '1200/820px layout', 'module navigation', 'window controls with fixture adapter', 'draft autosave and reload', 'language/platform/account isolation', 'typing during save', 'failed saves block navigation and close', 'conflict recovery', 'delivery change and explicit rebind', 'copy/reveal adapters', 'close flush', 'diagnostics search and filters', 'attempt grouping and export', 'history pagination and pause', 'live diagnostics and keyboard access', 'no JS errors'], native: false };
   await writeFile(path.join(output, 'report.json'), JSON.stringify(report, null, 2));
   console.log(JSON.stringify(report));
 } catch (error) {

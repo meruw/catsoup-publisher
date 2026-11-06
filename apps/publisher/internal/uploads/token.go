@@ -1,10 +1,12 @@
 package uploads
 
 import (
+	"catsoup/publisher/internal/diagnostics"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/url"
 	"strings"
 	"time"
@@ -77,6 +79,7 @@ func (c *Client) RefreshToken(ctx context.Context, platform string, t Token) (To
 
 // Resolve the Page credential for the explicitly requested Instagram username.
 func (c *Client) InstagramPage(ctx context.Context, user Token, handle string) (Token, error) {
+	diagnostics.Record(ctx, slog.LevelInfo, "pages_started", diagnostics.Details{})
 	endpoint := graph + "me/accounts?fields=access_token%2Cinstagram_business_account%7Bid%2Cusername%7D&limit=100"
 	after := ""
 	var hasPages bool
@@ -100,6 +103,7 @@ func (c *Client) InstagramPage(ctx context.Context, user Token, handle string) (
 		if err != nil {
 			return Token{}, fmt.Errorf("Facebook sign-in finished, but Publisher could not read your Pages: %w", err)
 		}
+		diagnostics.Record(ctx, slog.LevelDebug, "pages_received", diagnostics.Details{Pages: len(out.Data)})
 		for _, p := range out.Data {
 			hasPages = true
 			if p.IG.Username == "" {
@@ -107,8 +111,10 @@ func (c *Client) InstagramPage(ctx context.Context, user Token, handle string) (
 			}
 			if strings.EqualFold(p.IG.Username, handle) {
 				if p.Token == "" {
+					diagnostics.Record(ctx, slog.LevelError, "pages_failed", diagnostics.Details{Reason: "missing_page_access"})
 					return Token{}, errors.New("Meta returned this Instagram profile without Page access. Check your access to the linked Facebook Page")
 				}
+				diagnostics.Record(ctx, slog.LevelInfo, "profile_matched", diagnostics.Details{Matches: 1})
 				return Token{Access: p.Token}, nil
 			}
 			if len(available) < 5 {
@@ -121,10 +127,13 @@ func (c *Client) InstagramPage(ctx context.Context, user Token, handle string) (
 		after = out.Paging.Cursors.After
 	}
 	if !hasPages {
+		diagnostics.Record(ctx, slog.LevelError, "pages_failed", diagnostics.Details{Reason: "no_pages"})
 		return Token{}, errors.New("Facebook sign-in finished, but Meta returned no Pages. Authorize the Facebook Page linked to your Instagram profile")
 	}
 	if len(available) == 0 {
+		diagnostics.Record(ctx, slog.LevelError, "pages_failed", diagnostics.Details{Reason: "no_linked_profile"})
 		return Token{}, errors.New("the authorized Pages have no visible linked Instagram profile. Check Linked accounts on the Page for this language")
 	}
+	diagnostics.Record(ctx, slog.LevelError, "pages_failed", diagnostics.Details{Reason: "username_mismatch"})
 	return Token{}, fmt.Errorf("no authorized Page matches @%s. Meta returned these Instagram usernames: %s", handle, strings.Join(available, ", "))
 }

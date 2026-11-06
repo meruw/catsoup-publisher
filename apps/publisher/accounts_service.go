@@ -1,10 +1,12 @@
 package main
 
 import (
+	"catsoup/publisher/internal/diagnostics"
 	"catsoup/publisher/internal/drafts"
 	"catsoup/publisher/internal/uploads"
 	"context"
 	"errors"
+	"log/slog"
 	"regexp"
 	"strings"
 	"time"
@@ -26,11 +28,25 @@ func validateSlot(platform, lang string) error {
 var xHandle = regexp.MustCompile("^[A-Za-z0-9_]{1,15}$")
 var igHandle = regexp.MustCompile("^[A-Za-z0-9._]{1,30}$")
 
-func (s *UploadService) LinkAccount(platform, language, expectedID, handle, pageToken string) (drafts.Profile, error) {
+func (s *UploadService) LinkAccount(platform, language, expectedID, handle, pageToken string) (profile drafts.Profile, failure error) {
 	var p drafts.Profile
 	if err := validateSlot(platform, language); err != nil {
 		return p, err
 	}
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	defer cancel()
+	ctx = diagnostics.Start(ctx, s.diagnostics, platform, language)
+	reason := "unknown"
+	defer func() {
+		if failure != nil {
+			if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+				reason = "timeout"
+			}
+			diagnostics.Record(ctx, slog.LevelError, "connection_failed", diagnostics.Details{Reason: reason})
+		} else {
+			diagnostics.Record(ctx, slog.LevelInfo, "connection_finished", diagnostics.Details{})
+		}
+	}()
 	handle = strings.TrimPrefix(strings.TrimSpace(handle), "@")
 	if platform == "x" {
 		if !xHandle.MatchString(handle) {
@@ -39,8 +55,6 @@ func (s *UploadService) LinkAccount(platform, language, expectedID, handle, page
 		p = drafts.Profile{Platform: platform, Language: language, ID: strings.ToLower(handle), Name: "@" + handle}
 		return p, s.store.PutProfile(p, []byte{}, expectedID)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
-	defer cancel()
 	var token uploads.Token
 	var err error
 	if pageToken != "" {
@@ -49,9 +63,11 @@ func (s *UploadService) LinkAccount(platform, language, expectedID, handle, page
 		}
 		token.Access = pageToken
 	} else {
+		reason = "configuration"
 		if platform == "instagram" && !igHandle.MatchString(handle) {
 			return p, errors.New("enter the Instagram username attached to your Page")
 		}
+		reason = "unknown"
 		token, err = s.client.SignIn(ctx, platform, s.openBrowser)
 		if err != nil {
 			return p, err
@@ -63,18 +79,25 @@ func (s *UploadService) LinkAccount(platform, language, expectedID, handle, page
 			}
 		}
 	}
+	reason = "unknown"
+	diagnostics.Record(ctx, slog.LevelInfo, "identity_started", diagnostics.Details{})
 	account, err := s.client.Identify(ctx, platform, token.Access)
 	if err != nil {
 		return p, err
 	}
 	if platform == "instagram" && handle != "" && !strings.EqualFold(handle, account.Name) {
+		reason = "username_mismatch"
 		return p, errors.New("the connected Instagram account does not match this username")
 	}
+	diagnostics.Record(ctx, slog.LevelInfo, "identity_finished", diagnostics.Details{})
 	p = drafts.Profile{Platform: platform, Language: language, ID: account.ID, Name: account.Name}
+	reason = "credential_storage"
+	diagnostics.Record(ctx, slog.LevelInfo, "credential_saving", diagnostics.Details{})
 	sealed, err := token.Seal(platform + "/" + language + "/" + account.ID)
 	if err != nil {
 		return p, err
 	}
+	reason = "account_conflict"
 	return p, s.store.PutProfile(p, sealed, expectedID)
 }
 func (s *UploadService) UnlinkAccount(platform, language, id string) error {
