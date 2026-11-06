@@ -75,6 +75,43 @@ func TestClearWatermarkPreservesSavedHistory(t *testing.T) {
 	}
 }
 
+func TestCopyTimeWindowsAndBounds(t *testing.T) {
+	s := Open(t.TempDir())
+	defer s.Close()
+	Start(context.Background(), s, "instagram", "es")
+	// Use the memory fallback to supply deterministic event ages without sleeping.
+	s.writer.Close()
+	s.writer = nil
+	base := s.recent[0]
+	s.recent = nil
+	for i, age := range []time.Duration{30 * time.Second, 2 * time.Minute, 7 * time.Minute, 20 * time.Minute, 40 * time.Minute} {
+		e := base
+		e.ID = int64(i + 1)
+		e.Time = time.Now().Add(-age)
+		s.recent = append(s.recent, e)
+	}
+	s.nextID = 5
+	for minutes, want := range map[int]int{0: 5, 1: 1, 5: 2, 10: 3, 30: 4} {
+		got, err := s.CopyResults(Query{}, minutes)
+		if err != nil || len(got.Events) != want {
+			t.Fatalf("%d minutes: %d, %v", minutes, len(got.Events), err)
+		}
+	}
+	if _, err := s.CopyResults(Query{}, 2); err == nil {
+		t.Fatal("accepted unsupported interval")
+	}
+	for i := 0; i < 10001; i++ {
+		e := base
+		e.ID = int64(i + 6)
+		e.Time = time.Now()
+		s.recent = append(s.recent, e)
+	}
+	s.nextID = 10006
+	if _, err := s.CopyResults(Query{}, 0); err == nil {
+		t.Fatal("oversized copy silently truncated")
+	}
+}
+
 func TestBoundedMemoryAndExclusiveWriter(t *testing.T) {
 	dir := t.TempDir()
 	first := Open(dir)

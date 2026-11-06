@@ -262,6 +262,28 @@ func validEvent(e Event) bool {
 }
 
 func (s *Store) Query(q Query) (Result, error) {
+	return s.query(q, pageSize, time.Time{})
+}
+
+// CopyResults reads all matching retained events, independent of UI pagination.
+// Refuse oversized selections instead of silently copying an incomplete attempt.
+func (s *Store) CopyResults(q Query, minutes int) (Result, error) {
+	if minutes != 0 && minutes != 1 && minutes != 5 && minutes != 10 && minutes != 30 {
+		return Result{}, errors.New("invalid copy interval")
+	}
+	since := time.Time{}
+	if minutes > 0 {
+		since = time.Now().Add(-time.Duration(minutes) * time.Minute)
+	}
+	q.Before = 0
+	result, err := s.query(q, 10000, since)
+	if err == nil && result.More {
+		return Result{}, errors.New("too many matching events; narrow the filters or time range")
+	}
+	return result, err
+}
+
+func (s *Store) query(q Query, limit int, since time.Time) (Result, error) {
 	if len(q.Search) > 200 || len(q.Attempt) > 64 || q.Before < 0 || q.Before > 9007199254740991 || q.After < 0 || q.After > 9007199254740991 ||
 		(q.Level != "" && q.Level != "DEBUG" && q.Level != "INFO" && q.Level != "WARN" && q.Level != "ERROR") ||
 		(q.Service != "" && q.Service != "youtube" && q.Service != "tiktok" && q.Service != "instagram" && q.Service != "x") ||
@@ -280,6 +302,9 @@ func (s *Store) Query(q Query) (Result, error) {
 		seen[e.ID] = true
 	}
 	cutoff := time.Now().Add(-retention)
+	if since.After(cutoff) {
+		cutoff = since
+	}
 	accept := func(e Event) {
 		if e.ID > maxID || e.ID <= q.After || e.Time.Before(cutoff) || (q.Before > 0 && e.ID >= q.Before) {
 			return
@@ -291,7 +316,7 @@ func (s *Store) Query(q Query) (Result, error) {
 			return
 		}
 		heap.Push(matches, e)
-		if matches.Len() > pageSize {
+		if matches.Len() > limit {
 			heap.Pop(matches)
 			result.More = true
 		}
