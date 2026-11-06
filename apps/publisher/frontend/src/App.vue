@@ -46,7 +46,7 @@ const videoID = ref('');
 const stage = ref<'review'|'prepare'|'publish'>('review');
 const reviewState = ref('pending');
 const reviewPanel = ref<InstanceType<typeof ReviewPanel>|null>(null);
-const stages = [{value:'review',label:'Review',detail:'Picture & sound'},{value:'prepare',label:'Prepare',detail:'Text & destinations'},{value:'publish',label:'Publish',detail:'Send & track'}] as const;
+const stages = [{value:'review',label:'Review'},{value:'prepare',label:'Prepare'},{value:'publish',label:'Publish'}] as const;
 const editor = ref<InstanceType<typeof PublicationDraft> | null>(null);
 const navigating = ref(false);
 let stopCloseListener: (() => void) | undefined;
@@ -141,7 +141,7 @@ onUnmounted(() => {stopCloseListener?.();window.removeEventListener('keydown',di
     <SettingsPage v-else-if="module==='settings'" :provider="settingsProvider" @select="showSettings" @busy="accountBusy=$event"/>
     <main v-else :aria-busy="busy">
       <header class="page-header">
-        <div><h1>Publisher</h1><p>From the final edit to the right account</p></div>
+        <h1>Publisher</h1>
         <div class="page-actions">
           <UiButton :busy="busy" :disabled="navigating" @click="navigate(refresh)">{{ busy ? 'Checking…' : 'Refresh' }}</UiButton>
         </div>
@@ -160,7 +160,7 @@ onUnmounted(() => {stopCloseListener?.();window.removeEventListener('keydown',di
         </div>
         <div class="workspace-toolbar">
           <nav class="workflow-steps" aria-label="Episode workflow">
-            <button v-for="(step,index) in stages" :key="step.value" :aria-current="stage===step.value?'step':undefined" :disabled="navigating" @click="navigate(()=>{stage=step.value})"><span class="step-number mono">{{index+1}}</span><span>{{step.label}}<small>{{step.detail}}</small></span></button>
+            <button v-for="(step,index) in stages" :key="step.value" :aria-current="stage===step.value?'step':undefined" :disabled="navigating" @click="navigate(()=>{stage=step.value})"><span class="step-number mono">{{index+1}}</span><span>{{step.label}}</span></button>
           </nav>
           <UiSegmented :model-value="language" label="Workspace language" :disabled="navigating" :options="(episode.languages || []).map(lang => ({value:lang,label:lang.toUpperCase(),accessibleLabel:languageName(lang)}))" @update:model-value="lang=>navigate(()=>chooseLanguage(lang))"/>
         </div>
@@ -183,26 +183,20 @@ onUnmounted(() => {stopCloseListener?.();window.removeEventListener('keydown',di
           <aside class="delivery-panel" aria-label="Delivery details">
             <ReviewPanel v-if="video" :key="episode.fingerprint+':'+language+':'+video.id" ref="reviewPanel" :episode="episode" :language="language" :video="video" :locked="navigating" @state="reviewState=$event"/>
             <details class="delivery-check"><summary>Delivery check · Valid</summary>
-            <div class="section-header"><h3>Delivery check</h3><span class="valid-label">Valid</span></div>
-            <p class="section-description">Files match the delivery manifest</p>
             <dl>
               <div><dt>Languages</dt><dd>{{ episode.languages?.map(languageName).join(' / ') }}</dd></div>
               <div><dt>Video versions</dt><dd class="mono">{{ episode.videos?.length }}</dd></div>
               <div><dt>Production status</dt><dd class="status-name">{{ episode.status.replaceAll('_', ' ') }}</dd></div>
               <div><dt>Owner approval</dt><dd>{{ episode.ready ? 'Present' : 'Not available' }}</dd></div>
             </dl>
-            <section class="review-note">
-              <h4>{{ episode.ready ? 'Review notes' : 'Before publishing' }}</h4>
-              <p>{{ episode.reason || (episode.ready ? 'Approval is tied to the current delivery files.' : 'Review the video and obtain owner approval for the current files.') }}</p>
-            </section>
+            <p v-if="episode.reason" class="notice">{{ episode.reason }}</p>
             <p v-for="warning in episode.warnings" :key="warning" class="notice warning">{{ warning }}</p>
-            <p class="read-only-note">Previewing leaves the review status unchanged</p>
             </details>
           </aside>
         </div>
         <PublicationDraft v-if="video" v-show="stage!=='review'" :key="episode.id + ':' + language" ref="editor"
           :episode="episode" :language="language" :video="video" :locked="navigating" :stage="stage==='publish'?'publish':'prepare'" :reviewed="reviewState==='reviewed'" @accounts="showAccounts" @prepare="navigate(()=>{stage='prepare'})" />
-        <div class="workflow-footer"><span>{{ languageName(language) }} · {{stage==='review'?'Review the final version':stage==='prepare'?'Drafts save on this PC':'Confirm each destination before sending'}}</span><UiButton v-if="stage!=='publish'" @click="navigate(()=>{stage=stage==='review'?'prepare':'publish'})">{{stage==='review'?'Continue to Prepare':'Continue to Publish'}}</UiButton><UiButton v-else variant="quiet" @click="navigate(()=>{stage='prepare'})">Back to Prepare</UiButton></div>
+        <div class="workflow-footer"><UiButton v-if="stage!=='publish'" @click="navigate(()=>{stage=stage==='review'?'prepare':'publish'})">{{stage==='review'?'Continue to Prepare':'Continue to Publish'}}</UiButton><UiButton v-else variant="quiet" @click="navigate(()=>{stage='prepare'})">Back to Prepare</UiButton></div>
       </section>
       <section v-if="!episode && !busy && !error" class="empty">
         <h2>No delivery to preview</h2><p>Add a production delivery, then refresh</p>
