@@ -40,7 +40,7 @@ func desktopConfig(platform string) (desktopOAuth, error) {
 	if err != nil {
 		return desktopOAuth{}, err
 	}
-	file := map[string]string{"instagram": "meta-desktop.json", "youtube": "google-desktop.json", "tiktok": "tiktok-desktop.json"}[platform]
+	file := map[string]string{"instagram": "meta-desktop.json", "youtube": "google-desktop.json", "tiktok": "tiktok-desktop.json", "x": "x-desktop.json"}[platform]
 	if file == "" {
 		return desktopOAuth{}, errors.New("unsupported provider")
 	}
@@ -50,6 +50,16 @@ func desktopConfig(platform string) (desktopOAuth, error) {
 	}
 	if err != nil {
 		return desktopOAuth{}, errors.New("could not read the credentials saved in Settings")
+	}
+	if platform == "x" {
+		var cfg struct {
+			ID       string `json:"client_id"`
+			Redirect string `json:"redirect_uri"`
+		}
+		if json.Unmarshal(raw, &cfg) != nil || !fieldsPresent(cfg.ID) || !validXCallback(cfg.Redirect) {
+			return desktopOAuth{}, errors.New("invalid X Native App configuration")
+		}
+		return desktopOAuth{"https://x.com/i/oauth2/authorize", "https://api.x.com/2/oauth2/token", "client_id", cfg.ID, "", "tweet.read users.read tweet.write media.write offline.access", cfg.Redirect}, nil
 	}
 	if platform == "instagram" {
 		var cfg struct {
@@ -111,7 +121,7 @@ func ClientStatus(platform string) string {
 }
 
 func ClientReady(platform string) bool {
-	if platform != "youtube" && platform != "tiktok" && platform != "instagram" {
+	if platform != "youtube" && platform != "tiktok" && platform != "instagram" && platform != "x" {
 		return false
 	}
 	_, err := desktopConfig(platform)
@@ -123,13 +133,21 @@ func (c *Client) SignIn(ctx context.Context, platform string, open func(string) 
 	if err != nil {
 		return Token{}, err
 	}
-	ln, err := net.Listen("tcp4", "127.0.0.1:0")
+	listenAddress, callbackPath := "127.0.0.1:0", cfg.callback
+	if platform == "x" {
+		u, _ := url.Parse(cfg.callback)
+		listenAddress, callbackPath = u.Host, u.Path
+	}
+	ln, err := net.Listen("tcp4", listenAddress)
 	if err != nil {
+		if platform == "x" {
+			return Token{}, errors.New("X callback port is occupied; close the other sign-in or change the port in both Settings and the X Developer Console")
+		}
 		return Token{}, errors.New("could not start local sign-in")
 	}
 	defer ln.Close()
 	host := ln.Addr().String()
-	redirect := "http://" + host + cfg.callback
+	redirect := "http://" + host + callbackPath
 	var bridge *metaReturn
 	if platform == "instagram" {
 		redirect, err = MetaCallbackURL()
@@ -149,14 +167,14 @@ func (c *Client) SignIn(ctx context.Context, platform string, open func(string) 
 	params := url.Values{cfg.keyField: {cfg.id}, "response_type": {"code"}, "redirect_uri": {redirect}, "state": {state}, "scope": {cfg.scope}, "code_challenge": {base64.RawURLEncoding.EncodeToString(sum[:])}, "code_challenge_method": {"S256"}}
 	if platform == "tiktok" {
 		params.Set("code_challenge", hex.EncodeToString(sum[:]))
-	} else if platform != "instagram" {
+	} else if platform == "youtube" {
 		params.Set("prompt", "select_account consent")
 		params.Set("access_type", "offline")
 	}
 	code := make(chan string, 1)
 	srv := &http.Server{ReadHeaderTimeout: 3 * time.Second, WriteTimeout: 5 * time.Second, MaxHeaderBytes: 8192, Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
-		if r.Method != "GET" || r.URL.Path != cfg.callback || r.Host != host || subtle.ConstantTimeCompare([]byte(r.URL.Query().Get("state")), []byte(state)) != 1 {
+		if r.Method != "GET" || r.URL.Path != callbackPath || r.Host != host || subtle.ConstantTimeCompare([]byte(r.URL.Query().Get("state")), []byte(state)) != 1 {
 			if r.URL.Path != "/favicon.ico" {
 				diagnostics.Record(ctx, slog.LevelWarn, "callback_rejected", diagnostics.Details{Reason: "invalid_callback"})
 			}
@@ -212,9 +230,15 @@ func (c *Client) SignIn(ctx context.Context, platform string, open func(string) 
 	if platform == "instagram" {
 		form.Del("code_verifier")
 	}
+	if platform == "x" {
+		form.Del("client_secret")
+	}
 	diagnostics.Record(ctx, slog.LevelInfo, "exchange_started", diagnostics.Details{})
 	token, err := c.exchange(ctx, cfg.tokenURL, form)
 	if err == nil {
+		if platform == "x" {
+			token.Client = cfg.fingerprint()
+		}
 		diagnostics.Record(ctx, slog.LevelInfo, "exchange_finished", diagnostics.Details{})
 		// A status indicator must not prevent a successful sign-in.
 		if path, e := receiptPath(platform); e == nil {

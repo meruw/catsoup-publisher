@@ -41,6 +41,10 @@ export function LinkAccount(platform: string, language: string, expectedID: stri
     return $Call.ByID(1236098195, platform, language, expectedID, handle, pageToken);
 }
 
+export function LinkXAccount(language: string, expectedID: string, handle: string, paidAccepted: boolean): $CancellablePromise<drafts$0.Profile> {
+    return $Call.ByID(3036448675, language, expectedID, handle, paidAccepted);
+}
+
 export function MetaCallbackURL(): $CancellablePromise<string> {
     return $Call.ByID(3114828915);
 }
@@ -56,12 +60,20 @@ export function OpenXComposer(key: drafts$0.Key, revision: number): $Cancellable
     return $Call.ByID(3526750102, key, revision);
 }
 
+export function OpenXSetup(step: string): $CancellablePromise<void> {
+    return $Call.ByID(3723970617, step);
+}
+
 export function Receipt(key: drafts$0.Key, id: string): $CancellablePromise<drafts$0.Receipt> {
     return $Call.ByID(2960871504, key, id);
 }
 
 export function Send(key: drafts$0.Key, revision: number, id: string, confirmed: boolean): $CancellablePromise<drafts$0.Receipt> {
     return $Call.ByID(3695715954, key, revision, id, confirmed);
+}
+
+export function SendX(key: drafts$0.Key, revision: number, id: string, confirmed: boolean, paidAccepted: boolean): $CancellablePromise<drafts$0.Receipt> {
+    return $Call.ByID(4019459102, key, revision, id, confirmed, paidAccepted);
 }
 
 export function SetMetaCallbackURL(raw: string): $CancellablePromise<string> {

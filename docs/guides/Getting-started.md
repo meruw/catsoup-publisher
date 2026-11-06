@@ -38,9 +38,9 @@ Open **Settings → Manage credentials** and choose a provider. One set of devel
 | [YouTube](https://publisher.meruw.dev/guides/youtube/) | A Google Desktop OAuth client and access to your channels. |
 | [TikTok](https://publisher.meruw.dev/guides/tiktok/) | Desktop Login Kit credentials and the target accounts. |
 | [Meta](https://publisher.meruw.dev/guides/meta/) | A Meta app and professional Instagram accounts linked to Facebook Pages. |
-| [X](https://publisher.meruw.dev/guides/x/) | The ES and EN handles and a browser session on X. |
+| [X](https://publisher.meruw.dev/guides/x/) | Free: ES/EN handles and browser sessions. Optional paid API: your X Native App Client ID and account authorization. |
 
-**Return addresses on desktop.** Publisher opens the system browser for all three providers. Google returns to a free port on this computer. TikTok also returns locally and accepts a registered wildcard port. Only Instagram requires a choice of HTTPS return host in Publisher. [Google desktop OAuth](https://developers.google.com/identity/protocols/oauth2/native-app) · [TikTok Desktop Login Kit](https://developers.tiktok.com/docs/en/login-kit-desktop).
+**Return addresses on desktop.** Publisher opens the system browser for provider sign-in. Google returns to a free port on this computer. TikTok also returns locally and accepts a registered wildcard port. X API sign-in uses an exact registered local callback with a fixed port. Only Instagram requires a choice of HTTPS return host in Publisher. [Google desktop OAuth](https://developers.google.com/identity/protocols/oauth2/native-app) · [TikTok Desktop Login Kit](https://developers.tiktok.com/docs/en/login-kit-desktop) · [X setup](https://publisher.meruw.dev/guides/x/).
 
 ## 3. Choose the Instagram return page
 

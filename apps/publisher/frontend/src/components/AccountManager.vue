@@ -16,13 +16,15 @@ const remove=ref<Platform|null>(null);
 const advanced=ref(false);
 const handle=ref('');
 const pageToken=ref('');
+const xMode=ref('browser');
+const paidAccepted=ref(false);
 const message=ref('');
 const error=ref('');
 const metaCallbackReady=ref(false);
 const configured=ref<Partial<Record<SetupPlatform,boolean>>>({});
 const langName=computed(()=>language.value==='es'?'Spanish':'English');
 function account(p:Platform){return rows.value.find(a=>a.language===language.value && a.platform===p);}
-function reset(){editing.value=null;remove.value=null;pageToken.value='';handle.value='';advanced.value=false;message.value='';error.value='';}
+function reset(){editing.value=null;remove.value=null;pageToken.value='';handle.value='';advanced.value=false;paidAccepted.value=false;message.value='';error.value='';}
 function edit(p:Platform){
  reset();
  if(p!=='x' && (configured.value[p]===false || (p==='instagram' && !metaCallbackReady.value))) {
@@ -30,6 +32,7 @@ function edit(p:Platform){
    return;
  }
  editing.value=p;
+ xMode.value=account(p)?.api?'api':'browser';
  handle.value=account(p)?.name||'';
 }
 function switchLanguage(value:string){if(!pending.value){reset();language.value=value;emit('language',value);}}
@@ -39,7 +42,9 @@ async function run(task:()=>Promise<void>){
 }
 async function load(){rows.value=await uploads.accounts()||[];}
 function link(p:Platform){void run(async()=>{
- try{const profile=await uploads.link(p,language.value,account(p)?.id||'',handle.value,advanced.value?pageToken.value:'');
+ try{const profile=p==='x' && xMode.value==='api'
+  ? await uploads.linkX(language.value,account(p)?.id||'',handle.value,paidAccepted.value)
+  : await uploads.link(p,language.value,account(p)?.id||'',handle.value,advanced.value?pageToken.value:'');
  await load();reset();message.value=profile.name+' assigned to '+langName.value+'.';}
  finally{pageToken.value='';}
 });}
@@ -49,7 +54,7 @@ function unlink(p:Platform){void run(async()=>{
 });}
 onMounted(()=>{void run(async()=>{
  await load();
- await Promise.all((['youtube','tiktok','instagram'] as const).map(async p=>{
+ await Promise.all((['youtube','tiktok','instagram','x'] as const).map(async p=>{
    configured.value[p]=await uploads.clientReady(p);
    if(p==='instagram') metaCallbackReady.value=Boolean(await uploads.metaCallback());
  }));
@@ -66,6 +71,7 @@ onMounted(()=>{void run(async()=>{
     <h3>{{ name }}</h3>
     <div class="destination" :class="{assigned:account(p)}">
      <span class="account-name"><span v-if="account(p)" class="status-dot" aria-hidden="true"></span>{{ account(p)?.name || (p==='x'?'No handle assigned':'Not connected') }}</span>
+     <small v-if="p==='x' && account(p)" :title="account(p)?.api?'X bills API usage to your developer project. Publisher adds no posting fee.':'A saved handle is a reminder; check the active account in your browser.'">{{ account(p)?.api?'API · Paid':'Browser · Free' }}</small>
      <details v-if="editing!==p && remove!==p && (account(p) || (p==='instagram' && (!configured.instagram || !metaCallbackReady)))" :key="language">
       <summary>{{ account(p)?'Account details':'Other sign-in options' }}</summary>
       <small v-if="account(p) && p!=='x'" class="mono">ID Â· {{ account(p)?.id }}</small>
@@ -81,13 +87,19 @@ onMounted(()=>{void run(async()=>{
     <div class="draft-actions"><UiButton :disabled="pending" @click="unlink(p)">Remove account</UiButton><UiButton variant="quiet" :disabled="pending" @click="reset">Cancel</UiButton></div>
    </div>
    <div v-if="editing===p" class="draft-fields">
+    <UiSegmented v-if="p==='x'" label="X publishing mode" v-model="xMode" :disabled="pending" :options="[{value:'browser',label:'Browser · Free'},{value:'api',label:'API · Paid'}]" @update:model-value="paidAccepted=false"/>
     <label v-if="p==='instagram'||p==='x'" class="field-group">{{ name }} username<input v-model="handle" class="ui-field" placeholder="@username" :disabled="pending" maxlength="32"></label>
-    <p v-if="p==='x'" class="publication-hint">Confirm this handle in the X browser composer when posting.</p>
+    <p v-if="p==='x' && xMode==='browser'" class="publication-hint">Use X's account switcher in one browser. Confirm this handle before posting; Publisher cannot select the browser account.</p>
+    <template v-if="p==='x' && xMode==='api'">
+     <p class="publication-hint">Sign in with the username above. Videos can be published directly from Publisher.</p>
+     <label v-if="configured.x"><input v-model="paidAccepted" type="checkbox" :disabled="pending"> I understand X may charge my developer project for API usage.</label>
+     <UiButton v-else :disabled="pending" @click="emit('settings','x',language)">Set up X credentials</UiButton>
+    </template>
     <details v-if="p==='instagram'" :open="advanced"><summary>Other sign-in options</summary>
      <label><input type="checkbox" v-model="advanced" :disabled="pending"> Use an existing Facebook Page token</label>
      <input v-if="advanced" type="password" class="ui-field" v-model="pageToken" aria-label="Facebook Page access token" autocomplete="off" :disabled="pending">
     </details>
-    <div class="draft-actions"><UiButton v-if="p==='x'||(configured[p] && (p!=='instagram'||metaCallbackReady))||(p==='instagram'&&advanced)" variant="primary" :busy="pending" :disabled="advanced ? !pageToken.trim() : p==='instagram' && !handle.trim()" @click="link(p)">{{ p==='x'?'Save handle':p==='instagram'?(advanced?'Connect Page':'Sign in with Facebook'):p==='youtube'?'Sign in with Google':'Sign in with TikTok' }}</UiButton><UiButton variant="quiet" :disabled="pending" @click="reset">Cancel</UiButton></div>
+    <div class="draft-actions"><UiButton v-if="(p==='x' && (xMode==='browser'||configured.x))||(p!=='x' && configured[p] && (p!=='instagram'||metaCallbackReady))||(p==='instagram'&&advanced)" variant="primary" :busy="pending" :disabled="(advanced && !pageToken.trim()) || ((p==='instagram'||p==='x') && !handle.trim()) || (p==='x' && xMode==='api' && !paidAccepted)" @click="link(p)">{{ p==='x'?(xMode==='api'?'Sign in with X':'Save handle'):p==='instagram'?(advanced?'Connect Page':'Sign in with Facebook'):p==='youtube'?'Sign in with Google':'Sign in with TikTok' }}</UiButton><UiButton variant="quiet" :disabled="pending" @click="reset">Cancel</UiButton></div>
     <p v-if="pending" role="status">Connecting to {{ name }}…</p>
     <div v-else-if="error"><p class="notice error" role="alert">{{ error }}</p><UiButton size="compact" variant="quiet" @click="emit('diagnostics',p,language)">View diagnostics</UiButton></div>
    </div>
@@ -109,6 +121,7 @@ onMounted(()=>{void run(async()=>{
 .destination details {margin-top:var(--space-1);font-size:var(--text-sm)}
 .destination summary {cursor:pointer;color:var(--secondary);width:fit-content}
 .destination small {display:block;margin-block:var(--space-2);overflow-wrap:anywhere}
+.account-row .draft-fields {display:grid;gap:var(--space-3)}
 .row-action {justify-self:end}
 .account-row .draft-fields {margin-top:var(--space-4)}
 @container (max-width: 30rem) {

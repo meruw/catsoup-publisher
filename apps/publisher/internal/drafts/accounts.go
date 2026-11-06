@@ -11,10 +11,11 @@ type Profile struct {
 	Language string `json:"language"`
 	ID       string `json:"id"`
 	Name     string `json:"name"`
+	API      bool   `json:"api"`
 }
 
 func (s *Store) Profiles() ([]Profile, error) {
-	rows, err := s.db.Query("SELECT platform,language,account_id,name FROM accounts ORDER BY platform,language")
+	rows, err := s.db.Query("SELECT platform,language,account_id,name,length(secret)>0 FROM accounts ORDER BY platform,language")
 	if err != nil {
 		return nil, err
 	}
@@ -22,7 +23,7 @@ func (s *Store) Profiles() ([]Profile, error) {
 	profiles := []Profile{}
 	for rows.Next() {
 		var p Profile
-		if err := rows.Scan(&p.Platform, &p.Language, &p.ID, &p.Name); err != nil {
+		if err := rows.Scan(&p.Platform, &p.Language, &p.ID, &p.Name, &p.API); err != nil {
 			return nil, err
 		}
 		profiles = append(profiles, p)

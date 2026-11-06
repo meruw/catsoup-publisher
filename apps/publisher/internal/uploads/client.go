@@ -70,6 +70,9 @@ func (c *Client) request(ctx context.Context, method, endpoint, auth string, hea
 			_ = json.NewDecoder(io.LimitReader(resp.Body, 16*1024)).Decode(&provider)
 		}
 		diagnostics.Record(ctx, slog.LevelError, "provider_failed", diagnostics.Details{Reason: "provider_rejected", HTTPStatus: resp.StatusCode, ProviderCode: provider.Error.Code, ProviderSubcode: provider.Error.Subcode})
+		if req.URL.Host == "api.x.com" && resp.StatusCode == http.StatusPaymentRequired {
+			return nil, errors.New("X returned HTTP 402; check your developer project's API credits and billing controls before retrying")
+		}
 		return nil, fmt.Errorf("provider returned HTTP %d; check authorization, account permissions and upload limits", resp.StatusCode)
 	}
 	if result != nil && json.NewDecoder(io.LimitReader(resp.Body, 1<<20)).Decode(result) != nil {
@@ -105,6 +108,16 @@ func (c *Client) Identify(ctx context.Context, platform, token string) (Account,
 	var a Account
 	auth := "Bearer " + token
 	switch platform {
+	case "x":
+		var out struct{ Data struct{ ID, Username string } }
+		_, err := c.request(ctx, "GET", xAPI+"users/me", auth, nil, nil, 0, &out)
+		if err != nil {
+			return a, err
+		}
+		if !xID.MatchString(out.Data.ID) || out.Data.Username == "" {
+			return a, errors.New("X did not identify the authorized account")
+		}
+		a = Account{out.Data.ID, "@" + out.Data.Username}
 	case "youtube":
 		var out struct {
 			Items []struct {
@@ -159,6 +172,13 @@ func Validate(platform string, m Media) error {
 		return errors.New("the video is empty")
 	}
 	switch platform {
+	case "x":
+		if m.Size > 512<<20 {
+			return errors.New("Publisher supports X videos up to 512 MiB")
+		}
+		if xTextWeight(m.Caption) > 280 {
+			return errors.New("shorten the X text to 280 weighted characters; Publisher counts long URLs and combined emoji conservatively")
+		}
 	case "youtube":
 		if strings.TrimSpace(m.Title) == "" || utf8.RuneCountInString(m.Title) > 100 || len(m.Caption) > 5000 || strings.ContainsAny(m.Title+m.Caption, "<>") {
 			return errors.New("YouTube requires a title up to 100 characters and a description up to 5000 bytes, without angle brackets")
@@ -180,6 +200,8 @@ func Validate(platform string, m Media) error {
 // Record each non-secret remote reference as soon as the platform creates it.
 func (c *Client) Send(ctx context.Context, platform, token string, a Account, m Media, record func(string) error) (string, error) {
 	switch platform {
+	case "x":
+		return c.x(ctx, token, m, record)
 	case "youtube":
 		return c.youtube(ctx, token, m)
 	case "tiktok":

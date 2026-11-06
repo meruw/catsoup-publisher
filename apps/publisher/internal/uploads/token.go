@@ -15,6 +15,7 @@ import (
 type Token struct {
 	Access, Refresh string
 	Expires         int64
+	Client          string `json:",omitempty"`
 }
 
 func (t Token) Due() bool { return t.Expires > 0 && time.Now().Add(time.Minute).Unix() >= t.Expires }
@@ -67,13 +68,21 @@ func (c *Client) RefreshToken(ctx context.Context, platform string, t Token) (To
 	if err != nil {
 		return Token{}, err
 	}
-	next, err := c.exchange(ctx, cfg.tokenURL, url.Values{"grant_type": {"refresh_token"}, "refresh_token": {t.Refresh}, cfg.keyField: {cfg.id}, "client_secret": {cfg.secret}})
+	if platform == "x" && t.Client != cfg.fingerprint() {
+		return Token{}, errors.New("X developer client changed; reconnect from Accounts")
+	}
+	form := url.Values{"grant_type": {"refresh_token"}, "refresh_token": {t.Refresh}, cfg.keyField: {cfg.id}, "client_secret": {cfg.secret}}
+	if platform == "x" {
+		form.Del("client_secret")
+	}
+	next, err := c.exchange(ctx, cfg.tokenURL, form)
 	if err != nil {
 		return Token{}, err
 	}
 	if next.Refresh == "" {
 		next.Refresh = t.Refresh
 	}
+	next.Client = t.Client
 	return next, nil
 }
 

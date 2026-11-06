@@ -152,6 +152,22 @@ Jobs require a running PC/process. A platform-accepted scheduled publication is
 different from a task waiting in our local queue. Never promise exactly-once posting
 where a provider cannot support it. Keep audit events and external post identifiers.
 
+## Optional X connector
+
+X supports free browser handoff and opt-in paid API publishing per language. API
+sign-in uses a public Native App client with PKCE, a validated fixed loopback
+callback and an expected-username check. Tokens are protected by Windows DPAPI
+and bound to the configured client fingerprint. Paid consent is checked at the
+backend before sign-in and again before each send. The generic Send method cannot
+bypass this consent. Changing developer settings never upgrades browser accounts.
+
+The connector uses the existing HTTP client and receipt store, 4 MiB multipart
+chunks and bounded processing polls. It saves the media reference before transfer;
+post creation is never retried automatically. No dependency was added. The Windows
+executable measures 18,484,224 bytes; app JavaScript is 26.82 kB gzip, shared runtime
+28.45 kB gzip and the lazy console 5.52 kB gzip. Browser handoff combines copying the
+validated path with opening the prepared composer; it cannot control X's session.
+
 ## Sources reviewed
 
 - https://wails.io/concepts/architecture/

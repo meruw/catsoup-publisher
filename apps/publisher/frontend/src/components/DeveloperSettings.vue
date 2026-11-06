@@ -6,7 +6,7 @@ import CredentialState from './CredentialState.vue';
 
 const props = defineProps<{ initialProvider: SetupPlatform; statuses: Record<string,string | undefined> }>();
 const emit = defineEmits<{ busy: [value: boolean]; saved: [] }>();
-const names = { youtube: 'YouTube', tiktok: 'TikTok', instagram: 'Instagram' };
+const names = { youtube: 'YouTube', tiktok: 'TikTok', instagram: 'Instagram', x:'X' };
 const provider = ref(props.initialProvider);
 
 const pending = ref(false);
@@ -14,6 +14,7 @@ const fileInput = ref<HTMLInputElement | null>(null);
 const identifier = ref('');
 const secret = ref('');
 const configID = ref('');
+const xCallback = ref('http://127.0.0.1:48173/callback/');
 const hostedCallback = 'https://publisher.meruw.dev/auth/meta/';
 const callback = ref('');
 const callbackDraft = ref('');
@@ -51,8 +52,8 @@ async function persist(raw: string) {
 function saveFields() {
   void run(async () => {
     const id = identifier.value.trim(), client_secret = secret.value.trim();
-    if (!id || !client_secret || (provider.value==='instagram' && !configID.value.trim())) return;
-    const client = provider.value==='youtube'
+    if (!id || (provider.value!=='x' && !client_secret) || (provider.value==='instagram' && !configID.value.trim())) return;
+    const client = provider.value==='x' ? {client_id:id,redirect_uri:xCallback.value.trim()} : provider.value==='youtube'
       ? { installed: { client_id: id, client_secret } }
       : provider.value==='instagram' ? {app_id:id,app_secret:client_secret,config_id:configID.value.trim()} : { client_key: id, client_secret };
     await persist(JSON.stringify(client));
@@ -85,6 +86,7 @@ function saveCallback() {
   });
 }
 function openGoogleSetup(step: string) { void run(() => uploads.googleSetup(step)); }
+function openXSetup(step: string) { void run(() => uploads.xSetup(step)); }
 
 </script>
 <template>
@@ -103,6 +105,10 @@ function openGoogleSetup(step: string) { void run(() => uploads.googleSetup(step
      <input ref="fileInput" type="file" hidden accept=".json,application/json" :aria-label="'Import '+names[provider]+' client JSON'" :disabled="pending" @change="importFile">
     </div>
     <CredentialState :state="statuses[provider]" detail/>
+    <div v-if="provider==='x'" class="return-url">
+     <p><strong>Optional paid API</strong> · Browser posting stays free.</p>
+     <p>X bills API requests to your developer project. Saving these settings does not connect an account or publish anything.</p>
+    </div>
     <div v-if="provider==='instagram'" class="return-url">
      <p v-if="callback">Redirect URI for Meta: <code>{{ callback }}</code></p>
      <p v-if="callback===hostedCallback">CATsoup hosting is on. GitHub Pages receives the temporary sign-in code; your tokens stay on this PC.</p>
@@ -128,14 +134,19 @@ function openGoogleSetup(step: string) { void run(() => uploads.googleSetup(step
     </div>
     <form class="credential-form" @submit.prevent="saveFields">
      <div class="fields">
-      <label class="field-group">{{ provider==='youtube'?'Client ID':provider==='instagram'?'App ID':'Client key' }}<input class="ui-field" v-model="identifier" autocomplete="off" spellcheck="false" :disabled="pending" required></label>
-      <label class="field-group">{{ provider==='instagram'?'App secret':'Client secret' }}<input class="ui-field" type="password" v-model="secret" autocomplete="off" spellcheck="false" :disabled="pending" required></label>
+      <label class="field-group">{{ provider==='youtube'||provider==='x'?'Client ID':provider==='instagram'?'App ID':'Client key' }}<input class="ui-field" v-model="identifier" autocomplete="off" spellcheck="false" :disabled="pending" required></label>
+      <label v-if="provider!=='x'" class="field-group">{{ provider==='instagram'?'App secret':'Client secret' }}<input class="ui-field" type="password" v-model="secret" autocomplete="off" spellcheck="false" :disabled="pending" required></label>
+      <label v-if="provider==='x'" class="field-group">Callback URL<input class="ui-field" v-model="xCallback" autocomplete="off" spellcheck="false" :disabled="pending" required><small>Register this exact URL in X. Change the port in both places if it is occupied.</small></label>
       <label v-if="provider==='instagram'" class="field-group">Configuration ID<input class="ui-field" v-model="configID" autocomplete="off" spellcheck="false" :disabled="pending" required></label>
      </div>
-     <UiButton variant="primary" type="submit" :disabled="pending || !identifier.trim() || !secret.trim() || (provider==='instagram' && !configID.trim())">Save {{ names[provider] }} credentials</UiButton>
+     <UiButton variant="primary" type="submit" :disabled="pending || !identifier.trim() || (provider!=='x' && !secret.trim()) || (provider==='instagram' && !configID.trim())">Save {{ names[provider] }} credentials</UiButton>
     </form>
     <p v-if="message" class="feedback" role="status">{{ message }}</p>
     <p v-if="error" class="notice error" role="alert">{{ error }}</p>
+    <details v-if="provider==='x'" class="google-help"><summary>X Developer setup</summary>
+     <ol><li>Create an app with OAuth 2.0 enabled and choose <strong>Native App</strong> (public client). Use its Client ID.</li><li>Register the callback shown above. Publisher requests tweet.read, users.read, tweet.write, media.write and offline.access.</li><li>Review X's usage prices and billing controls, then connect each language in Accounts → X → API · Paid.</li></ol>
+     <div class="draft-actions"><UiButton size="compact" :disabled="pending" @click="openXSetup('console')">Developer console</UiButton><UiButton size="compact" variant="quiet" :disabled="pending" @click="openXSetup('pricing')">X pricing</UiButton><UiButton size="compact" variant="quiet" :disabled="pending" @click="openXSetup('guide')">Setup guide</UiButton></div>
+    </details>
     <details v-if="provider==='youtube'" class="google-help"><summary>Google Cloud setup</summary>
      <ol>
       <li><div><span>Enable the YouTube Data API v3 in your project.</span><UiButton size="compact" :disabled="pending" @click="openGoogleSetup('api')">Open API library</UiButton></div></li>
@@ -149,7 +160,7 @@ function openGoogleSetup(step: string) { void run(() => uploads.googleSetup(step
 </template>
 <style scoped>
 .credential-workspace {max-width:48rem;container-type:inline-size}
-.providers {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border-bottom:1px solid var(--line);margin-top:var(--space-4)}
+.providers {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border-bottom:1px solid var(--line);margin-top:var(--space-4)}
 .provider {display:grid;align-content:start;gap:var(--space-1);text-align:left;padding:var(--space-3);background:transparent;border:0;border-bottom:2px solid transparent;color:var(--secondary)}
 .provider:hover:not(:disabled) {background:var(--sidebar)}
 .provider[aria-pressed="true"] {color:var(--text);border-bottom-color:var(--text)}
