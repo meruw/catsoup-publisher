@@ -8,15 +8,17 @@ and `database/sql`; no C toolchain, server or database process is required.
 One connection per process, a 3-second busy timeout and FULL synchronous writes
 keep this small desktop store simple. It uses SQLite's default rollback journal.
 
-A draft is identified by episode ID, language, platform and account label. Labels
-are case-sensitive and trimmed when entered. They are not credentials or verified
-platform accounts. Platform choices are YouTube, TikTok, Instagram and X.
-Each key has one current draft; full edit history and deletion are not implemented.
+A draft is identified by episode ID, language, platform and a provider account key
+(`account:<provider-id>`). Display names are not identity. Each connected account
+has one current draft per episode; replacing a connection does not reuse another
+account's text. Reconnecting the same ID restores its draft. Full edit history
+and deletion are not implemented.
 
-Stored fields are title, description, hashtags, linked video ID/hash, delivery
-manifest fingerprint, monotonic revision and UTC update time. Local limits are
+Stored fields are title, description, hashtags, delivery mode (`draft` or `publish`),
+linked video ID/hash, manifest fingerprint, revision and UTC update time. Every new
+draft starts in draft mode; TikTok rejects public mode. Storage limits are
 500/10,000/2,000 characters for title/description/hashtags and 100 for the account
-label. They are storage bounds, not platform API limits. Draft text contains no credentials; the separate accounts table stores encrypted connection data.
+key. They are not platform API limits. Credentials are stored separately and encrypted.
 
 ## Editorial review
 
@@ -48,10 +50,12 @@ SQL statements use parameters. Inserts refuse duplicate keys; updates require th
 expected revision. Two writers cannot silently overwrite each other's revision.
 The UI's reload action requires a second explicit choice before discarding edits.
 Reload is not automatic after a conflict. Users can select/copy unsaved text manually
-before replacing it. The destination selector opens a draft using the connected account label
-or a local platform/language label. Existing drafts remain accessible under
-**More > Saved drafts**. Account labels there do not rename drafts; **Open draft** opens
-or prepares a separate labeled draft without changing the connected destination.
+before replacing it. Save draft remains visible and mode changes use the same
+revision checks. Navigation is blocked while a mode write is in progress.
+Unbound text is stored under `unassigned`; other label-keyed drafts remain intact.
+More exposes explicit text recovery scoped to the selected platform, copying into
+the connected account without changing the source or any existing receipts.
+Drafts for disconnected provider IDs remain stored and reappear on reconnection.
 
 Linking a new draft or choosing **Use selected video** revalidates the delivery and
 captures its current fingerprint and video hash. Normal text autosaves only touch
@@ -65,8 +69,10 @@ anything; copy/reveal are also usable with non-publishable test material.
 
 ## Migrations, backup and recovery
 
-Schema version 4 contains drafts, language-specific accounts, encrypted credentials,
-upload receipts and local reviews. Transactional migration preserves existing data. Restored credentials
+Schema version 5 contains drafts with persisted delivery modes, language-specific
+accounts, encrypted credentials, upload receipts and local reviews. Transactional
+migration adds the draft mode default while preserving all text, revisions, links
+and receipts. Restored credentials
 require the Windows user and DPAPI keys that protected them. Unsupported newer versions and invalid/corrupt databases fail explicitly.
 The app never silently deletes or resets a database. Future migrations must add
 versioned transactional steps and tests preserving existing drafts.
@@ -92,3 +98,17 @@ promotion reserves publishing for the same remote ID; failures become check_publ
 That state cannot be cleared to permit a duplicate upload. An abandoned promotion
 can be explicitly retried after 30 minutes. Older successful YouTube receipts are
 interpreted as private uploads. No background polling or job framework is required.
+
+## Individual and batch transfers
+
+Both entry points use the shared frontend transfer adapter and the same Go
+publication methods, account checks and durable receipt reservations. A batch is
+an explicit, foreground sequence for one language, not a background queue. Before
+the first send it refreshes every selected account, draft revision and receipt.
+New account-bound keys are checked against the destination in Go as well as the UI.
+All remote sends retain approval, review and file-integrity validation in Go.
+The sequence stops on error and cannot be dismissed while busy. It never rolls
+back completed publications or retries automatically. Partial results are shown in
+the dialog; remote transfer receipts survive restart. Local-only and X browser
+handoff results are not remote publication receipts. Uncertain YouTube promotion
+recovery remains an explicit individual action, outside batch sending.

@@ -1,14 +1,15 @@
 <script setup lang="ts">
 import {computed,nextTick,onMounted,ref,watch} from 'vue';
 import UiButton from './UiButton.vue';
-import {uploads} from '../services/uploads';
-import {drafts,type Draft} from '../services/drafts';
+import {uploads,type Profile} from '../services/uploads';
+import {accountKey,modeLabel,transfer} from '../services/publication';
+import {type Draft} from '../services/drafts';
 const props=defineProps<{draft:Draft;hint:string;flush:()=>Promise<void>}>();
 const emit=defineEmits<{busy:[value:boolean];accounts:[];review:[]}>();
-const account=ref({id:'',name:'',api:false});
+const account=ref<Profile>({id:'',name:'',api:false,platform:'',language:''});
 const receipt=ref({state:'',reference:'',retryAllowed:false});
 const loading=ref(true);
-const mode=ref<'draft'|'publish'>('draft');
+const mode=computed(()=>props.draft.deliveryMode || 'draft');
 const audience=ref(''),synthetic=ref(false),confirmed=ref(false),paidAccepted=ref(false),reconciled=ref(false),busy=ref(false),error=ref('');
 const platform=computed(()=>props.draft.key.platform);
 const browserX=computed(()=>platform.value==='x' && !account.value.api);
@@ -34,14 +35,11 @@ const receiptLabel=computed(()=>receipt.value.state==='published'?'Published':re
 watch([mode,audience,synthetic,()=>props.draft.revision,()=>props.hint],()=>{confirmed.value=false;paidAccepted.value=false});
 async function run(task:()=>Promise<void>){if(busy.value)return;busy.value=true;emit('busy',true);error.value='';try{await task()}catch(e){error.value=String(e)}finally{busy.value=false;emit('busy',false)}}
 async function refreshReceipt(){if(account.value.id && !browserX.value)receipt.value=await uploads.receipt(props.draft.key,account.value.id);}
-onMounted(async()=>{try{const p=(await uploads.accounts()||[]).find(p=>p.platform===platform.value && p.language===props.draft.key.language);if(p){account.value=p;await refreshReceipt()}}catch(e){error.value=String(e)}finally{loading.value=false}});
+onMounted(async()=>{try{const p=(await uploads.accounts()||[]).find(p=>p.platform===platform.value && p.language===props.draft.key.language);if(p && accountKey(p)===props.draft.key.account){account.value=p;await refreshReceipt()}}catch(e){error.value=String(e)}finally{loading.value=false}});
 function send(){void run(async()=>{
  await props.flush();await nextTick();
  try{
- if(browserX.value){await drafts.copyUploadPath(props.draft.key,props.draft.revision,confirmed.value);await uploads.openX(props.draft.key,props.draft.revision);return;}
- receipt.value=privateVideo.value
- ? await uploads.publishYouTube(props.draft.key,props.draft.revision,account.value.id,confirmed.value,audience.value,synthetic.value)
- : await uploads.sendMode(props.draft.key,props.draft.revision,account.value.id,mode.value,confirmed.value,paidAccepted.value,audience.value,synthetic.value);
+ await transfer(props.draft,account.value,receipt.value,confirmed.value,paidAccepted.value,audience.value,synthetic.value,true);
  }finally{confirmed.value=false;paidAccepted.value=false;await refreshReceipt()}
 })}
 function clearAttempt(){void run(async()=>{await uploads.clear(props.draft.key,account.value.id,props.draft.videoHash,reconciled.value);reconciled.value=false;await refreshReceipt()})}
@@ -58,10 +56,7 @@ function clearAttempt(){void run(async()=>{await uploads.clear(props.draft.key,a
     <UiButton v-if="hint==='Mark the video as reviewed before sending.'" @click="emit('review')">Review video</UiButton>
    </template>
    <template v-else>
-   <fieldset v-if="platform!=='tiktok'" class="send-mode" :disabled="busy"><legend>Delivery mode</legend>
-    <label><input v-model="mode" type="radio" value="draft" name="delivery-mode"> Keep as draft</label>
-    <label><input v-model="mode" type="radio" value="publish" name="delivery-mode"> Publish now</label>
-   </fieldset>
+   <p class="delivery-mode-label">{{modeLabel(platform,mode,account)}}</p>
    <p v-if="note" class="send-explanation" :class="{'local-draft-status':localOnly}">{{note}}</p>
    <template v-if="localOnly"></template>
    <template v-else-if="privateVideo && mode==='draft'"></template>
@@ -87,6 +82,7 @@ function clearAttempt(){void run(async()=>{await uploads.clear(props.draft.key,a
 </template>
 <style scoped>
 .send-account{display:flex;justify-content:space-between;align-items:baseline;gap:16px;margin-bottom:24px;font-size:var(--text-md);overflow-wrap:anywhere}.send-account strong{font-weight:500}.send-account span{color:var(--muted);font-size:var(--text-sm)}
+.delivery-mode-label{font-weight:500;margin-bottom:12px}
 .send-mode{display:flex;flex-wrap:wrap;gap:24px;border:0;padding:0;margin:0}.send-mode legend{font-size:var(--text-sm);margin-bottom:12px}.send-mode label{display:flex;align-items:center;gap:8px;color:var(--text)}
 .send-explanation{font-size:var(--text-sm);color:var(--secondary);margin:16px 0 24px;line-height:1.5}.local-draft-status{color:var(--success);margin-bottom:0}
 .send-blocker{font-size:var(--text-md);color:var(--warning);line-height:1.6;margin:0 0 20px}

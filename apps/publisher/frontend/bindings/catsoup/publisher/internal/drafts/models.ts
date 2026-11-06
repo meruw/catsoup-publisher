@@ -6,6 +6,7 @@ export interface Draft {
     "title": string;
     "description": string;
     "hashtags": string;
+    "deliveryMode": string;
     "videoId": string;
     "videoHash": string;
     "deliveryFingerprint": string;

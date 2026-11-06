@@ -165,14 +165,9 @@ onUnmounted(() => {stopCloseListener?.();window.removeEventListener('keydown',di
             <div v-if="video" class="video-specs mono" aria-label="Video specifications">
               <span>{{ video.measured.resolution }}</span><span>{{ video.measured.fps }} fps</span><span>{{ video.measured.duration_s }} s</span>
             </div>
-            <dl>
-              <div><dt>Episode</dt><dd class="mono">{{ episode.id }}</dd></div>
-              <div><dt>Version</dt><dd>{{ episode.version }}</dd></div>
-              <div><dt>File check</dt><dd>Valid</dd></div>
-              <div><dt>Languages</dt><dd>{{ episode.languages?.map(languageName).join(' / ') }}</dd></div>
-              <div><dt>Video versions</dt><dd class="mono">{{ episode.videos?.length }}</dd></div>
-              <div><dt>Production status</dt><dd class="status-name">{{ episode.status.replaceAll('_', ' ') }}</dd></div>
-              <div><dt>Owner approval</dt><dd>{{ episode.ready ? 'Present' : 'Not available' }}</dd></div>
+            <dl class="video-facts">
+              <div><dt>Files</dt><dd>Verified</dd></div>
+              <div><dt>Publishing</dt><dd>{{ episode.ready ? 'Approved' : 'Not approved' }}</dd></div>
             </dl>
             <p v-if="episode.reason" class="notice">{{ episode.reason }}</p>
             <p v-for="warning in episode.warnings" :key="warning" class="notice warning">{{ warning }}</p>
