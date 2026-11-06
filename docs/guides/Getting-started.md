@@ -20,7 +20,14 @@ powershell -ExecutionPolicy Bypass -File apps/publisher/build.ps1
 apps/publisher/bin/CATsoupPublisher.exe
 ```
 
-An empty episode library is normal. The [optional synthetic demo](https://github.com/meruw/catsoup-publisher#build-and-run-windows-x64) lets you test playback without publishing.
+An empty episode library is normal. To try playback, generate a synthetic ES/EN delivery from the repository root:
+
+```powershell
+.venv/Scripts/python.exe apps/publisher/support/create_demo.py
+apps/publisher/bin/CATsoupPublisher.exe --check
+```
+
+Launch Publisher again to preview the demo. It is for playback only. For your own videos, place a [delivery package](https://github.com/meruw/catsoup-publisher/blob/main/contracts/delivery/CONTRACT.md) in `deliveries/<episode-id>/`. To open another compatible workspace, use `--root C:\path\to\workspace`. That workspace must include the validator and Python environment.
 
 ## 2. Configure the platforms you want
 

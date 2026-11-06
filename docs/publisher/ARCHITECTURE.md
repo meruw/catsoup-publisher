@@ -68,7 +68,7 @@ implement a second incompatible contract.
   hashes and approvals in Go, not just disable a button in Vue.
 - Accounts stores credentials encrypted with user-scoped Windows DPAPI. One
   verified provider ID per platform/language controls upload routing. SQLite
-  serializes rotating refresh tokens across application instances. See [upload setup](UPLOADS.md).
+  serializes rotating refresh tokens across application instances. See [upload setup](../guides/Uploads.md).
 - A local malicious process running as the same Windows user is outside this app's
   isolation guarantee. A desktop bridge is not a full sandbox.
 

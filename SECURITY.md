@@ -14,8 +14,6 @@ HTTPS return page pairs a browser tab with a short-lived state and AES-GCM key. 
 protects stored user tokens and binds them to the platform, language and ID.
 The UI receives account identities; refresh credentials stay in Go. Uploads revalidate approval and stage the exact hashed
 bytes; the HTTP client restricts transfer hosts and rejects redirects. Local
-receipts preserve uncertain outcomes across restarts. See [uploads](docs/publisher/UPLOADS.md).
+receipts preserve uncertain outcomes across restarts. See [uploads](docs/guides/Uploads.md).
 
-Please avoid posting credentials or exploit details in public issues. Use GitHub's
-private vulnerability reporting for this repository when available; otherwise open
-an issue requesting a private reporting channel without disclosing the vulnerability.
+Report vulnerabilities through [GitHub private vulnerability reporting](https://github.com/meruw/catsoup-publisher/security/advisories/new). Include the affected version, reproduction steps and expected impact. Remove credentials and account data from any examples.
