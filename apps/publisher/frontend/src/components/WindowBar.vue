@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import UiIcon from './UiIcon.vue';
 import { onMounted, onUnmounted, ref } from 'vue';
 import { desktopWindow } from '../services/window';
 
@@ -22,12 +23,11 @@ onUnmounted(() => unsubscribe?.());
     <div class="window-identity"><img src="/brand/catsoup-rounded.png" width="24" height="24" alt=""><span>CATsoup</span></div>
     <span v-if="error" class="window-error" role="alert">{{ error }}</span>
     <div class="window-controls">
-      <button aria-label="Minimize window" title="Minimize" @click="run(desktopWindow.minimise)"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h10" /></svg></button>
+      <button aria-label="Minimize window" title="Minimize" @click="run(desktopWindow.minimise)"><UiIcon name="minus"/></button>
       <button :aria-label="maximised ? 'Restore window' : 'Maximize window'" :title="maximised ? 'Restore' : 'Maximize'" @click="run(desktopWindow.toggleMaximise)">
-        <svg v-if="maximised" viewBox="0 0 16 16" aria-hidden="true"><path d="M5 5V3h8v8h-2M3 5h8v8H3z" /></svg>
-        <svg v-else viewBox="0 0 16 16" aria-hidden="true"><path d="M3 3h10v10H3z" /></svg>
+        <UiIcon :name="maximised ? 'copy' : 'square'"/>
       </button>
-      <button class="window-close" aria-label="Close window" title="Close" @click="run(desktopWindow.close)"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 4 8 8M12 4l-8 8" /></svg></button>
+      <button class="window-close" aria-label="Close window" title="Close" @click="run(desktopWindow.close)"><UiIcon name="close"/></button>
     </div>
   </header>
 </template>

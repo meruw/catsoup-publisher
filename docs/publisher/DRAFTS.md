@@ -59,8 +59,12 @@ anything; copy/reveal are also usable with non-publishable test material.
 
 ## Migrations, backup and recovery
 
-Schema version 6 contains drafts with persisted delivery modes and approved revisions, language-specific
-accounts, encrypted credentials, upload receipts and local reviews. Transactional
+Schema version 7 contains drafts with persisted delivery modes and approved revisions, language-specific
+accounts, encrypted credentials, upload receipts, local reviews and publishing defaults.
+Defaults are keyed by platform, language and connected provider account ID. They
+initialize only an unsaved draft; changing a default never edits or approves a saved
+post. A replacement account does not inherit the previous account's default.
+TikTok defaults accept inbox mode only. Transactional
 migration initializes approval to zero while preserving all text, revisions, links
 and receipts. Restored credentials
 require the Windows user and DPAPI keys that protected them. Unsupported newer versions and invalid/corrupt databases fail explicitly.

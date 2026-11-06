@@ -1,0 +1,4 @@
+Lucide icons
+https://github.com/lucide-icons/lucide
+Commit: b826f0c527e1498f5e46f41ca0277ccab144bf31
+Original SVG files, ISC/MIT attribution: ../../../public/licenses/lucide.txt

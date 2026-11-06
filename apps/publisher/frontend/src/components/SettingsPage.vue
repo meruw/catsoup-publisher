@@ -2,6 +2,7 @@
 import { watch,ref } from 'vue';
 import { uploads,type SetupPlatform } from '../services/uploads';
 import DeveloperSettings from './DeveloperSettings.vue';
+import PublishingSettings from './PublishingSettings.vue';
 import UiButton from './UiButton.vue';
 
 const props=defineProps<{ provider: SetupPlatform|null }>();
@@ -36,6 +37,7 @@ watch(()=>props.provider, value=>{ if(value) void refresh(); }, {immediate:true}
      <UiButton @click="emit('select','youtube')">Manage credentials</UiButton>
     </div>
    </section>
+   <PublishingSettings @busy="setBusy"/>
   </template>
   <p v-if="provider && error" class="notice error" role="alert">{{ error }} <UiButton size="compact" @click="refresh">Retry</UiButton></p>
  </main>

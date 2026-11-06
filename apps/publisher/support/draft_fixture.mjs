@@ -7,12 +7,16 @@ export const draftFixture = `
  window.__draftDelay = 0;
  window.__draftFail = false;
  window.__draftConflict = false;
+ const prefKey=p=>p.platform+'/'+p.language+'/'+p.accountId;
+ const getDefault=key=>JSON.parse(localStorage.getItem('defaults-fixture')||'{}')[prefKey({platform:key.platform,language:key.language,accountId:key.account.replace('account:','')})]?.mode||'draft';
  export const drafts = {
+  publishingDefaults:async()=>Object.values(JSON.parse(localStorage.getItem('defaults-fixture')||'{}')),
+  setPublishingDefault:async p=>{if(window.__defaultFail)throw Error('Simulated preference failure');const all=JSON.parse(localStorage.getItem('defaults-fixture')||'{}');all[prefKey(p)]=p;localStorage.setItem('defaults-fixture',JSON.stringify(all));},
   review: async (episode,language,videoId) => JSON.parse(localStorage.getItem('review-'+episode+language+videoId) || 'null') || {episode,language,videoId,fingerprint:'',videoHash:'',state:'pending',notes:'',revision:0,updatedAt:''},
   saveReview: async (input,confirmed) => {if(input.state==='reviewed' && !confirmed)throw Error('Confirm review');const value={...input,revision:input.revision+1,updatedAt:new Date().toISOString()};localStorage.setItem('review-'+input.episode+input.language+input.videoId,JSON.stringify(value));return value;},
   approve: async (key,revision,approved)=>{const all=storage(),d=all[keyOf(key)];if(!d||d.revision!==revision||!key.account.startsWith('account:'))throw Error('Approval conflict');d.approvedRevision=approved?revision:0;localStorage.setItem('draft-fixture',JSON.stringify(all));return d;},
   list: async (episode, language) => Object.values(storage()).filter(d => d.key.episode === episode && d.key.language === language),
-  get: async key => storage()[keyOf(key)] || {key,approvedRevision:0,deliveryMode:'draft',title:'',description:'',hashtags:'',videoId:'',videoHash:'',deliveryFingerprint:'',revision:0,updatedAt:''},
+  get: async key => storage()[keyOf(key)] || {key,approvedRevision:0,deliveryMode:getDefault(key),title:'',description:'',hashtags:'',videoId:'',videoHash:'',deliveryFingerprint:'',revision:0,updatedAt:''},
   save: async input => {
    window.__draftWrites.push(JSON.parse(JSON.stringify(input)));
    await new Promise(resolve => setTimeout(resolve, window.__draftDelay));

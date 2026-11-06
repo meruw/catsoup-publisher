@@ -173,3 +173,11 @@ footer { display: flex; justify-content: space-between; gap: var(--space-4); pad
 @media(max-width:1050px){.publisher-main .page-header{flex-wrap:wrap}.destination-plan-row{grid-template-columns:minmax(88px,1fr) auto}.destination-mode{grid-row:2;grid-column:1/-1}.destination-approval{grid-row:1;grid-column:2}.selected-send{margin-left:0}}
 
 .save-feedback{flex-basis:100%;font-size:var(--text-xs);color:var(--success);padding-top:4px}
+
+/* Account selection and sending are one group; editing actions follow the text. */
+.compose-destination{margin-bottom:12px}.compose-destination select{margin:0}
+.post-mode-line{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:24px}.post-mode{width:180px}.post-mode select{width:100%;font-size:var(--text-sm)}
+.post-edit-actions{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin:24px 0 12px}.save-actions{display:flex;align-items:center;gap:4px}.save-feedback{display:block;margin:0 0 12px}
+.publisher-main .page-actions{gap:8px}.batch-header-action{margin-left:12px;padding-left:20px;border-left:1px solid var(--line)}
+.post-mode-line .selected-send{margin:0}.production-lock{display:inline-flex;cursor:help}
+@media(max-width:900px){.post-mode-line{flex-wrap:wrap}.post-mode{flex:1;min-width:140px}.post-edit-actions{gap:8px}.batch-header-action{margin-left:4px;padding-left:12px}}

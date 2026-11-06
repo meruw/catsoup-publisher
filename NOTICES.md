@@ -8,6 +8,7 @@
 - Design guidance was informed by [Unslop](https://github.com/heydamir/unslop),
   by Damir Sokolovsky, licensed CC BY 4.0. Its skill is not bundled with the app.
   The design-system documentation retains attribution.
+- UI icons: selected [Lucide SVGs](https://github.com/lucide-icons/lucide), ISC with MIT notices for Feather-derived icons. The original files and pinned upstream commit are in `apps/publisher/frontend/src/assets/icons/`; the complete notices ship in `apps/publisher/frontend/public/licenses/lucide.txt`. No icon package is loaded at runtime.
 - Go and npm dependencies retain their respective licenses. Exact versions and
   transitive dependencies are recorded in `go.mod`, `go.sum` and `package-lock.json`.
   Their source/license files accompany dependency downloads, not this source tree.

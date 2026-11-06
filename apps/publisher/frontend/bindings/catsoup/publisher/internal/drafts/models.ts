@@ -30,6 +30,13 @@ export interface Profile {
     "api": boolean;
 }
 
+export interface PublishingDefault {
+    "platform": string;
+    "language": string;
+    "accountId": string;
+    "mode": string;
+}
+
 export interface Receipt {
     "state": string;
     "reference": string;

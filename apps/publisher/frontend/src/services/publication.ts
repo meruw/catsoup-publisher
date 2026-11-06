@@ -49,3 +49,10 @@ export async function transfer(d:Draft,p:Profile,r:TransferReceipt,confirmed:boo
     : await uploads.sendMode(d.key,d.revision,p.id,d.deliveryMode||'draft',true,paid,audience,synthetic);
   return result.state==='inbox'?'Sent to inbox':result.state==='private'?'Uploaded privately':'Published';
 }
+
+export function modeHint(platform:string,mode:string,p?:Profile){
+ if(platform==='tiktok')return 'Videos go to your TikTok inbox. Finish posting in TikTok; Direct Post is not implemented in Publisher.';
+ if(mode!=='publish')return platform==='youtube'?'Uploads a private YouTube video. It will not be public.':'Keeps the post on this PC. No video is sent to this platform.';
+ if(platform==='x')return p?.api?'Publishes through your paid X API connection. You must confirm API charges before sending.':'Opens X with your text and copies the video path. You attach the video and finish posting in X.';
+ return platform==='youtube'?'Makes the video public on this YouTube channel.':'Publishes a Reel on this Instagram account.';
+}

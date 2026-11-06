@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import UiButton from './UiButton.vue';
-import UiHelp from './UiHelp.vue';
+import UiTooltip from './UiTooltip.vue';
 import UiDialog from './UiDialog.vue';
 import {uploads,type Profile} from '../services/uploads';
 import DirectUpload from './DirectUpload.vue';
 import BatchPublish from './BatchPublish.vue';
-import { accountKey, modeOptions, modeLabel, postApproved, sendLabel, draftBlocker, type DeliveryMode } from '../services/publication';
+import { accountKey, modeOptions, modeHint, postApproved, sendLabel, draftBlocker, type DeliveryMode } from '../services/publication';
 import { drafts, type Draft, type DraftKey } from '../services/drafts';
 import type { Episode, Video } from '../services/publisher';
 
@@ -236,19 +236,15 @@ defineExpose({ flush: beforeLeaving, focusEditor, publishAll, batchBlocker });
         <select id="post-platform" :value="form?.key.platform || platform" class="ui-field" @change="choosePlatform(($event.target as HTMLSelectElement).value)">
           <option v-for="(label,value) in platforms" :key="value" :value="value">{{label}}{{profiles.find(p=>p.platform===value && p.language===language)?.name ? ' / '+profiles.find(p=>p.platform===value && p.language===language)?.name : ''}}</option>
         </select>
-        <UiButton :disabled="!form" :busy="saving" @click="saveNow">Save draft</UiButton>
-        <UiButton id="restore-draft" variant="quiet" :disabled="saving || (!form?.revision && !recoverable.length)" @click="restoreOpen=true">Restore draft</UiButton>
-        <span v-if="feedback && stage==='prepare'" class="save-feedback" role="status">{{feedback}}</span>
+
       </div>
       <div v-if="!destination && form" class="compose-connect"><UiButton variant="quiet" size="compact" @click="emit('accounts')">Connect {{platforms[form.key.platform as keyof typeof platforms]}}</UiButton></div>
       <template v-if="form">
-        <div class="account-post-actions">
-          <div class="approval-control">
-            <UiButton v-if="!approved" :disabled="!!approvalHint || saving" :busy="approving" @click="setApproval(true)">Approve post</UiButton>
-            <template v-else><span class="post-approved">Approved</span><UiButton variant="quiet" size="compact" @click="setApproval(false)">Undo approval</UiButton></template>
-            <UiHelp symbol="i" :text="approvalHint || 'Approve after watching the video and checking the text, account and delivery mode. This approval belongs only to this account. Editing the post or linking another video removes it. Nothing is sent until you confirm publishing.'"/>
-          </div>
-          <div class="selected-send"><UiButton id="open-publishing" variant="primary" :disabled="!!uploadHint || dirty || saving" @click="publishingOptions">{{sendLabel(form,destination)}}</UiButton><UiHelp v-if="uploadHint" symbol="i" :text="uploadHint==='Delivery approval required'?'This file is blocked by the production manifest. Approve the delivery in the production project and refresh Publisher. Test deliveries cannot be sent.':uploadHint"/></div>
+        <div class="post-mode-line">
+          <UiTooltip class="post-mode" :disabled="saving || form.key.platform==='tiktok' || !destination" :text="modeHint(form.key.platform,form.deliveryMode,destination)">
+            <select class="ui-field" :aria-label="platforms[form.key.platform as keyof typeof platforms]+' delivery mode'" :value="form.deliveryMode || 'draft'" :disabled="saving || form.key.platform==='tiktok' || !destination" @change="changeMode(form.key.platform,($event.target as HTMLSelectElement).value as DeliveryMode)"><option v-for="option in modeOptions(form.key.platform,destination)" :key="option.value" :value="option.value">{{option.label}}</option></select>
+          </UiTooltip>
+          <UiTooltip class="selected-send" :disabled="!!uploadHint || dirty || saving" :text="uploadHint==='Delivery approval required'?'This file is blocked by the production manifest. Approve the delivery in the production project and refresh Publisher. Test deliveries cannot be sent.':uploadHint || modeHint(form.key.platform,form.deliveryMode,destination)"><UiButton id="open-publishing" variant="primary" :disabled="!!uploadHint || dirty || saving" @click="publishingOptions">{{sendLabel(form,destination)}}</UiButton></UiTooltip>
         </div>
         <div v-if="differentVideo || stale" class="draft-video">
           <span>{{stale?'The video files changed':'A different video is selected'}}</span>
@@ -258,6 +254,12 @@ defineExpose({ flush: beforeLeaving, focusEditor, publishAll, batchBlocker });
         <div class="field-group"><label for="draft-title">Title</label><input id="draft-title" v-model="form.title" class="ui-field" maxlength="500" @input="edited"></div>
         <div class="field-group"><label for="draft-description">Description</label><textarea id="draft-description" v-model="form.description" class="ui-field" rows="4" maxlength="10000" @input="edited"></textarea></div>
         <div class="field-group"><label for="draft-hashtags">Hashtags</label><input id="draft-hashtags" v-model="form.hashtags" class="ui-field" maxlength="2000" placeholder="#catsoup" @input="edited"></div>
+        <div class="post-edit-actions">
+          <div class="save-actions"><UiButton :busy="saving" @click="saveNow">Save draft</UiButton><UiButton id="restore-draft" variant="quiet" :disabled="saving || (!form.revision && !recoverable.length)" @click="restoreOpen=true">Restore draft</UiButton></div>
+          <UiTooltip v-if="!approved" class="approval-control" :disabled="!!approvalHint || saving" :text="approvalHint || 'Approve after watching the video and checking the text, account and mode. Changes remove this account’s approval. Nothing is sent until you confirm publishing.'"><UiButton :disabled="!!approvalHint || saving" :busy="approving" @click="setApproval(true)">Approve post</UiButton></UiTooltip>
+          <div v-else class="approval-control"><span class="post-approved">Approved</span><UiTooltip text="Remove approval for this account’s current post."><UiButton variant="quiet" size="compact" @click="setApproval(false)">Undo approval</UiButton></UiTooltip></div>
+        </div>
+        <span v-if="feedback && stage==='prepare'" class="save-feedback" role="status">{{feedback}}</span>
         <div class="compose-footer">
           <span role="status" :class="{warning:dirty}" title="Your edits save automatically on this PC">{{status}}</span>
           <details class="post-tools-menu">
@@ -275,16 +277,6 @@ defineExpose({ flush: beforeLeaving, focusEditor, publishAll, batchBlocker });
         </div>
       </template>
     </fieldset>
-    <section class="destination-plan" aria-label="Publishing destinations">
-      <header><span>Delivery modes / {{language.toUpperCase()}}</span></header>
-      <div v-for="row in destinations" :key="row.id" class="destination-plan-row">
-        <button class="destination-name" :aria-current="form?.key.platform===row.id?'true':undefined" :disabled="locked || loading || platformBusy || approving" @click="choosePlatform(row.id)"><strong>{{row.label}}</strong><small>{{row.profile?.name || 'Not connected'}}</small></button>
-        <div class="destination-mode"><select :aria-label="row.label+' delivery mode'" class="ui-field" :value="row.draft?.deliveryMode || 'draft'" :disabled="locked || loading || saving || platformBusy || approving || !row.profile || row.id==='tiktok'" :title="modeLabel(row.id,row.draft?.deliveryMode || 'draft',row.profile)" @change="changeMode(row.id,($event.target as HTMLSelectElement).value as DeliveryMode)">
-          <option v-for="option in modeOptions(row.id,row.profile)" :key="option.value" :value="option.value">{{option.label}}</option>
-        </select><UiHelp v-if="row.id==='tiktok'" symbol="i" text="This connector sends videos to your TikTok inbox. You finish editing and posting in TikTok. Direct Post is not implemented here, so the mode cannot be changed."/></div>
-        <span class="destination-approval" :class="{'post-approved':postApproved(row.draft)}">{{!row.profile?'—':postApproved(row.draft)?'Approved':'Needs approval'}}</span>
-      </div>
-    </section>
     <UiDialog v-if="restoreOpen" title="Restore draft" return-focus-id="restore-draft" @close="restoreOpen=false">
       <p class="restore-account">{{platforms[platform as keyof typeof platforms]}} / {{destination?.name || 'Unassigned'}}</p>
       <p class="muted">Reload the last saved text for this account. Edits save automatically; this is not a version history.</p>
