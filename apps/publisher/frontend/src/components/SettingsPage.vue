@@ -5,7 +5,7 @@ import DeveloperSettings from './DeveloperSettings.vue';
 import UiButton from './UiButton.vue';
 
 const props=defineProps<{ provider: SetupPlatform|null }>();
-const emit=defineEmits<{select:[provider?:SetupPlatform];busy:[value:boolean];diagnostics:[]}>();
+const emit=defineEmits<{select:[provider?:SetupPlatform];busy:[value:boolean]}>();
 const statuses=ref<Record<string,string|undefined>>({});
 const error=ref('');
 const busy=ref(false);
@@ -36,11 +36,6 @@ watch(()=>props.provider, value=>{ if(value) void refresh(); }, {immediate:true}
      <UiButton @click="emit('select','youtube')">Manage credentials</UiButton>
     </div>
    </section>
-   <section class="credential-overview diagnostics-overview" aria-label="Diagnostics">
-    <div class="section-header"><div><h2>Diagnostics</h2><p>Inspect account connection events when troubleshooting.</p><small>Local logs · Up to 7 days · Ctrl+Shift+D</small></div>
-     <UiButton variant="quiet" @click="emit('diagnostics')">Open console</UiButton>
-    </div>
-   </section>
   </template>
   <p v-if="provider && error" class="notice error" role="alert">{{ error }} <UiButton size="compact" @click="refresh">Retry</UiButton></p>
  </main>
@@ -50,6 +45,4 @@ watch(()=>props.provider, value=>{ if(value) void refresh(); }, {immediate:true}
 .credential-overview {padding-block:var(--space-6);max-width:48rem}
 .credential-overview .section-header {align-items:flex-start;flex-wrap:wrap}
 .credential-overview p {margin-top:var(--space-2);color:var(--secondary)}
-.diagnostics-overview {border-top:1px solid var(--line)}
-.diagnostics-overview small {display:block;margin-top:var(--space-2);color:var(--muted)}
 </style>

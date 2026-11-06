@@ -4,7 +4,7 @@
 
 - Windows x64 desktop workspace with ES/EN playback, custom window controls, an episode catalog and local SQLite drafts.
 - Accounts manages destinations per language. Settings manages shared developer credentials and optional HTTPS callback hosting for Instagram.
-- Settings → Diagnostics (Ctrl+Shift+D) opens a lightweight connection console with search, service/language/level filters, attempt tracking and JSONL export. Local slog/Lumberjack logs rotate at 10 MB with five backups and seven-day retention. Credentials and provider response bodies are excluded.
+- Console at the foot of the sidebar (Ctrl+Shift+D) opens a dark, collapsible diagnostic panel with search, source/context/level filters, attempt tracking and JSONL export. It can expand below the window bar; collapsing preserves filters and suspends live UI updates. Local slog/Lumberjack logs rotate at 10 MB with five backups and seven-day retention. Credentials and provider response bodies are excluded.
 - Approved episodes support private YouTube uploads, TikTok inbox transfers and Instagram Reels. X uses the browser composer. [Accounts and uploads](https://publisher.meruw.dev/guides/uploads/)
 - Provider guides and the setup documentation are published on [publisher.meruw.dev](https://publisher.meruw.dev/guides/setup/). The site also serves the privacy policy, terms, optional Meta return page and TikTok verification file.
 

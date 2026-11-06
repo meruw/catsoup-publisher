@@ -4,6 +4,7 @@ import { diagnostics, type DiagnosticEvent, type DiagnosticQuery } from '../serv
 import UiButton from './UiButton.vue';
 
 const props = defineProps<{ service?: string; language?: string }>();
+const collapsed = defineModel<boolean>('collapsed', { default: false });
 const emit = defineEmits<{ close: [] }>();
 const search = ref('');
 const service = ref(props.service || '');
@@ -23,7 +24,7 @@ const error = ref('');
 const feedback = ref('');
 const pending = ref(false);
 const actionPending = ref(false);
-const height = ref(440);
+const height = ref(360);
 const expanded = ref(false);
 const input = ref<HTMLInputElement | null>(null);
 const query = computed<DiagnosticQuery>(() => ({
@@ -39,6 +40,15 @@ let changedDuringRead = false;
 let dragStart: { y: number; height: number } | null = null;
 const serviceName: Record<string, string> = { youtube: 'YouTube', tiktok: 'TikTok', instagram: 'Instagram', x: 'X' };
 const time = (value: string) => new Date(value).toLocaleTimeString([], { hour12: false });
+watch(() => props.service, value => { service.value = value || ''; });
+watch(() => props.language, value => { language.value = value || ''; });
+watch(collapsed, async value => {
+  if (value) expanded.value = false;
+  try { await diagnostics.listen(!value); }
+  catch { liveWarning.value = 'Live updates unavailable'; }
+  if (!value && !disposed) { await refresh(); await nextTick(); input.value?.focus(); }
+});
+function expand() { collapsed.value = false; expanded.value = !expanded.value; }
 
 async function refresh() {
   const request = ++sequence;
@@ -54,7 +64,7 @@ async function refresh() {
     if (request === sequence && !disposed) error.value = 'Could not read diagnostics. Try Refresh.';
   } finally {
     if (request === sequence && !disposed) pending.value = false;
-    if (request === sequence && !disposed && changedDuringRead && live.value) {
+    if (request === sequence && !disposed && changedDuringRead && live.value && !collapsed.value) {
       changedDuringRead = false;
       void refresh();
     }
@@ -118,11 +128,11 @@ function drag(event: PointerEvent) {
 onMounted(async () => {
   previousFocus = document.activeElement as HTMLElement | null;
   stop = diagnostics.onChanged(() => {
-    if (!live.value) return;
+    if (!live.value || collapsed.value) return;
     if (pending.value) changedDuringRead = true;
     else void refresh();
   });
-  try { await diagnostics.listen(true); }
+  try { await diagnostics.listen(!collapsed.value); }
   catch { liveWarning.value = 'Live updates are unavailable. Use Refresh to read saved events.'; }
   if (disposed) { void diagnostics.listen(false); return; }
   await refresh();
@@ -140,24 +150,25 @@ onUnmounted(() => {
 </script>
 
 <template>
- <section class="diagnostics" aria-label="Diagnostics console" :class="{ expanded }" :style="{height: height + 'px'}" @keydown="keydown">
-  <div class="resize-handle" role="separator" aria-label="Resize diagnostics" aria-orientation="horizontal" :aria-valuenow="height" aria-valuemin="300" tabindex="0"
+ <section id="diagnostics-console" class="diagnostics" aria-label="Diagnostics console" :class="{ expanded, collapsed }" :style="{height: height + 'px'}" @keydown="keydown">
+  <div v-if="!collapsed && !expanded" class="resize-handle" role="separator" aria-label="Resize diagnostics" aria-orientation="horizontal" :aria-valuenow="height" aria-valuemin="300" tabindex="0"
    @pointerdown="beginResize" @pointermove="drag" @pointerup="dragStart=null" @lostpointercapture="dragStart=null"
    @keydown.up.prevent="resize(32)" @keydown.down.prevent="resize(-32)"></div>
   <header class="console-header">
-   <div><h2>Diagnostics</h2><span class="console-caption">Account connections</span></div>
+   <button class="console-title" :aria-label="collapsed ? 'Open console panel' : 'Collapse console'" :aria-expanded="!collapsed" @click="collapsed=!collapsed"><svg viewBox="0 0 16 16" aria-hidden="true" :class="{folded:collapsed}"><path d="m4 6 4 4 4-4"/></svg><span>Console</span></button>
    <div class="console-actions">
-    <UiButton size="compact" variant="quiet" :aria-pressed="!live" @click="resume">{{ live ? 'Pause' : 'Resume live' }}</UiButton>
-    <UiButton size="compact" variant="quiet" :busy="pending" @click="refresh">Refresh</UiButton>
-    <UiButton size="compact" variant="quiet" :aria-pressed="expanded" @click="expanded=!expanded">{{ expanded ? 'Restore' : 'Expand' }}</UiButton>
+    <UiButton v-if="!collapsed" size="compact" variant="quiet" :aria-pressed="!live" @click="resume">{{ live ? 'Pause' : 'Resume live' }}</UiButton>
+    <UiButton v-if="!collapsed" size="compact" variant="quiet" :busy="pending" @click="refresh">Refresh</UiButton>
+    <UiButton size="compact" variant="quiet" :aria-pressed="expanded" @click="expand">{{ expanded ? 'Restore' : 'Expand' }}</UiButton>
     <UiButton size="compact" variant="quiet" @click="emit('close')">Close</UiButton>
    </div>
   </header>
+  <template v-if="!collapsed">
   <div class="console-filters">
    <label class="search-field">Search<input ref="input" v-model="search" type="search" class="ui-field" aria-label="Search" maxlength="200" placeholder="Message, stage, code or attempt"></label>
    <label>Level<select v-model="level" class="ui-field" aria-label="Level"><option value="">All levels</option><option>ERROR</option><option>WARN</option><option>INFO</option><option>DEBUG</option></select></label>
-   <label>Service<select v-model="service" class="ui-field" aria-label="Service"><option value="">All services</option><option v-for="(name,key) in serviceName" :key="key" :value="key">{{ name }}</option></select></label>
-   <label>Language<select v-model="language" class="ui-field" aria-label="Language"><option value="">ES + EN</option><option value="es">ES</option><option value="en">EN</option></select></label>
+   <label>Source<select v-model="service" class="ui-field" aria-label="Source"><option value="">All sources</option><option v-for="(name,key) in serviceName" :key="key" :value="key">{{ name }}</option></select></label>
+   <label>Context<select v-model="language" class="ui-field" aria-label="Context"><option value="">All</option><option value="es">ES</option><option value="en">EN</option></select></label>
    <label>History<select v-model="currentSession" class="ui-field" aria-label="History"><option :value="false">Saved history</option><option :value="true">This session</option></select></label>
   </div>
   <div v-if="attempt" class="attempt-filter">Attempt <code>{{ attempt }}</code><UiButton size="compact" variant="quiet" @click="attempt=''">Clear attempt filter</UiButton></div>
@@ -166,13 +177,13 @@ onUnmounted(() => {
   <p v-if="error" class="console-error" role="alert">{{ error }}</p>
   <div class="console-body" :class="{inspecting:selected}">
    <div class="log-scroll" tabindex="0" aria-label="Diagnostic events" :aria-busy="pending">
-    <div v-if="!rows.length" class="log-empty"><h3>{{ search || level || service || language || attempt ? 'No matching events' : 'Ready for your next connection' }}</h3><p>{{ search || level || service || language || attempt ? 'Adjust the filters or start a new connection in Accounts.' : 'Connect an account to see its sign-in stages here.' }}</p></div>
+    <div v-if="!rows.length" class="log-empty">{{ search || level || service || language || attempt ? 'No matching events' : 'No events' }}</div>
     <table v-else class="log-table">
-     <thead><tr><th scope="col">Time</th><th scope="col">Level</th><th scope="col">Account</th><th scope="col">Event</th></tr></thead>
+     <thead><tr><th scope="col">Time</th><th scope="col">Level</th><th scope="col">Source</th><th scope="col">Event</th></tr></thead>
      <tbody><tr v-for="row in rows" :key="row.id" :class="{selected:selected?.id===row.id}">
       <td><time :datetime="row.time" :title="new Date(row.time).toLocaleString()">{{ time(row.time) }}</time></td>
       <td><span class="log-level" :class="row.level.toLowerCase()">{{ row.level }}</span></td>
-      <td>{{ serviceName[row.service] }} <span class="log-language">{{ row.language.toUpperCase() }}</span></td>
+      <td>{{ serviceName[row.service] || row.service }} <span class="log-language">{{ row.language.toUpperCase() }}</span></td>
       <td><button class="event-button" :aria-pressed="selected?.id===row.id" @click="selected=row">{{ row.msg }}<span v-if="row.reason"> · {{ row.reason.replaceAll('_',' ') }}</span></button></td>
      </tr></tbody>
     </table>
@@ -206,62 +217,76 @@ onUnmounted(() => {
    </div>
   </footer>
   <p v-if="feedback" class="console-feedback" role="status">{{ feedback }}</p>
+  </template>
  </section>
 </template>
 
 <style scoped>
-.diagnostics {position:fixed;z-index:20;left:16px;right:16px;bottom:16px;display:flex;flex-direction:column;background:var(--page);border:1px solid var(--control-border);max-height:calc(100vh - 72px);min-height:300px}
-.diagnostics.expanded {height:calc(100vh - 72px)!important}
-.resize-handle {height:8px;flex-shrink:0;cursor:ns-resize;touch-action:none;background:var(--sidebar)}
-.console-header,.console-footer {display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 20px}
-.console-header {border-bottom:1px solid var(--line)}
-.console-header>div:first-child {display:flex;align-items:baseline;gap:12px}
-.console-header h2 {font-size:20px;margin:0}
-.console-caption,.console-footer,.console-filters label {font-size:var(--text-sm);color:var(--secondary)}
+.diagnostics {
+ --page:#111214; --sidebar:#191b1e; --raised:#25282c; --line:#2b2e33;
+ --text:#e1e3e7; --secondary:#abb0b8; --muted:#959ba5; --control-border:#454b54;
+ --accent-soft:#2c2825; --accent-ink:#ffad81; --danger:#ff9595; --warning:#e8bd76;
+ --disabled-bg:transparent; --disabled-text:#787f8a;
+ position:fixed;z-index:20;left:240px;right:0;bottom:0;display:flex;flex-direction:column;
+ background:var(--page);color:var(--text);border-top:1px solid var(--control-border);
+ max-height:calc(100vh - var(--window-bar-height));min-height:300px;
+ font:12px/1.5 var(--font-mono);color-scheme:dark;
+}
+.diagnostics.expanded {left:0;height:calc(100vh - var(--window-bar-height))!important}
+.diagnostics.collapsed {height:36px!important;min-height:36px}
+.resize-handle {height:4px;flex-shrink:0;cursor:ns-resize;touch-action:none;background:var(--sidebar)}
+.resize-handle:hover,.resize-handle:focus-visible {background:var(--control-border)}
+.console-header,.console-footer {display:flex;align-items:center;justify-content:space-between;gap:8px;padding:4px 12px;flex-shrink:0}
+.console-header {height:36px;border-bottom:1px solid var(--line);background:var(--sidebar)}
+.collapsed .console-header {border-bottom:0}
+.console-title {display:flex;align-items:center;gap:8px;background:transparent;border:0;padding:4px 0;font:inherit;color:var(--text)}
+.console-title svg {width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.5}
+.console-title svg.folded {transform:rotate(-90deg)}
 .console-actions {display:flex;gap:4px;align-items:center;flex-wrap:wrap}
-.console-filters {display:flex;align-items:end;gap:12px;padding:12px 20px}
-.console-filters label {display:flex;flex-direction:column;gap:4px}
-.console-filters .ui-field {min-height:32px;height:32px;font-size:13px}
-.search-field {flex:1;min-width:140px}
+.diagnostics :deep(.ui-button) {font:inherit;min-height:28px;padding:0 8px;border-radius:4px}
+.console-filters {display:flex;align-items:end;gap:8px;padding:8px 12px}
+.console-filters label {display:flex;flex-direction:column;gap:4px;color:var(--secondary);font-size:11px}
+.console-filters .ui-field {min-height:28px;height:28px;padding:4px 8px;font:12px var(--font-mono);border-radius:4px}
+.search-field {flex:1;min-width:120px}
 .search-field input {width:100%}
 .console-body {flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr);border-top:1px solid var(--line)}
-.console-body.inspecting {grid-template-columns:minmax(0,1fr) 300px}
-.log-scroll {min-height:0;overflow:auto}
-.log-table {width:100%;border-collapse:collapse;text-align:left;font-size:13px}
-.log-table th {position:sticky;top:0;background:var(--sidebar);font-weight:500;color:var(--secondary);z-index:1}
-.log-table th,.log-table td {padding:8px 12px;border-bottom:1px solid var(--line);vertical-align:top}
-.log-table th:first-child,.log-table td:first-child {padding-left:20px}
+.console-body.inspecting {grid-template-columns:minmax(0,1fr) 272px}
+.log-scroll {min-height:0;overflow:auto;scrollbar-color:var(--control-border) var(--page)}
+.log-table {width:100%;border-collapse:collapse;text-align:left;font:inherit}
+.log-table th {position:sticky;top:0;background:var(--sidebar);font-weight:400;color:var(--secondary);z-index:1}
+.log-table th,.log-table td {padding:4px 8px;vertical-align:top}
+.log-table th {border-bottom:1px solid var(--line)}
+.log-table th:first-child,.log-table td:first-child {padding-left:12px}
 .log-table td:nth-child(-n+3) {white-space:nowrap}
-.log-table time,.log-level {font:12px/1.5 var(--font-mono);font-variant-numeric:tabular-nums}
+.log-table time,.log-level {font:inherit;font-variant-numeric:tabular-nums}
+.log-table time {color:var(--muted)}
 .log-level.error,.console-error {color:var(--danger)}
 .log-level.warn,.console-warning {color:var(--warning)}
-.log-level.info {color:var(--text)}
+.log-level.info {color:#9bbff1}
 .log-level.debug {color:var(--muted)}
-.log-language {margin-left:4px;color:var(--secondary);font-size:12px}
-.event-button {display:block;border:0;background:transparent;text-align:left;padding:0;width:100%;line-height:1.5}
+.log-language {margin-left:4px;color:var(--secondary)}
+.event-button {display:block;border:0;background:transparent;color:inherit;text-align:left;padding:0;width:100%;font:inherit}
 .event-button span {color:var(--secondary)}
 .log-table tr:hover td {background:var(--sidebar)}
 .log-table tr.selected td {background:var(--accent-soft)}
-.log-empty {padding:32px 20px;color:var(--secondary)}
-.log-empty h3 {font-size:16px;font-weight:500;color:var(--text)}
-.log-empty p {margin-top:8px}
-.event-detail {overflow:auto;border-left:1px solid var(--line);padding:12px 16px;background:var(--sidebar)}
+.log-empty {padding:16px 12px;color:var(--muted)}
+.event-detail {overflow:auto;border-left:1px solid var(--line);padding:8px 12px;background:var(--sidebar)}
 .detail-header {display:flex;align-items:center;justify-content:space-between}
-.detail-header h3 {font-size:14px}
-.detail-message {margin:12px 0}
-.event-detail dl {display:grid;grid-template-columns:72px minmax(0,1fr);gap:8px;margin:16px 0}
-.event-detail dt {color:var(--secondary);font-size:12px}
-.event-detail dd {margin:0;font-size:12px;overflow-wrap:anywhere}
-.event-detail code,.attempt-filter code {font-family:var(--font-mono);font-size:12px}
+.detail-header h3 {font:inherit;color:var(--secondary)}
+.detail-message {margin:8px 0}
+.event-detail dl {display:grid;grid-template-columns:80px minmax(0,1fr);gap:8px;margin:12px 0}
+.event-detail dt {color:var(--secondary)}
+.event-detail dd {margin:0;overflow-wrap:anywhere}
+.event-detail code,.attempt-filter code {font:inherit}
 .detail-actions {display:flex;gap:4px;flex-wrap:wrap}
-.console-footer {border-top:1px solid var(--line);padding-block:8px;flex-wrap:wrap}
-.console-warning,.console-error,.console-feedback {padding:4px 20px;margin:0;font-size:13px}
-.attempt-filter {display:flex;align-items:center;gap:8px;padding:0 20px 8px;font-size:12px}
-@media(max-width:950px) {
- .console-caption {display:none}
- .console-body.inspecting {grid-template-columns:minmax(0,1fr) 240px}
- .console-filters {gap:8px;flex-wrap:wrap}
+.console-footer {border-top:1px solid var(--line);flex-wrap:wrap;color:var(--secondary)}
+.console-warning,.console-error,.console-feedback {padding:4px 12px;margin:0;font:inherit}
+.attempt-filter {display:flex;align-items:center;gap:8px;padding:0 12px 8px}
+@media(max-width:1050px) {
+ .console-filters {flex-wrap:wrap}
  .search-field {flex-basis:100%}
+ .console-body.inspecting {grid-template-columns:minmax(0,1fr) 224px}
  .log-table td:nth-child(3),.log-table th:nth-child(3) {display:none}
 }
+@media(max-width:900px) {.diagnostics {left:200px}}
 </style>
