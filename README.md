@@ -1,6 +1,6 @@
 # CATsoup Publisher
 
-CATsoup Publisher is a local Windows desktop app for reviewing Spanish and English videos and sending each approved edit to the right account. Its episode workspace puts the video beside its post editor, with account-specific drafts and approvals, saved delivery modes and transfer receipts. Send to one platform or confirm a batch for the selected language. Upload privately or publicly to YouTube, send a video to the TikTok inbox, publish an Instagram Reel or post to X through the browser or an optional paid API connection.
+CATsoup Publisher is a local Windows desktop app for reviewing Spanish and English videos and sending each approved edit to the right account. Its episode workspace puts the video beside its post editor, with account-specific drafts and approvals, saved delivery modes and transfer receipts. Send to one platform or confirm a batch for the selected language. Upload privately or publicly to YouTube, send a video to the TikTok inbox or use optional Direct Post, publish an Instagram Reel or post to X through the browser or an optional paid API connection.
 
 ![Publisher previewing a synthetic bilingual delivery](docs/images/publisher.png)
 
@@ -15,7 +15,7 @@ Start with the synthetic demo or import your own [delivery package](contracts/de
 | Service | Where the video goes |
 | --- | --- |
 | [YouTube](https://publisher.meruw.dev/guides/youtube/) | Private or public upload; publish a recorded private video using the same ID |
-| [TikTok](https://publisher.meruw.dev/guides/tiktok/) | The creator's inbox for editing and posting |
+| [TikTok](https://publisher.meruw.dev/guides/tiktok/) | Inbox uploads or optional Direct Post with explicit privacy |
 | [Meta](https://publisher.meruw.dev/guides/meta/) | A Reel on the connected Instagram profile |
 | [X](https://publisher.meruw.dev/guides/x/) | Free browser handoff or direct posting using your paid X API access |
 

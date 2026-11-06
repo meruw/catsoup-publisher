@@ -71,6 +71,7 @@ onMounted(()=>{void run(async()=>{
     <h3>{{ name }}</h3>
     <div class="destination" :class="{assigned:account(p)}">
      <span class="account-name"><span v-if="account(p)" class="status-dot" aria-hidden="true"></span>{{ account(p)?.name || (p==='x'?'No handle assigned':'Not connected') }}</span>
+     <small v-if="p==='tiktok' && account(p)">{{account(p)?.directPost?'Inbox + Direct Post':'Inbox only'}}</small>
      <small v-if="p==='x' && account(p)" :title="account(p)?.api?'X bills API usage to your developer project. Publisher adds no posting fee.':'A saved handle is a reminder; check the active account in your browser.'">{{ account(p)?.api?'API · Paid':'Browser · Free' }}</small>
      <details v-if="editing!==p && remove!==p && (account(p) || (p==='instagram' && (!configured.instagram || !metaCallbackReady)))" :key="language">
       <summary>{{ account(p)?'Account details':'Other sign-in options' }}</summary>

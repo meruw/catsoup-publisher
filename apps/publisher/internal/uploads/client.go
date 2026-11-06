@@ -27,6 +27,8 @@ type Media struct {
 	Title, Caption, Language string
 	Mode, Audience           string
 	Synthetic                bool
+	TikTok                   *TikTokOptions
+	Duration                 float64
 	File                     *os.File
 	Size                     int64
 }

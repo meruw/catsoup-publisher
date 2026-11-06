@@ -14,6 +14,7 @@ import (
 
 type Token struct {
 	Access, Refresh string
+	Scope           string `json:",omitempty"`
 	Expires         int64
 	Client          string `json:",omitempty"`
 }
@@ -40,6 +41,7 @@ func Unseal(raw []byte, scope string) (Token, error) {
 }
 func (c *Client) exchange(ctx context.Context, endpoint string, form url.Values) (Token, error) {
 	var out struct {
+		Scope   string `json:"scope"`
 		Access  string `json:"access_token"`
 		Refresh string `json:"refresh_token"`
 		Seconds int64  `json:"expires_in"`
@@ -51,7 +53,7 @@ func (c *Client) exchange(ctx context.Context, endpoint string, form url.Values)
 	if out.Access == "" {
 		return Token{}, errors.New("provider declined authorization; reconnect from Accounts")
 	}
-	t := Token{Access: out.Access, Refresh: out.Refresh}
+	t := Token{Access: out.Access, Refresh: out.Refresh, Scope: out.Scope}
 	if out.Seconds > 0 {
 		t.Expires = time.Now().Unix() + out.Seconds
 	}

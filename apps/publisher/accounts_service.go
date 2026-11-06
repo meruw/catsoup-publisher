@@ -12,7 +12,22 @@ import (
 	"time"
 )
 
-func (s *UploadService) Accounts() ([]drafts.Profile, error) { return s.store.Profiles() }
+func (s *UploadService) Accounts() ([]drafts.Profile, error) {
+	rows, err := s.store.Profiles()
+	if err != nil {
+		return nil, err
+	}
+	for i, p := range rows {
+		if p.Platform == "tiktok" && uploads.TikTokDirectEnabled() {
+			raw, e := s.store.Credential(p.Platform, p.Language, p.ID)
+			if e == nil {
+				t, e := uploads.Unseal(raw, p.Platform+"/"+p.Language+"/"+p.ID)
+				rows[i].DirectPost = e == nil && t.HasScope("video.publish")
+			}
+		}
+	}
+	return rows, nil
+}
 func validateSlot(platform, lang string) error {
 	switch platform {
 	case "youtube", "instagram", "tiktok", "x":

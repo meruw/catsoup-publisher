@@ -80,9 +80,6 @@ func Validate(d Draft) error {
 	if d.DeliveryMode != "" && d.DeliveryMode != "draft" && d.DeliveryMode != "publish" {
 		return errors.New("invalid delivery mode")
 	}
-	if d.Key.Platform == "tiktok" && d.DeliveryMode == "publish" {
-		return errors.New("TikTok supports inbox drafts only")
-	}
 	if d.Revision < 0 || !validText(d.Title, 500) || !validText(d.Description, 10000) || !validText(d.Hashtags, 2000) {
 		return errors.New("draft exceeds the local text limits or contains invalid text")
 	}

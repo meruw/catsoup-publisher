@@ -10,10 +10,15 @@ import AccountManager from './components/AccountManager.vue';
 import PublicationDraft from './components/PublicationDraft.vue';
 import UiTooltip from './components/UiTooltip.vue';
 import UiIcon from './components/UiIcon.vue';
+import { uploads } from './services/uploads';
+import type { PostStatus } from './services/drafts';
 import { drafts } from './services/drafts';
 import { publisher, mediaURL, type Entry, type Episode } from './services/publisher';
 
-const module = ref<'publisher'|'accounts'|'settings'>('publisher');
+const module = ref<'publisher'|'posts'|'accounts'|'settings'>('publisher');
+const initialPlatform=ref('');
+const PostOverview=defineAsyncComponent(()=>import('./components/PostOverview.vue'));
+async function openPost(post:PostStatus){await navigate(async()=>{const accounts=await uploads.accounts()||[];if(!accounts.some(p=>p.platform===post.key.platform&&p.language===post.key.language&&'account:'+p.id===post.key.account))throw Error('This account changed; reconnect it in Accounts');await select(post.key.episode);chooseLanguage(post.key.language);if(variants.value.some(v=>v.id===post.videoId))videoID.value=post.videoId;initialPlatform.value=post.key.platform;module.value='publisher';});}
 const DiagnosticsConsole = defineAsyncComponent(() => import('./components/DiagnosticsConsole.vue'));
 const consoleOpen = ref(false);
 const consoleCollapsed = ref(false);
@@ -60,6 +65,7 @@ function chooseLanguage(lang: string) {
   videoID.value = variants.value.find(v => v.kind === 'final' && v.narration)?.id || variants.value[0]?.id || '';
 }
 async function select(id: string) {
+  initialPlatform.value='';
   busy.value = true;
   error.value = '';
   episode.value = null;
@@ -121,6 +127,7 @@ onUnmounted(() => {stopCloseListener?.();window.removeEventListener('keydown',di
       <div class="module-label">Modules</div>
       <nav class="module-nav" aria-label="Modules">
         <button class="module-item" :aria-current="module==='publisher'?'page':undefined" :disabled="busy || navigating || accountBusy" @click="navigate(async () => { module='publisher'; await refresh(); })">Publisher</button>
+        <button class="module-item" :aria-current="module==='posts'?'page':undefined" :disabled="busy || navigating || accountBusy" @click="navigate(()=>{module='posts'})">Posts</button>
         <button class="module-item" :aria-current="module==='accounts'?'page':undefined" :disabled="navigating || accountBusy" @click="showAccounts">Accounts</button>
         <button class="module-item" :aria-current="module==='settings'?'page':undefined" :disabled="busy || navigating || accountBusy" @click="showSettings()">Settings</button>
       </nav>
@@ -138,6 +145,7 @@ onUnmounted(() => {stopCloseListener?.();window.removeEventListener('keydown',di
     </aside>
     <AccountManager v-if="module==='accounts'" :initial-language="accountLanguage" @settings="showSettings" @language="accountLanguage=$event" @busy="accountBusy=$event" @diagnostics="openDiagnostics"/>
     <SettingsPage v-else-if="module==='settings'" :provider="settingsProvider" @select="showSettings" @busy="accountBusy=$event"/>
+    <PostOverview v-else-if="module==='posts'" :entries="entries" :open-error="error" @open="openPost"/>
     <main v-else class="publisher-main" :aria-busy="busy">
       <header class="page-header">
         <h1>{{ episode?.title || 'Publisher' }}</h1>
@@ -174,7 +182,7 @@ onUnmounted(() => {stopCloseListener?.();window.removeEventListener('keydown',di
             </details>
           </section>
           <PublicationDraft v-if="video" :key="episode.id + ':' + language" ref="editor"
-            :episode="episode" :language="language" :video="video" :locked="navigating" :stage="stage" @busy="transferBusy=$event" @accounts="showAccounts" @prepare="navigate(()=>{stage='prepare'})" @publish="navigate(()=>{stage='publish'})" />
+            :initial-platform="initialPlatform" :episode="episode" :language="language" :video="video" :locked="navigating" :stage="stage" @busy="transferBusy=$event" @accounts="showAccounts" @prepare="navigate(()=>{stage='prepare'})" @publish="navigate(()=>{stage='publish'})" />
         </div>
       </section>
       <section v-if="!episode && !busy && !error" class="empty">

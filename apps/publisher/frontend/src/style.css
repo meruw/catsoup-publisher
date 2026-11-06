@@ -181,3 +181,7 @@ footer { display: flex; justify-content: space-between; gap: var(--space-4); pad
 .publisher-main .page-actions{gap:8px}.batch-header-action{margin-left:12px;padding-left:20px;border-left:1px solid var(--line)}
 .post-mode-line .selected-send{margin:0}.production-lock{display:inline-flex;cursor:help}
 @media(max-width:900px){.post-mode-line{flex-wrap:wrap}.post-mode{flex:1;min-width:140px}.post-edit-actions{gap:8px}.batch-header-action{margin-left:4px;padding-left:12px}}
+
+/* A single inset chevron for native selects; the OS still owns the option list. */
+select.ui-field{appearance:none;padding-right:40px;background-image:url('./assets/icons/chevron-down.svg');background-repeat:no-repeat;background-position:right 12px center;background-size:16px 16px}
+@media(forced-colors:active){select.ui-field{appearance:auto;background-image:none}}

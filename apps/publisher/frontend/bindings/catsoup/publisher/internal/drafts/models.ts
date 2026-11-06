@@ -22,12 +22,38 @@ export interface Key {
     "account": string;
 }
 
+export interface PostFilter {
+    "search": string;
+    "platform": string;
+    "language": string;
+    "state": string;
+    "offset": number;
+}
+
+export interface PostPage {
+    "items": PostStatus[] | null;
+    "more": boolean;
+}
+
+export interface PostStatus {
+    "key": Key;
+    "title": string;
+    "videoId": string;
+    "accountName": string;
+    "connected": boolean;
+    "mode": string;
+    "state": string;
+    "reference": string;
+    "updatedAt": string;
+}
+
 export interface Profile {
     "platform": string;
     "language": string;
     "id": string;
     "name": string;
     "api": boolean;
+    "directPost": boolean;
 }
 
 export interface PublishingDefault {

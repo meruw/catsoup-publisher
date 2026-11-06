@@ -7,11 +7,12 @@ import (
 )
 
 type Profile struct {
-	Platform string `json:"platform"`
-	Language string `json:"language"`
-	ID       string `json:"id"`
-	Name     string `json:"name"`
-	API      bool   `json:"api"`
+	Platform   string `json:"platform"`
+	Language   string `json:"language"`
+	ID         string `json:"id"`
+	Name       string `json:"name"`
+	API        bool   `json:"api"`
+	DirectPost bool   `json:"directPost"`
 }
 
 func (s *Store) Profiles() ([]Profile, error) {
