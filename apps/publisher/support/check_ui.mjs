@@ -37,7 +37,7 @@ const server = await createServer({
     if (id.replaceAll('\\', '/').endsWith('/src/services/diagnostics.ts')) return diagnosticsFixture;
     if (id.replaceAll('\\', '/').endsWith('/src/services/uploads.ts')) return `
       const none = {state:'',reference:'',retryAllowed:false};
-      const receipts = new Map(); const profiles = () => JSON.parse(localStorage.getItem('account-fixture') || '[]');
+      const receipts = new Map(); window.__clearReceipts=()=>receipts.clear();window.__sendCalls=[]; const profiles = () => JSON.parse(localStorage.getItem('account-fixture') || '[]');
       export const uploads = {
         metaCallback: async () => localStorage.getItem('meta-callback-fixture') || '',
         enableHostedMetaCallback: async () => {const url='https://publisher.meruw.dev/auth/meta/';localStorage.setItem('meta-callback-fixture',url);return url;},
@@ -81,7 +81,9 @@ const server = await createServer({
           window.__xPaidRequest={key,revision,id,confirmed,paid};const receipt={state:'sent',reference:'https://x.com/i/status/123',retryAllowed:false};receipts.set(id,receipt);return receipt;
         },
         sendMode: async (key, revision, id, mode, confirmed, paid, audience, synthetic) => {
+          window.__sendCalls.push({key,mode,id});
           await new Promise(resolve=>setTimeout(resolve,window.__sendDelay||0));
+          if(window.__failPlatform===key.platform)throw Error('Simulated transfer failure');
           if(key.platform==='x') {if(!paid)throw Error('Missing paid consent');window.__xPaidRequest={key,revision,id,confirmed,paid};}
           if(key.platform==='youtube' && !audience)throw Error('Missing audience');
           if (!confirmed || id !== key.platform+'-'+key.language || key.episode !== 'catsoup-handoff-fixture' || revision < 1) throw Error('unsafe fixture upload');
@@ -131,12 +133,18 @@ try {
   const closePublishing=async()=>{const button=page.getByRole('button',{name:'Close publishing options',exact:true});if(await button.isVisible())await button.click();};
   const moreTools=async()=>{if(!await page.locator('.post-tools-menu').evaluate(el=>el.open))await page.locator('.post-tools-menu>summary').click();};
   const step=async value=>{
-    if(value==='Publish') await page.getByRole('button',{name:'Publish\u2026',exact:true}).click();
+    if(value==='Publish') await page.locator('#open-publishing').click();
     else {await closePublishing();if(value==='Prepare')await moreTools();}
   };
-  const advancedDrafts=async()=>{await moreTools();if(!await page.locator('.draft-library').evaluate(el=>el.open))await page.locator('.draft-library summary').click();};
+
   const openReview=async()=>{if(!await page.locator('.review-details').evaluate(el=>el.open))await page.locator('.review-details>summary').click();};
   const review=async()=>{await step('Review');await openReview();await page.getByLabel('I watched and listened to this final version').check();await page.getByRole('button',{name:'Mark reviewed',exact:true}).click();await page.getByText('Reviewed',{exact:true}).waitFor();};
+  await page.addInitScript(()=>{
+    if(!localStorage.getItem('initial-accounts')){
+      localStorage.setItem('initial-accounts','yes');
+      localStorage.setItem('account-fixture',JSON.stringify(['es','en'].flatMap(language=>['youtube','tiktok'].map(platform=>({platform,language,id:platform+'-'+language,name:'Fixture '+language,api:false})))));
+    }
+  });
   await page.goto(server.resolvedUrls.local[0]);
   await page.getByRole('heading', { name: manifest.internal_title }).waitFor();
   assert(await page.getByRole('navigation', { name: 'Modules', exact: true }).isVisible());
@@ -197,9 +205,6 @@ try {
   await page.locator('video').evaluate(async v=>{v.muted=true;await v.play()});
   await step('Prepare');
   assert(!await page.locator('video').evaluate(v=>v.paused),'editing must keep the visible preview playable');
-  await advancedDrafts();
-  await page.getByLabel('Account label', { exact: true }).fill('@catsoup_es');
-  await page.getByRole('button', { name: 'Open draft', exact: true }).click();
   await page.getByLabel('Title', { exact: true }).fill('Un pequeño misterio');
   await page.getByLabel('Description', { exact: true }).fill('La luz se apagó. ¿Qué pasó después?');
   await page.getByLabel('Hashtags', { exact: true }).fill('#catsoup #animación');
@@ -224,9 +229,6 @@ try {
   // Change language before the debounce fires: leaving must flush the ES draft.
   await page.getByLabel('Title', { exact: true }).fill('Guardado antes de cambiar');
   await page.getByRole('button', { name: 'English', exact: true }).click();
-  await advancedDrafts();
-  await page.getByLabel('Account label', { exact: true }).fill('@catsoup_en');
-  await page.getByRole('button', { name: 'Open draft', exact: true }).click();
   await page.getByLabel('Title', { exact: true }).fill('A tiny mystery');
   await page.getByText('Saved locally', { exact: true }).waitFor();
   let persisted = await page.evaluate(() => Object.values(JSON.parse(localStorage.getItem('draft-fixture'))));
@@ -234,11 +236,7 @@ try {
   assert.equal(persisted.find(d => d.key.language === 'es').title, 'Guardado antes de cambiar');
   assert.equal(persisted.find(d => d.key.language === 'en').title, 'A tiny mystery');
   // A destination change also flushes; a separate account/platform stays isolated.
-  await advancedDrafts();
-  await page.getByLabel('Platform', { exact: true }).selectOption('tiktok');
-  await advancedDrafts();
-  await page.getByLabel('Account label', { exact: true }).fill('@catsoup_second');
-  await page.getByRole('button', { name: 'Open draft', exact: true }).click();
+  await page.getByLabel('Post platform', { exact: true }).selectOption('tiktok');
   await page.getByLabel('Title', { exact: true }).fill('TikTok draft');
   await page.getByRole('button', { name: 'Spanish', exact: true }).click();
   await page.getByText('Saved locally', { exact: true }).waitFor();
@@ -305,9 +303,6 @@ try {
     id: 'catsoup-handoff-fixture', ready: true, status: 'approved_for_publishing', reason: '',
   }));
   await page.getByRole('button', { name: 'Refresh', exact: true }).click();
-  await advancedDrafts();
-  await page.getByLabel('Account label', { exact: true }).fill('@handoff_es');
-  await page.getByRole('button', { name: 'Open draft', exact: true }).click();
   await page.getByLabel('Title', { exact: true }).fill('Ready for manual upload');
   await page.getByText('Saved locally', { exact: true }).waitFor();
   await step('Publish');
@@ -319,14 +314,15 @@ try {
   await page.getByText('Upload manually',{exact:true}).click();
   const upload = page.getByRole('button', { name: 'Copy upload file path' });
   assert(await upload.isDisabled());
-  await page.getByRole('checkbox', { name: /@handoff_es/ }).check();
+  await page.getByRole('checkbox', { name: /is open in my browser/ }).check();
   await upload.click();
   await page.getByText(/Video path copied/).waitFor();
   assert.deepEqual(await page.evaluate(() => window.__uploadPathRequest), {
-    key: { episode: 'catsoup-handoff-fixture', language: 'es', platform: 'youtube', account: '@handoff_es' }, revision: 1, confirmed: true,
+    key: { episode: 'catsoup-handoff-fixture', language: 'es', platform: 'youtube', account: 'account:youtube-es' }, revision: 1, confirmed: true,
   });
   assert(await upload.isDisabled());
   await closePublishing();
+  await page.evaluate(()=>localStorage.removeItem('account-fixture'));
   await page.getByRole('button',{name:'Accounts',exact:true}).click();
   await page.getByRole('button',{name:'Settings',exact:true}).click();
   await page.getByRole('heading',{name:'Settings',exact:true}).waitFor();
@@ -449,14 +445,12 @@ try {
   ]) {
     await step('Prepare');
     if (platform !== 'youtube') {
-      await advancedDrafts();
-  await page.getByLabel('Platform', {exact:true}).selectOption(platform);
-      await page.getByRole('button', {name:'Open draft',exact:true}).click();
+  await page.getByLabel('Post platform', {exact:true}).selectOption(platform);
       await page.getByLabel('Title',{exact:true}).fill('Platform fixture');
       await page.getByText('Saved locally', {exact:true}).waitFor();
     }
+    if(['instagram','x'].includes(platform))await page.getByLabel((platform==='instagram'?'Instagram':'X')+' delivery mode',{exact:true}).selectOption('publish');
     await step('Publish');
-    if(['instagram','x'].includes(platform))await page.getByLabel('Publish now',{exact:true}).check();
     if(platform==='tiktok'){assert.equal(await page.getByRole('dialog').getByRole('radio').count(),0);await page.screenshot({path:path.join(output,'publish-tiktok.png')});}
     if(platform==='youtube')await page.getByLabel('Audience',{exact:true}).selectOption('general');
     if (platform === 'x') {
@@ -479,7 +473,7 @@ try {
       assert(await page.getByRole('dialog').isVisible(),'cannot dismiss an in-flight transfer');
     }
     await page.getByRole('region',{name:'Platform upload'}).getByText(result,{exact:true}).waitFor();
-    if(platform==='youtube'){await page.getByLabel('Publish now',{exact:true}).check();await page.getByLabel('I confirm Fixture es and this public post.').check();await page.getByRole('button',{name:'Publish existing YouTube video'}).click();await page.getByRole('region',{name:'Platform upload'}).getByText('Published',{exact:true}).waitFor();assert.equal((await page.evaluate(()=>window.__promotion)).reference,'fixture-post');}
+    if(platform==='youtube'){await closePublishing();await page.getByLabel('YouTube delivery mode',{exact:true}).selectOption('publish');await step('Publish');await page.getByLabel('Audience',{exact:true}).selectOption('general');await page.getByLabel('I confirm Fixture es and this public post.').check();await page.getByRole('button',{name:'Publish existing YouTube video'}).click();await page.getByRole('region',{name:'Platform upload'}).getByText('Published',{exact:true}).waitFor();assert.equal((await page.evaluate(()=>window.__promotion)).reference,'fixture-post');}
   }
   // X stays free until the user explicitly connects API mode. All calls below
   // are local fixture adapters, including paid consent and the post receipt.
@@ -514,13 +508,11 @@ try {
   await xRow.getByText('API · Paid',{exact:true}).waitFor();
   await page.getByRole('button',{name:'Publisher',exact:true}).click();
   await step('Prepare');
-  await advancedDrafts();
-  await page.getByLabel('Platform',{exact:true}).selectOption('x');
-  await page.getByRole('button',{name:'Open draft',exact:true}).click();
+  await page.getByLabel('Post platform',{exact:true}).selectOption('x');
   await page.getByLabel('Title',{exact:true}).fill('Approved X fixture');
   await page.getByText('Saved locally',{exact:true}).waitFor();
+  await page.getByLabel('X delivery mode',{exact:true}).selectOption('publish');
   await step('Publish');
-  await page.getByLabel('Publish now',{exact:true}).check();
   const paidSend=page.getByRole('button',{name:'Publish on X · Paid API',exact:true});
   await paidSend.waitFor();assert(await paidSend.isDisabled());
   await page.getByLabel('I confirm @cats_es and this public post.').check();
@@ -533,6 +525,93 @@ try {
   assert.equal(await page.evaluate(()=>window.__xPaidRequest.key.language),'es');
   assert.equal(await paidSend.count(),0,'successful receipt prevents another post');
   await closePublishing();
+  // Unassigned text recovery is explicit, platform-scoped and leaves its source intact.
+  await page.evaluate(()=>{
+    const all=JSON.parse(localStorage.getItem('draft-fixture'));
+    const source=Object.values(all).find(d=>d.key.episode==='catsoup-handoff-fixture'&&d.key.platform==='youtube'&&d.key.language==='es');
+    const legacy={...source,key:{...source.key,account:'Unassigned fixture'},title:'Recovered text'};
+    all[JSON.stringify(legacy.key)]=legacy;localStorage.setItem('draft-fixture',JSON.stringify(all));
+  });
+  await page.getByRole('button',{name:'Refresh',exact:true}).click();
+  await moreTools();
+  await page.getByText('Recover unassigned text',{exact:true}).click();
+  await page.locator('#recover-draft').selectOption('Unassigned fixture');
+  await page.getByRole('button',{name:'Replace current text',exact:true}).click();
+  await page.waitForFunction(()=>document.querySelector('#draft-title')?.value==='Recovered text');
+  await page.getByText('Saved locally',{exact:true}).waitFor();
+  assert.equal(await page.evaluate(()=>Object.values(JSON.parse(localStorage.getItem('draft-fixture'))).find(d=>d.key.account==='Unassigned fixture').title),'Recovered text');
+  // Identical visible names must not share drafts after an account replacement.
+  await page.getByLabel('Post platform',{exact:true}).selectOption('youtube');
+  const oldTitle=await page.getByLabel('Title',{exact:true}).inputValue();
+  await page.evaluate(()=>{
+    const rows=JSON.parse(localStorage.getItem('account-fixture'));
+    rows.find(p=>p.platform==='youtube'&&p.language==='es').id='replacement-id';
+    localStorage.setItem('account-fixture',JSON.stringify(rows));
+  });
+  await page.getByRole('button',{name:'Refresh',exact:true}).click();
+  await page.waitForFunction(()=>document.querySelector('#draft-title')?.value==='');
+  assert.equal(await page.getByLabel('Title',{exact:true}).inputValue(),'');
+  await page.evaluate(()=>{
+    const rows=JSON.parse(localStorage.getItem('account-fixture'));
+    rows.find(p=>p.platform==='youtube'&&p.language==='es').id='youtube-es';
+    localStorage.setItem('account-fixture',JSON.stringify(rows));
+  });
+  await page.getByRole('button',{name:'Refresh',exact:true}).click();
+  await page.waitForFunction(title=>document.querySelector('#draft-title')?.value===title,oldTitle);
+  assert.equal(await page.locator('#saved-destination').count(),0,'no combined draft selector');
+  // Batch preparation and mode persistence across reload of the workspace.
+  for(const [platform,label,mode] of [['youtube','YouTube','draft'],['tiktok','TikTok','draft'],['instagram','Instagram','publish'],['x','X','draft']]){
+    await page.getByLabel('Post platform',{exact:true}).selectOption(platform);
+    await page.getByLabel('Title',{exact:true}).fill('Batch '+platform);
+    await page.getByRole('button',{name:'Save draft',exact:true}).click();
+    if(platform!=='tiktok')await page.getByLabel(label+' delivery mode',{exact:true}).selectOption(mode);
+    await page.getByText('Saved locally',{exact:true}).waitFor();
+  }
+  await page.getByRole('button',{name:'Refresh',exact:true}).click();
+  assert.equal(await page.getByLabel('Instagram delivery mode',{exact:true}).inputValue(),'publish');
+  assert.equal(await page.getByLabel('X delivery mode',{exact:true}).inputValue(),'draft');
+  await page.evaluate(()=>{window.__clearReceipts();window.__sendCalls=[];window.__sendDelay=150;});
+  await page.getByRole('button',{name:'Publish all…',exact:true}).click();
+  const batch=page.getByRole('dialog');
+  await batch.getByLabel('YouTube audience').selectOption('general');
+  await batch.getByLabel('I confirm the selected accounts and delivery modes.').check();
+  await page.screenshot({path:path.join(output,'publish-all.png')});
+  await batch.getByRole('button',{name:'Send to 4 destinations',exact:true}).click();
+  assert(await batch.getByRole('button',{name:'Close publishing options'}).isDisabled());
+  await batch.getByText('Kept locally',{exact:true}).waitFor();
+  assert.deepEqual((await page.evaluate(()=>window.__sendCalls)).map(c=>[c.key.platform,c.mode]),[['youtube','draft'],['tiktok','draft'],['instagram','publish']]);
+  assert((await page.evaluate(()=>window.__sendCalls)).every(c=>c.key.language==='es'));
+  await closePublishing();
+  // Previously completed transfers are excluded rather than repeated.
+  await page.getByRole('button',{name:'Publish all…',exact:true}).click();
+  await batch.getByText('Already uploaded privately',{exact:true}).waitFor();
+  assert.equal(await batch.locator('.batch-row input:checked').count(),1,'only the local X draft remains');
+  await closePublishing();
+  // A partial failure stops the batch; no automatic retries or later requests.
+  await page.evaluate(()=>{window.__clearReceipts();window.__sendCalls=[];window.__failPlatform='tiktok';});
+  await page.getByRole('button',{name:'Publish all…',exact:true}).click();
+  await batch.getByLabel('YouTube audience').selectOption('general');
+  await batch.getByLabel('I confirm the selected accounts and delivery modes.').check();
+  await batch.getByRole('button',{name:'Send to 4 destinations',exact:true}).click();
+  await batch.getByText('Simulated transfer failure',{exact:false}).waitFor();
+  assert.deepEqual((await page.evaluate(()=>window.__sendCalls)).map(c=>c.key.platform),['youtube','tiktok']);
+  assert.equal(await batch.getByText('Not sent',{exact:true}).count(),2);
+  assert.equal(await batch.getByRole('button',{name:/Send to/}).count(),0);
+  await closePublishing();
+  // A changed account invalidates the whole selection before its first request.
+  await page.evaluate(()=>{window.__clearReceipts();window.__sendCalls=[];window.__failPlatform='';});
+  await page.getByRole('button',{name:'Publish all…',exact:true}).click();
+  await batch.getByLabel('YouTube audience').selectOption('general');
+  await batch.getByLabel('I confirm the selected accounts and delivery modes.').check();
+  await page.evaluate(()=>{
+    const rows=JSON.parse(localStorage.getItem('account-fixture'));
+    rows.find(p=>p.platform==='instagram'&&p.language==='es').id='changed-during-confirmation';
+    localStorage.setItem('account-fixture',JSON.stringify(rows));
+  });
+  await batch.getByRole('button',{name:'Send to 4 destinations',exact:true}).click();
+  await batch.getByText(/A draft or account changed/).waitFor();
+  assert.equal((await page.evaluate(()=>window.__sendCalls)).length,0);
+  await closePublishing();
   await checkDiagnostics(page,output);
   await page.getByRole('button',{name:'Publisher',exact:true}).click();
   await page.evaluate(() => { window.__empty = true; });
@@ -540,7 +619,7 @@ try {
   await page.getByRole('heading', { name: 'No delivery to preview' }).waitFor();
   assert.equal(await page.locator('video').count(), 0);
   assert.deepEqual(errors, []);
-  const report = { passed: true, checks: ['native dialog focus, Escape and busy dismissal guard', 'minimal composer and folded secondary actions', 'review persistence, requested changes and version invalidation', 'review and approval gates', 'private/public modes and same-ID promotion', 'per-destination receipts and duplicate prevention', 'ES/EN decode and playback', 'seek', 'variant selection', 'refresh keeps language', 'non-publishable state', 'empty state', '1200/820px layout', 'module navigation', 'window controls with fixture adapter', 'draft autosave and reload', 'language/platform/account isolation', 'typing during save', 'failed saves block navigation and close', 'conflict recovery', 'delivery change and explicit rebind', 'copy/reveal adapters', 'close flush', 'diagnostics search and filters', 'attempt grouping and export', 'history pagination and pause', 'live diagnostics and keyboard access', 'console collapse and expansion preserve filters', 'no JS errors'], native: false };
+  const report = { passed: true, checks: ['account ID isolation with identical names', 'saved per-account delivery modes', 'batch language routing, duplicate protection, preflight and stop on failure', 'visible save action', 'native dialog focus, Escape and busy dismissal guard', 'minimal composer and folded secondary actions', 'review persistence, requested changes and version invalidation', 'review and approval gates', 'private/public modes and same-ID promotion', 'per-destination receipts and duplicate prevention', 'ES/EN decode and playback', 'seek', 'variant selection', 'refresh keeps language', 'non-publishable state', 'empty state', '1200/820px layout', 'module navigation', 'window controls with fixture adapter', 'draft autosave and reload', 'language/platform/account isolation', 'typing during save', 'failed saves block navigation and close', 'conflict recovery', 'delivery change and explicit rebind', 'copy/reveal adapters', 'close flush', 'diagnostics search and filters', 'attempt grouping and export', 'history pagination and pause', 'live diagnostics and keyboard access', 'console collapse and expansion preserve filters', 'no JS errors'], native: false };
   await writeFile(path.join(output, 'report.json'), JSON.stringify(report, null, 2));
   console.log(JSON.stringify(report));
 } catch (error) {

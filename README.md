@@ -1,6 +1,6 @@
 # CATsoup Publisher
 
-CATsoup Publisher is a local Windows desktop app for reviewing Spanish and English videos and sending each approved edit to the right account. Its episode workspace puts the video beside its post editor, with local notes, drafts for each platform and transfer receipts. Upload privately or publicly to YouTube, send a video to the TikTok inbox, publish an Instagram Reel or post to X through the browser or an optional paid API connection.
+CATsoup Publisher is a local Windows desktop app for reviewing Spanish and English videos and sending each approved edit to the right account. Its episode workspace puts the video beside its post editor, with local notes, account-specific drafts, saved delivery modes and transfer receipts. Send to one platform or confirm a batch for the selected language. Upload privately or publicly to YouTube, send a video to the TikTok inbox, publish an Instagram Reel or post to X through the browser or an optional paid API connection.
 
 ![Publisher previewing a synthetic bilingual delivery](docs/images/publisher.png)
 

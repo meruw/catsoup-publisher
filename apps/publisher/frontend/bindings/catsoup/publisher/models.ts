@@ -10,6 +10,7 @@ export interface SaveDraftInput {
     "title": string;
     "description": string;
     "hashtags": string;
+    "deliveryMode": string;
     "revision": number;
     "videoId": string;
     "attachVideo": boolean;

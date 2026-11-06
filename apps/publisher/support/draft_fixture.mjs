@@ -11,7 +11,7 @@ export const draftFixture = `
   review: async (episode,language,videoId) => JSON.parse(localStorage.getItem('review-'+episode+language+videoId) || 'null') || {episode,language,videoId,fingerprint:'',videoHash:'',state:'pending',notes:'',revision:0,updatedAt:''},
   saveReview: async (input,confirmed) => {if(input.state==='reviewed' && !confirmed)throw Error('Confirm review');const value={...input,revision:input.revision+1,updatedAt:new Date().toISOString()};localStorage.setItem('review-'+input.episode+input.language+input.videoId,JSON.stringify(value));return value;},
   list: async (episode, language) => Object.values(storage()).filter(d => d.key.episode === episode && d.key.language === language),
-  get: async key => storage()[keyOf(key)] || {key,title:'',description:'',hashtags:'',videoId:'',videoHash:'',deliveryFingerprint:'',revision:0,updatedAt:''},
+  get: async key => storage()[keyOf(key)] || {key,deliveryMode:'draft',title:'',description:'',hashtags:'',videoId:'',videoHash:'',deliveryFingerprint:'',revision:0,updatedAt:''},
   save: async input => {
    window.__draftWrites.push(JSON.parse(JSON.stringify(input)));
    await new Promise(resolve => setTimeout(resolve, window.__draftDelay));

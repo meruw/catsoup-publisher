@@ -10,6 +10,9 @@ import (
 )
 
 func (s *UploadService) PublishYouTube(key drafts.Key, revision int64, id string, confirmed bool, audience string, synthetic bool) (drafts.Receipt, error) {
+	if err := drafts.CheckDestination(key, id); err != nil {
+		return drafts.Receipt{}, err
+	}
 	if key.Platform != "youtube" || !confirmed {
 		return drafts.Receipt{}, errors.New("confirm publishing the private YouTube video")
 	}
@@ -24,6 +27,9 @@ func (s *UploadService) PublishYouTube(key drafts.Key, revision int64, id string
 	}
 	if d.Revision == 0 || d.Revision != revision {
 		return drafts.Receipt{}, drafts.ErrConflict
+	}
+	if strings.HasPrefix(key.Account, "account:") && d.DeliveryMode != "publish" {
+		return drafts.Receipt{}, errors.New("select Publish now for this account before confirming")
 	}
 	if err = s.store.RequireReview(ctx, d); err != nil {
 		return drafts.Receipt{}, err

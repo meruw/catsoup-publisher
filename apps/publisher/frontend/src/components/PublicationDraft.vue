@@ -4,6 +4,8 @@ import UiButton from './UiButton.vue';
 import UiDialog from './UiDialog.vue';
 import {uploads,type Profile} from '../services/uploads';
 import DirectUpload from './DirectUpload.vue';
+import BatchPublish from './BatchPublish.vue';
+import { accountKey, modeOptions, modeLabel, type DeliveryMode } from '../services/publication';
 import { drafts, type Draft, type DraftKey } from '../services/drafts';
 import type { Episode, Video } from '../services/publisher';
 
@@ -12,10 +14,12 @@ const region = ref<HTMLElement | null>(null);
 const platforms = { youtube: 'YouTube', tiktok: 'TikTok', instagram: 'Instagram', x: 'X' };
 const emit=defineEmits<{accounts:[];prepare:[];publish:[];review:[];busy:[value:boolean]}>();
 const profiles=ref<Profile[]>([]);
-const suggestedAccount=computed(()=>profiles.value.find(p=>p.platform===platform.value && p.language===props.language)?.name || '');
-const destination=computed(()=>profiles.value.find(p=>p.platform===form.value?.key.platform && p.language===props.language));
+const batchOpen=ref(false);
+const destinations=computed(()=>Object.entries(platforms).map(([id,label])=>{const profile=profiles.value.find(p=>p.platform===id && p.language===props.language);return {id,label,profile,draft:saved.value.find(d=>d.key.platform===id && d.key.account===accountKey(profile))};}));
+const recoverable=computed(()=>saved.value.filter(d=>d.key.platform===form.value?.key.platform && !d.key.account.startsWith('account:') && d.key.account!==form.value?.key.account));
+const recovery=ref('');
+const destination=computed(()=>profiles.value.find(p=>p.platform===form.value?.key.platform && p.language===props.language && accountKey(p)===form.value?.key.account));
 const platform = ref('youtube');
-const account = ref('');
 const saved = ref<Draft[]>([]);
 const form = ref<Draft | null>(null);
 const loading = ref(true);
@@ -33,7 +37,7 @@ let attachVideo = false;
 let timer: ReturnType<typeof setTimeout> | undefined;
 let inFlight: Promise<void> | undefined;
 const languageName = computed(() => props.language === 'es' ? 'Spanish' : 'English');
-const name = (key: DraftKey) => `${platforms[key.platform as keyof typeof platforms]} · ${key.account}`;
+const name = (key: DraftKey) => `${platforms[key.platform as keyof typeof platforms]} / ${destination.value?.name || 'Unassigned'}`;
 const stale = computed(() => !!form.value?.revision && (form.value.deliveryFingerprint !== props.episode.fingerprint ||
   form.value.videoHash !== props.episode.videos?.find(v => v.id === form.value?.videoId)?.sha256));
 const differentVideo = computed(() => form.value?.videoId !== props.video.id);
@@ -72,7 +76,7 @@ function flush(): Promise<void> {
         const sentGeneration = generation;
         const result = await drafts.save({
           key: snapshot.key, title: snapshot.title, description: snapshot.description,
-          hashtags: snapshot.hashtags, revision: snapshot.revision,
+          hashtags: snapshot.hashtags, deliveryMode:snapshot.deliveryMode || 'draft', revision: snapshot.revision,
           videoId: attachVideo ? props.video.id : snapshot.videoId, attachVideo,
         });
         form.value = { ...form.value, revision: result.revision, updatedAt: result.updatedAt,
@@ -101,39 +105,56 @@ async function open(key: DraftKey, initial = false) {
     }
     form.value = result;
     accountConfirmed.value = false; uploadError.value = '';
-    platform.value = key.platform; account.value = key.account;
+    platform.value = key.platform; recovery.value='';
     generation = 0; attachVideo = false; dirty.value = false;
     error.value = ''; feedback.value = ''; reloadPrompt.value = false;
   } catch (e) { error.value ||= `Could not open draft. ${String(e)}`; }
   finally { loading.value = false; }
 }
-function openDestination() {
-  const label=account.value.trim() || suggestedAccount.value;
-  if (!label) { error.value = 'Enter an account label first.'; return; }
-  void open({ episode: props.episode.id, language: props.language, platform: platform.value, account: label });
-}
 async function choosePlatform(value:string) {
   if (loading.value || platformBusy.value || props.locked) return;
   const profile=profiles.value.find(p=>p.platform===value && p.language===props.language);
-  const existing=saved.value.find(d=>d.key.platform===value && d.key.account===profile?.name)
-    || saved.value.find(d=>d.key.platform===value);
-  await open(existing?.key || {episode:props.episode.id,language:props.language,platform:value,
-    account:profile?.name || `${platforms[value as keyof typeof platforms]} ${props.language.toUpperCase()}`});
+  await open({episode:props.episode.id,language:props.language,platform:value,account:accountKey(profile)});
 }
+async function changeMode(value:string, mode:DeliveryMode) {
+  if(loading.value || saving.value || platformBusy.value || props.locked)return;
+  loading.value=true;platformBusy.value=true;emit('busy',true);
+  try {
+    await flush();
+    const profile=profiles.value.find(p=>p.platform===value && p.language===props.language);
+    const key={episode:props.episode.id,language:props.language,platform:value,account:accountKey(profile)};
+    const d=await drafts.get(key);
+    const result=await drafts.save({key,title:d.title,description:d.description,hashtags:d.hashtags,deliveryMode:mode,
+      revision:d.revision,videoId:d.revision?d.videoId:props.video.id,attachVideo:!d.revision});
+    updateList(result);
+    if(form.value?.key.platform===value) form.value=result;
+  } catch(e) {error.value=String(e);}
+  finally{loading.value=false;platformBusy.value=false;emit('busy',false);}
+}
+async function recoverDraft() {
+  const old=recoverable.value.find(d=>d.key.account===recovery.value);
+  if(!old || !form.value) return;
+  form.value.title=old.title;form.value.description=old.description;form.value.hashtags=old.hashtags;
+  form.value.deliveryMode='draft';edited();await saveNow();recovery.value='';
+}
+async function publishPlatform(value:string) {
+  await choosePlatform(value);
+  if(form.value?.key.platform===value) await publishingOptions();
+}
+async function publishAll() {
+  await saveNow();
+  if(error.value || dirty.value) return;
+  batchOpen.value=true;emit('publish');
+}
+function closePublish(){batchOpen.value=false;emit('prepare');}
 async function publishingOptions() {
   if (loading.value || props.locked || !form.value) return;
   await saveNow();
   if (!error.value && !dirty.value) {
     feedback.value='';uploadError.value='';accountConfirmed.value=false;
     region.value?.querySelector('.post-tools-menu')?.removeAttribute('open');
-    emit('publish');
+    batchOpen.value=false;emit('publish');
   }
-}
-function selectSaved(event: Event) {
-  const select = event.target as HTMLSelectElement;
-  const draft = saved.value[Number(select.value)];
-  select.value = '';
-  if (draft) void open(draft.key);
 }
 async function saveNow() {
   if (form.value && !form.value.revision && !dirty.value) edited();
@@ -178,9 +199,8 @@ onMounted(async () => {
     profiles.value = await uploads.accounts() || [];
     saved.value = await drafts.list(props.episode.id, props.language) || [];
     loading.value = false;
-    if (saved.value[0]) await open(saved.value[0].key, true);
-    else { const p=profiles.value.find(p=>p.language===props.language && p.platform==='youtube') || profiles.value.find(p=>p.language===props.language);
-      await open({episode:props.episode.id,language:props.language,platform:p?.platform || 'youtube',account:p?.name || `YouTube ${props.language.toUpperCase()}`},true); }
+    const p=profiles.value.find(p=>p.language===props.language && p.platform==='youtube') || profiles.value.find(p=>p.language===props.language);
+    await open({episode:props.episode.id,language:props.language,platform:p?.platform || 'youtube',account:accountKey(p)},true);
   } catch (e) { error.value = `Could not load saved destinations. ${String(e)}`; }
   finally { loading.value = false; }
 });
@@ -204,7 +224,7 @@ defineExpose({ flush: beforeLeaving, focusEditor });
         <select id="post-platform" :value="form?.key.platform || platform" class="ui-field" @change="choosePlatform(($event.target as HTMLSelectElement).value)">
           <option v-for="(label,value) in platforms" :key="value" :value="value">{{label}}{{profiles.find(p=>p.platform===value && p.language===language)?.name ? ' / '+profiles.find(p=>p.platform===value && p.language===language)?.name : ''}}</option>
         </select>
-        <UiButton id="open-publishing" variant="primary" :disabled="!form" :busy="saving" @click="publishingOptions">Publish…</UiButton>
+        <UiButton :disabled="!form" :busy="saving" @click="saveNow">Save draft</UiButton>
       </div>
       <div v-if="!destination && form" class="compose-connect"><UiButton variant="quiet" size="compact" @click="emit('accounts')">Connect {{platforms[form.key.platform as keyof typeof platforms]}}</UiButton></div>
       <template v-if="form">
@@ -214,7 +234,7 @@ defineExpose({ flush: beforeLeaving, focusEditor });
         </div>
         <p v-if="stale" class="notice warning">The delivery changed since this draft was linked. Your text is preserved.</p>
         <div class="field-group"><label for="draft-title">Title</label><input id="draft-title" v-model="form.title" class="ui-field" maxlength="500" @input="edited"></div>
-        <div class="field-group"><label for="draft-description">Description</label><textarea id="draft-description" v-model="form.description" class="ui-field" rows="6" maxlength="10000" @input="edited"></textarea></div>
+        <div class="field-group"><label for="draft-description">Description</label><textarea id="draft-description" v-model="form.description" class="ui-field" rows="4" maxlength="10000" @input="edited"></textarea></div>
         <div class="field-group"><label for="draft-hashtags">Hashtags</label><input id="draft-hashtags" v-model="form.hashtags" class="ui-field" maxlength="2000" placeholder="#catsoup" @input="edited"></div>
         <div class="compose-footer">
           <span role="status" :class="{warning:dirty}" title="Your edits save automatically on this PC">{{status}}</span>
@@ -222,29 +242,37 @@ defineExpose({ flush: beforeLeaving, focusEditor });
             <summary>More</summary>
             <div class="post-tools-content">
               <div class="draft-actions">
-                <UiButton v-if="dirty || !form.revision" variant="quiet" size="compact" :busy="saving" @click="saveNow">Save draft</UiButton>
+
                 <UiButton variant="quiet" size="compact" :disabled="saving || !form.title.trim()" @click="copy('title')">Copy title</UiButton>
                 <UiButton variant="quiet" size="compact" :disabled="saving || !(form.description.trim() || form.hashtags.trim())" title="Copy description and hashtags" @click="copy('caption')">Copy caption</UiButton>
                 <UiButton variant="quiet" size="compact" @click="reveal">Open video folder</UiButton>
               </div>
-              <details class="draft-library">
-                <summary>Saved drafts<span v-if="saved.length" class="mono">{{saved.length}}</span></summary>
-                <div v-if="saved.length" class="field-group saved-destinations">
-                  <label for="saved-destination">Saved destinations</label>
-                  <select id="saved-destination" class="ui-field" @change="selectSaved"><option value="">Choose a draft...</option><option v-for="(draft,index) in saved" :key="JSON.stringify(draft.key)" :value="index">{{name(draft.key)}}</option></select>
-                </div>
-                <form class="destination-row" @submit.prevent="openDestination">
-                  <div class="field-group"><label for="draft-platform">Platform</label><select id="draft-platform" v-model="platform" @change="account=''" class="ui-field"><option v-for="(label,value) in platforms" :value="value" :key="value">{{label}}</option></select></div>
-                  <div class="field-group"><label for="draft-account">Account label</label><input id="draft-account" v-model="account" class="ui-field" maxlength="100" :placeholder="suggestedAccount" autocomplete="off" title="Labels organize drafts. Accounts controls the actual destination."></div>
-                  <UiButton type="submit" :busy="loading">Open draft</UiButton>
-                </form>
+              <details v-if="recoverable.length" class="draft-library">
+                <summary>Recover unassigned text</summary>
+                <label for="recover-draft">{{platforms[platform as keyof typeof platforms]}} drafts without an account ID</label>
+                <select id="recover-draft" v-model="recovery" class="ui-field"><option value="">Choose text to copy</option><option v-for="d in recoverable" :key="d.key.account" :value="d.key.account">{{d.key.account}} / {{d.title || 'Untitled'}}</option></select>
+                <p class="muted">Copies text into this account's draft. The original is kept.</p>
+                <UiButton :disabled="!recovery" @click="recoverDraft">Replace current text</UiButton>
               </details>
             </div>
           </details>
         </div>
       </template>
     </fieldset>
-    <UiDialog v-if="stage==='publish' && form" :title="'Publish to '+platforms[form.key.platform as keyof typeof platforms]" return-focus-id="open-publishing" :busy="platformBusy || preparingUpload" @close="emit('prepare')">
+    <section class="destination-plan" aria-label="Publishing destinations">
+      <header><span>Destinations / {{language.toUpperCase()}}</span><UiButton id="publish-all" variant="primary" :disabled="locked || loading || saving || platformBusy || !destinations.some(r=>r.profile && r.draft?.revision)" @click="publishAll">Publish all…</UiButton></header>
+      <div v-for="row in destinations" :key="row.id" class="destination-plan-row">
+        <button class="destination-name" :aria-current="form?.key.platform===row.id?'true':undefined" :disabled="locked || loading || platformBusy" @click="choosePlatform(row.id)"><strong>{{row.label}}</strong><small>{{row.profile?.name || 'Not connected'}}</small></button>
+        <select :aria-label="row.label+' delivery mode'" class="ui-field" :value="row.draft?.deliveryMode || 'draft'" :disabled="locked || loading || saving || platformBusy || !row.profile || row.id==='tiktok'" :title="modeLabel(row.id,row.draft?.deliveryMode || 'draft',row.profile)" @change="changeMode(row.id,($event.target as HTMLSelectElement).value as DeliveryMode)">
+          <option v-for="option in modeOptions(row.id,row.profile)" :key="option.value" :value="option.value">{{option.label}}</option>
+        </select>
+        <UiButton :id="form?.key.platform===row.id?'open-publishing':undefined" variant="quiet" size="compact" :disabled="locked || loading || saving || platformBusy || !row.profile" :aria-label="'Publish '+row.label" @click="publishPlatform(row.id)">Publish…</UiButton>
+      </div>
+    </section>
+    <UiDialog v-if="stage==='publish' && batchOpen" title="Publish all" return-focus-id="publish-all" :busy="platformBusy" @close="closePublish">
+      <BatchPublish :episode="episode" :language="language" :video="video" :reviewed="reviewed" :profiles="profiles" :saved="saved" @busy="platformBusy=$event;emit('busy',$event)"/>
+    </UiDialog>
+    <UiDialog v-if="stage==='publish' && !batchOpen && form" :title="'Publish to '+platforms[form.key.platform as keyof typeof platforms]" return-focus-id="open-publishing" :busy="platformBusy || preparingUpload" @close="closePublish">
       <DirectUpload :key="JSON.stringify([form.key,form.videoHash])" :draft="form" :hint="uploadHint" :flush="flush" @busy="platformBusy=$event;emit('busy',$event)" @accounts="emit('accounts')" @review="emit('review')"/>
       <details v-if="!uploadHint && form.key.platform!=='x'" class="manual-handoff">
         <summary>Upload manually</summary>

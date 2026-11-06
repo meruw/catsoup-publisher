@@ -11,13 +11,14 @@ import (
 )
 
 type SaveDraftInput struct {
-	Key         drafts.Key `json:"key"`
-	Title       string     `json:"title"`
-	Description string     `json:"description"`
-	Hashtags    string     `json:"hashtags"`
-	Revision    int64      `json:"revision"`
-	VideoID     string     `json:"videoId"`
-	AttachVideo bool       `json:"attachVideo"`
+	Key          drafts.Key `json:"key"`
+	Title        string     `json:"title"`
+	Description  string     `json:"description"`
+	Hashtags     string     `json:"hashtags"`
+	DeliveryMode string     `json:"deliveryMode"`
+	Revision     int64      `json:"revision"`
+	VideoID      string     `json:"videoId"`
+	AttachVideo  bool       `json:"attachVideo"`
 }
 type DraftService struct {
 	store            *drafts.Store
@@ -51,6 +52,9 @@ func (s *DraftService) SaveDraft(input SaveDraftInput) (drafts.Draft, error) {
 	d.Title = input.Title
 	d.Description = input.Description
 	d.Hashtags = input.Hashtags
+	if input.DeliveryMode != "" {
+		d.DeliveryMode = input.DeliveryMode
+	}
 	if d.Revision == 0 || input.AttachVideo {
 		episode, err := s.reader.Inspect(input.Key.Episode)
 		if err != nil {

@@ -140,16 +140,20 @@ Run `check_ui.mjs` for delivery playback regression and responsive app screensho
 Check playback and seeking in the Windows executable as part of native QA.
 
 The episode workspace is a quiet editing desk. Its first view contains the episode
-name, language, video, destination selector and three text fields. The video carries
+name, language, video, destination selector, visible Save draft and three text fields. The video carries
 the visual detail; the paw remains the brand signature. Video review and technical
 details are folded below the preview. More contains secondary draft and copy tools.
-There are no numbered steps, destination tables or instructional paragraphs on the
-editing surface. The selected destination includes its connected account name.
+Compact destination rows keep account, mode and the individual publish action visible.
+Publish all sits in their header. There are no numbered steps or instructional
+paragraphs on the editing surface. The selected destination includes its connected
+account name. Technical details contain only version, media specifications, file
+verification and publishing approval.
 
 Publish… opens UiDialog, a native HTML dialog with a restrained backdrop, focus
 containment, Escape dismissal and focus restoration to the trigger. The dialog
 cannot close during a transfer. It shows one account, the applicable delivery mode,
-required consent and one sending action. TikTok shows only its inbox action. A
+required consent and one sending action. Publish all uses the same dialog with
+selectable account rows and explicit batch consent. TikTok shows only its inbox action. A
 blocked delivery replaces the sending form with one reason. Provider IDs are in
 tooltips rather than always visible. Technical details, duplicate status labels and
 browser handoff do not compete with the main action. Short UiHelp text remains

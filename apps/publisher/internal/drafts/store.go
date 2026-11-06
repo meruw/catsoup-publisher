@@ -20,6 +20,18 @@ import (
 var ErrConflict = errors.New("draft changed in another window; reload the saved draft before editing")
 var identifier = regexp.MustCompile(`^catsoup(?:-[a-z0-9]+)+$`)
 
+// Bound drafts retain the provider's identity when a connected account changes.
+// Unbound legacy text remains readable for explicit recovery in the editor.
+func CheckDestination(k Key, id string) error {
+	if strings.HasPrefix(k.Account, "account:") && k.Account != "account:"+id {
+		return errors.New("this draft belongs to a different account")
+	}
+	if k.Account == "unassigned" {
+		return errors.New("connect an account and save its draft first")
+	}
+	return nil
+}
+
 type Key struct {
 	Episode  string `json:"episode"`
 	Language string `json:"language"`
@@ -32,6 +44,7 @@ type Draft struct {
 	Title               string `json:"title"`
 	Description         string `json:"description"`
 	Hashtags            string `json:"hashtags"`
+	DeliveryMode        string `json:"deliveryMode"`
 	VideoID             string `json:"videoId"`
 	VideoHash           string `json:"videoHash"`
 	DeliveryFingerprint string `json:"deliveryFingerprint"`
@@ -62,6 +75,12 @@ func validText(s string, limit int) bool {
 func Validate(d Draft) error {
 	if err := ValidateKey(d.Key); err != nil {
 		return err
+	}
+	if d.DeliveryMode != "" && d.DeliveryMode != "draft" && d.DeliveryMode != "publish" {
+		return errors.New("invalid delivery mode")
+	}
+	if d.Key.Platform == "tiktok" && d.DeliveryMode == "publish" {
+		return errors.New("TikTok supports inbox drafts only")
 	}
 	if d.Revision < 0 || !validText(d.Title, 500) || !validText(d.Description, 10000) || !validText(d.Hashtags, 2000) {
 		return errors.New("draft exceeds the local text limits or contains invalid text")
@@ -136,7 +155,7 @@ func (s *Store) migrate() error {
 	if err = tx.QueryRowContext(ctx, "SELECT version FROM schema_version WHERE id=1").Scan(&version); err != nil {
 		return err
 	}
-	if version > 4 || version < 0 {
+	if version > 5 || version < 0 {
 		return errors.New("unsupported schema version; use a compatible Publisher build")
 	}
 	if version == 0 {
@@ -181,13 +200,18 @@ func (s *Store) migrate() error {
 			return err
 		}
 	}
+	if version < 5 {
+		if _, err = tx.ExecContext(ctx, `ALTER TABLE drafts ADD COLUMN delivery_mode TEXT NOT NULL DEFAULT 'draft'; UPDATE schema_version SET version=5 WHERE id=1;`); err != nil {
+			return err
+		}
+	}
 	return tx.Commit()
 }
 
-const columns = "episode,language,platform,account,title,description,hashtags,video_id,video_hash,delivery_fingerprint,revision,updated_at"
+const columns = "episode,language,platform,account,title,description,hashtags,video_id,video_hash,delivery_fingerprint,revision,updated_at,delivery_mode"
 
 func scan(row interface{ Scan(...any) error }) (d Draft, err error) {
-	err = row.Scan(&d.Key.Episode, &d.Key.Language, &d.Key.Platform, &d.Key.Account, &d.Title, &d.Description, &d.Hashtags, &d.VideoID, &d.VideoHash, &d.DeliveryFingerprint, &d.Revision, &d.UpdatedAt)
+	err = row.Scan(&d.Key.Episode, &d.Key.Language, &d.Key.Platform, &d.Key.Account, &d.Title, &d.Description, &d.Hashtags, &d.VideoID, &d.VideoHash, &d.DeliveryFingerprint, &d.Revision, &d.UpdatedAt, &d.DeliveryMode)
 	return
 }
 func (s *Store) Get(ctx context.Context, k Key) (Draft, error) {
@@ -196,7 +220,7 @@ func (s *Store) Get(ctx context.Context, k Key) (Draft, error) {
 	}
 	d, err := scan(s.db.QueryRowContext(ctx, "SELECT "+columns+" FROM drafts WHERE episode=? AND language=? AND platform=? AND account=?", k.Episode, k.Language, k.Platform, k.Account))
 	if errors.Is(err, sql.ErrNoRows) {
-		return Draft{Key: k}, nil
+		return Draft{Key: k, DeliveryMode: "draft"}, nil
 	}
 	return d, err
 }
@@ -220,6 +244,9 @@ func (s *Store) List(ctx context.Context, episode, language string) ([]Draft, er
 	return result, rows.Err()
 }
 func (s *Store) Save(ctx context.Context, d Draft) (Draft, error) {
+	if d.DeliveryMode == "" {
+		d.DeliveryMode = "draft"
+	}
 	if err := Validate(d); err != nil {
 		return Draft{}, err
 	}
@@ -229,9 +256,9 @@ func (s *Store) Save(ctx context.Context, d Draft) (Draft, error) {
 	var result sql.Result
 	var err error
 	if previous == 0 {
-		result, err = s.db.ExecContext(ctx, "INSERT INTO drafts ("+columns+") VALUES(?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT DO NOTHING", d.Key.Episode, d.Key.Language, d.Key.Platform, d.Key.Account, d.Title, d.Description, d.Hashtags, d.VideoID, d.VideoHash, d.DeliveryFingerprint, d.Revision, d.UpdatedAt)
+		result, err = s.db.ExecContext(ctx, "INSERT INTO drafts ("+columns+") VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT DO NOTHING", d.Key.Episode, d.Key.Language, d.Key.Platform, d.Key.Account, d.Title, d.Description, d.Hashtags, d.VideoID, d.VideoHash, d.DeliveryFingerprint, d.Revision, d.UpdatedAt, d.DeliveryMode)
 	} else {
-		result, err = s.db.ExecContext(ctx, `UPDATE drafts SET title=?,description=?,hashtags=?,video_id=?,video_hash=?,delivery_fingerprint=?,revision=?,updated_at=? WHERE episode=? AND language=? AND platform=? AND account=? AND revision=?`, d.Title, d.Description, d.Hashtags, d.VideoID, d.VideoHash, d.DeliveryFingerprint, d.Revision, d.UpdatedAt, d.Key.Episode, d.Key.Language, d.Key.Platform, d.Key.Account, previous)
+		result, err = s.db.ExecContext(ctx, `UPDATE drafts SET title=?,description=?,hashtags=?,video_id=?,video_hash=?,delivery_fingerprint=?,revision=?,updated_at=?,delivery_mode=? WHERE episode=? AND language=? AND platform=? AND account=? AND revision=?`, d.Title, d.Description, d.Hashtags, d.VideoID, d.VideoHash, d.DeliveryFingerprint, d.Revision, d.UpdatedAt, d.DeliveryMode, d.Key.Episode, d.Key.Language, d.Key.Platform, d.Key.Account, previous)
 	}
 	if err != nil {
 		return Draft{}, err

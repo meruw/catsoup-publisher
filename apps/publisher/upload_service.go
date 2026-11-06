@@ -29,6 +29,11 @@ func (s *UploadService) OpenXComposer(key drafts.Key, revision int64) error {
 	if key.Platform != "x" {
 		return errors.New("select an X draft")
 	}
+	if strings.HasPrefix(key.Account, "account:") {
+		if _, err := s.store.Credential(key.Platform, key.Language, strings.TrimPrefix(key.Account, "account:")); err != nil {
+			return err
+		}
+	}
 	d, err := s.store.Get(context.Background(), key)
 	if err != nil {
 		return err
@@ -46,6 +51,9 @@ func (s *UploadService) OpenXComposer(key drafts.Key, revision int64) error {
 	return s.openBrowser("https://x.com/intent/tweet?" + url.Values{"text": {text}}.Encode())
 }
 func (s *UploadService) Receipt(key drafts.Key, id string) (drafts.Receipt, error) {
+	if err := drafts.CheckDestination(key, id); err != nil {
+		return drafts.Receipt{}, err
+	}
 	if _, err := s.store.Credential(key.Platform, key.Language, id); err != nil {
 		return drafts.Receipt{}, err
 	}
@@ -56,6 +64,9 @@ func (s *UploadService) Receipt(key drafts.Key, id string) (drafts.Receipt, erro
 	return s.store.Receipt(key.Platform, id, d.VideoHash)
 }
 func (s *UploadService) ClearUncertain(key drafts.Key, id, expectedHash string, checked bool) error {
+	if err := drafts.CheckDestination(key, id); err != nil {
+		return err
+	}
 	if !checked {
 		return errors.New("check the platform before allowing another attempt")
 	}
@@ -109,6 +120,9 @@ func (s *UploadService) SendX(key drafts.Key, revision int64, id string, confirm
 
 // SendMode accepts only capabilities actually implemented by each connector.
 func (s *UploadService) SendMode(key drafts.Key, revision int64, id, mode string, confirmed, paidAccepted bool, audience string, synthetic bool) (drafts.Receipt, error) {
+	if err := drafts.CheckDestination(key, id); err != nil {
+		return drafts.Receipt{}, err
+	}
 	if mode != "draft" && mode != "publish" {
 		return drafts.Receipt{}, errors.New("choose a delivery mode")
 	}
@@ -139,6 +153,9 @@ func (s *UploadService) SendMode(key drafts.Key, revision int64, id, mode string
 	}
 	if d.Revision == 0 || revision != d.Revision {
 		return drafts.Receipt{}, drafts.ErrConflict
+	}
+	if strings.HasPrefix(key.Account, "account:") && d.DeliveryMode != mode {
+		return drafts.Receipt{}, errors.New("delivery mode changed; reopen the publishing confirmation")
 	}
 	path, err := s.reader.UploadPath(key.Episode, key.Language, d.VideoID, d.DeliveryFingerprint, d.VideoHash)
 	if err != nil {

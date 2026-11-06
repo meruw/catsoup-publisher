@@ -26,6 +26,9 @@ func (s *Store) Receipt(platform, account, hash string) (Receipt, error) {
 	return r, err
 }
 func (s *Store) Reserve(d Draft, account string) error {
+	if err := CheckDestination(d.Key, account); err != nil {
+		return err
+	}
 	res, err := s.db.Exec(`INSERT OR IGNORE INTO upload_attempts
  SELECT platform,?,video_hash,'sending','',? FROM drafts
  WHERE episode=? AND language=? AND platform=? AND account=? AND revision=? AND video_hash=? AND EXISTS(SELECT 1 FROM accounts a WHERE a.platform=drafts.platform AND a.language=drafts.language AND a.account_id=?)
