@@ -32,7 +32,7 @@ The app rechecks account identities, approvals, selected revisions and receipts 
 | --- | --- | --- |
 | [YouTube](https://publisher.meruw.dev/guides/youtube/) | Private video on the selected channel | Public upload, or publish the recorded private video using its existing ID |
 | [TikTok](https://publisher.meruw.dev/guides/tiktok/) | Video in the creator's inbox; finish posting in TikTok | Optional Direct Post with explicit visibility and TikTok authorization |
-| [Meta](https://publisher.meruw.dev/guides/meta/) | Local draft on this PC | Reel on the connected Instagram profile |
+| [Meta](https://publisher.meruw.dev/guides/meta/) | Local draft on this PC | Reel on the selected Instagram profile or Facebook Page |
 | [X](https://publisher.meruw.dev/guides/x/) | Local draft on this PC | Free browser handoff to finish in X, or direct posting with paid API access |
 
 ## Connect your accounts
@@ -51,11 +51,21 @@ The list has 20 videos per page. Grouping happens before pagination, so a video'
 
 Statuses distinguish local **Draft**, **Approved**, **Private video**, **TikTok inbox**, **Limited visibility**, **Published**, **Failed** and **Check result**. The last label means the result is uncertain, not that publishing failed. The view shows the file currently linked to each saved post and its local receipt. **Refresh posts** reloads local records; it does not query social networks or reconstruct remote history. Browser handoffs to X cannot establish a published status.
 
+## Uploads in the background
+
+Confirm an individual send or a batch to add its API transfers to **Uploads**, at the foot of the sidebar. The confirmation closes and you can switch videos, languages or modules while Publisher sends. Each entry shows the platform, language, account, mode, title, elapsed time and result. Transfers run one at a time to keep local memory and bandwidth use bounded; one failed destination does not stop the rest.
+
+**Waiting** means the file has not been sent. You can cancel a waiting entry. **Sending / awaiting platform confirmation** covers validation, transfer and provider processing; it is not a percentage or proof of publication. Finished entries show the actual outcome, including private and inbox transfers. **Needs attention** includes uncertain results: read Details and check the destination before trying again. **Clear finished** clears session activity, not saved receipts. Posts refreshes local results when a transfer finishes.
+
+The queue keeps the confirmed account and draft revision. Editing or revoking a queued post's approval causes the backend's checks to reject that changed revision before sending. Duplicate active transfers for the same account and file are blocked. Free X browser handoff remains an immediate clipboard/browser action.
+
+Keep Publisher running; minimizing is supported. Closing the window during an active or waiting transfer opens Uploads instead. This is a session queue, not a Windows background service: quitting forcibly, rebooting or a crash stops work. Unsent queue entries are not restored; existing transfer receipts remain available for manual reconciliation. No automatic retry is performed.
+
 ## Check the result
 
 Publisher revalidates the delivery and stages a temporary copy matching the approved hash before sending. SQLite records one attempt per platform, verified account ID and video hash. The same file can go to another account. A confirmed transfer cannot be repeated to the same destination through Publisher. Keep the app open while uploading. A receipt displays the returned reference.
 
-If a response is lost, check the destination before doing anything else. Look in YouTube Studio (including private videos), the TikTok inbox, the professional Instagram profile or the connected X account. Only choose **Allow another attempt** after confirming the upload is absent. If Publisher exited during a transfer, an in-flight receipt becomes eligible for manual recovery after 30 minutes. **Refresh receipt** reads the local receipt. Publisher does not automatically retry, schedule posts or resume partial transfers. X API publishing requires a separate cost acknowledgment for every attempt; failed or retried requests can also affect usage. Free browser handoffs do not create transfer receipts.
+If a response is lost, check the destination before doing anything else. Look in YouTube Studio (including private videos), the TikTok inbox, the professional Instagram profile, the Facebook Page or the connected X account. Only choose **Allow another attempt** after confirming the upload is absent. If Publisher exited during a transfer, an in-flight receipt becomes eligible for manual recovery after 30 minutes. **Refresh receipt** reads the local receipt. Publisher does not automatically retry, schedule posts or resume partial transfers. X API publishing requires a separate cost acknowledgment for every attempt; failed or retried requests can also affect usage. Free browser handoffs do not create transfer receipts.
 
 Receipts distinguish **Private video uploaded**, **Sent to inbox**, **Published** and unresolved attempts. Sending a video to TikTok's inbox does not mean it is published. For an uncertain YouTube visibility change, check Studio, then explicitly retry publishing the same ID. This does not unlock another upload; an interrupted visibility request can be retried after 30 minutes. A successful receipt records the provider's response at that time, not continuous monitoring of later manual changes.
 

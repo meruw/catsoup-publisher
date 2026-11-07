@@ -18,7 +18,7 @@ Publisher can send an approved MP4 to the TikTok inbox or use optional Direct Po
 Select **Accounts → ES → TikTok → Connect → Sign in with TikTok**. TikTok can reuse the account active in your browser. Check the @username before granting access; use **Change account** if the wrong account is active. Repeat under **EN**. The ES/EN selector in Publisher controls where the resulting connection is stored.
 
 ## Send to the inbox
-Review the video and edit its **TikTok** post, then choose **Approve post** and the send action above the editor. Confirm the destination and select **Send to TikTok inbox**. Open the inbox notification in TikTok, paste the prepared caption if desired and finish posting there. An inbox receipt does not mean the video is public.
+Review the video and edit its **TikTok** post, then choose **Approve post** and the send action above the editor. Confirm the destination and select **Send to TikTok inbox**. Open the inbox notification in TikTok, paste the prepared caption if desired and finish posting there. An inbox receipt does not mean the video is public. Finish in the TikTok mobile app using the destination account. Inbox transfer sends the video without pre-filling its caption; copy the prepared text to your phone and paste it in the editor. The browser session does not select the upload destination; the saved account authorization does.
 
 [Desktop Login Kit](https://developers.tiktok.com/docs/en/login-kit-desktop) · [Inbox upload requirements](https://developers.tiktok.com/docs/en/content-posting-api-get-started-upload-content)
 
@@ -38,6 +38,24 @@ Direct Post is confirmed through the individual TikTok dialog, where the require
 
 An unaudited client is limited to private accounts and `SELF_ONLY` posts. Public visibility requires TikTok's audit. TikTok excludes utilities limited to uploading to accounts managed by the developer or their team. A public open-source repository alone does not establish eligibility or guarantee approval; a broadly available creator product must satisfy the review requirements.
 
-Local videos use `FILE_UPLOAD`; the documentation site does not host the MP4. Direct Post has protocol and browser-fixture coverage in Publisher. Live authorization and a transfer with approved content still need validation for your developer client.
+Local videos use `FILE_UPLOAD`; the documentation site does not host the MP4. Direct Post has protocol and browser-fixture coverage in Publisher. Authorization and an inbox transfer with approved content have been validated for the operator's client. Public Direct Post still requires TikTok's audit.
 
 See TikTok's [Direct Post setup](https://developers.tiktok.com/docs/en/content-posting-api-get-started), [creator-info API](https://developers.tiktok.com/docs/en/content-posting-api-reference-query-creator-info) and [Content Sharing Guidelines](https://developers.tiktok.com/docs/en/content-sharing-guidelines).
+
+## Prepare the public Direct Post review
+
+Complete the product and its end-to-end posting demonstration before submission. TikTok's review guidelines exclude apps still in development/testing and apps intended only for private use. A public repository by itself is insufficient.
+
+1. Open the app in the [Developer Portal](https://developers.tiktok.com/) and review its Production configuration. Use Desktop Login Kit and Content Posting API; enable Direct Post and request only the scopes actually used: `user.info.basic`, `video.upload` and `video.publish`.
+2. Provide the complete product website, visible working privacy/terms links, app identity and instructions for reviewers. The site's content must describe the functioning product; do not present the unfinished PoC as a released application.
+3. In App review, explain each scope and attach a demonstration of login, account identity, the video preview, editable caption, explicit privacy, interactions, disclosures, consent and the final outcome. Demonstrate inbox transfer too if requesting `video.upload`. TikTok requests sandbox demonstrations for a first review.
+4. Follow the [Content Posting API audit request](https://developers.tiktok.com/application/content-posting-api) linked by TikTok's sharing guidelines. General app review, the scope grant and the audit for public posting are distinct requirements; an enabled toggle does not prove audit approval.
+5. When TikTok confirms the production client's eligibility, configure that client's credentials in Publisher and reconnect ES and EN if switching from sandbox. Approval belongs to the API client; it does not extend to other users' separately registered clients.
+
+Suggested scope explanation, to adapt to the actual submitted product:
+
+> CATsoup Publisher is a local desktop publishing application for creators reviewing and publishing their own original videos. Login Kit identifies the account receiving each post. user.info.basic displays its identity; video.upload sends a video for completion in TikTok; video.publish supports a user-confirmed Direct Post with editable text, privacy selection and content disclosures. Publisher stores authorizations protected on the user's Windows PC and shows the provider's processing result.
+
+Do not claim public availability, user numbers or successful public Direct Post unless demonstrated. Review and audit acceptance are decided by TikTok.
+
+See the [App Review Guidelines](https://developers.tiktok.com/docs/en/app-review-guidelines) and [Content Sharing Guidelines](https://developers.tiktok.com/docs/en/content-sharing-guidelines).

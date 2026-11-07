@@ -27,7 +27,7 @@ An empty episode library is normal. To try playback, generate a synthetic ES/EN 
 apps/publisher/bin/CATsoupPublisher.exe --check
 ```
 
-Launch Publisher again to preview the demo. It is for playback only. For your own videos, place a [delivery package](https://github.com/meruw/catsoup-publisher/blob/main/contracts/delivery/CONTRACT.md) in `deliveries/<episode-id>/`. To open another compatible workspace, use `--root C:\path\to\workspace`. That workspace must include the validator and Python environment.
+Launch Publisher again to preview the demo. It is for playback only. For your own videos, click **Import delivery** under Episodes and choose the episode folder containing `manifest.json`. Publisher copies the declared videos and text, checks their hashes and validates the [delivery package](https://github.com/meruw/catsoup-publisher/blob/main/contracts/delivery/CONTRACT.md), then opens it. The original folder stays unchanged. Importing does not approve or publish. An identical existing package opens without duplication; a conflicting package is rejected without replacing files. Imports accept self-contained packages (up to 256 declared files and 64 GiB). To open another compatible workspace, use `--root C:\path\to\workspace`. That workspace must include the validator and Python environment.
 
 ## 2. Configure the platforms you want
 
