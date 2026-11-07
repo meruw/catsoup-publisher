@@ -11,9 +11,11 @@ It never loads social sites into the privileged application webview.
 Keep tokens, client credentials, private media and account data outside Git.
 Google and TikTok use system-browser OAuth with state and PKCE. The Meta
 HTTPS return page pairs a browser tab with a short-lived state and AES-GCM key. The key arrives in the launch fragment. Only an authenticated reply is accepted on the random IPv4 loopback port. The selected HTTPS host (GitHub Pages only after explicit opt-in) receives the short-lived authorization code in the callback URL and serves the browser script. The desktop app alone exchanges the code with Meta. Changes of callback host require an explicit local setting, independent of imported Meta credentials. Windows DPAPI
-protects stored user tokens and binds them to the platform, language and ID.
+protects stored user tokens and binds them to the platform, language and ID. Developer configurations are also protected with user-scoped DPAPI, bound to their provider filename.
 The UI receives account identities; refresh credentials stay in Go. Uploads revalidate approval and stage the exact hashed
 bytes; the HTTP client restricts transfer hosts and rejects redirects. Local
 receipts preserve uncertain outcomes across restarts. See [uploads](docs/guides/Uploads.md).
 
 Report vulnerabilities through [GitHub private vulnerability reporting](https://github.com/meruw/catsoup-publisher/security/advisories/new). Include the affected version, reproduction steps and expected impact. Remove credentials and account data from any examples.
+
+Developer JSON files in the application configuration directory migrate automatically on startup. Migration preserves the original JSON bytes, client fingerprints, sign-in receipts and account tokens. Encryption is decrypted and checked before replacement; temporary files contain ciphertext only. An unreadable or damaged configuration fails closed and can be replaced from Settings. No plaintext backup is created. Imported source JSON files elsewhere on disk are not removed or encrypted by Publisher. Non-secret callback preferences remain readable text. DPAPI protection requires the original Windows user and does not protect against malicious processes already running as that user.

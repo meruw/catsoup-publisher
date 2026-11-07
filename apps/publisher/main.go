@@ -80,6 +80,9 @@ func main() {
 		}
 		return
 	}
+	if _, err := uploads.MigrateDeveloperCredentials(); err != nil {
+		log.Print("Some developer credentials could not be protected; check Settings")
+	}
 	assets, err := fs.Sub(bundled, "frontend/dist")
 	if err != nil {
 		log.Fatal(err)

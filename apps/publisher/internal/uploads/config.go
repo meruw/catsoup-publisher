@@ -35,7 +35,7 @@ func Configure(platform, raw string) error {
 		}
 		// Store only the public native-client settings.
 		b, _ := json.Marshal(map[string]string{"client_id": data.ID, "redirect_uri": data.Redirect})
-		return saveConfiguration("x-desktop.json", string(b))
+		return saveDeveloperConfiguration("x-desktop.json", string(b))
 	case "youtube":
 		if !fieldsPresent(data.Installed.ID, data.Installed.Secret) {
 			return errors.New("select Google Desktop app JSON")
@@ -54,7 +54,7 @@ func Configure(platform, raw string) error {
 	default:
 		return errors.New("unsupported client configuration")
 	}
-	return saveConfiguration(file, raw)
+	return saveDeveloperConfiguration(file, raw)
 }
 
 func saveConfiguration(file, raw string) error {

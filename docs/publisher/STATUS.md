@@ -49,6 +49,12 @@ Publishing defaults has its own Settings subpage, alongside Developer credential
 
 Status filters use four categories with exact receipt states retained in account details. Posts and detail views show small local thumbnails. Visible previews decode serially through the existing validated media endpoint, wait for a rendered frame, then release the decoder. An in-memory cache holds up to 64 images for one minute; unavailable media has a neutral placeholder. No additional bridge, runtime dependency or persistent media cache is introduced. Browser checks verify real thumbnail pixels, bounded dimensions, serial decoding, cache reuse and cancellation.
 
+## Credential storage validation
+
+Developer configurations use filename-bound Windows DPAPI and automatic migration of valid legacy JSON. Migration verifies exact plaintext recovery before replacement and preserves account tokens, client fingerprints, sign-in receipts and TikTok Direct Post preferences. Corrupt, swapped and oversized files fail closed. Temporary files contain ciphertext only and are removed after a failed replacement. Windows tests cover migration, repeat reads, client confirmation, token preservation and a locked destination file. Go tests, go vet and the Windows executable build pass.
+
+The operator's three present developer configurations (Google, TikTok and Meta) were migrated and verified readable. The account/draft database remained byte-identical during repeat verification; client receipts and callback preferences were preserved. No live provider authorization or upload was performed for this change.
+
 ## Next action
 
-Check Posts in the Windows app with the owner, then configure video.publish in the operator's TikTok developer client and reconnect ES and EN. Validate Direct Post with explicitly approved content and the visibility permitted by TikTok. The PoC remains in progress; no release until the owner declares it complete.
+The owner confirmed both TikTok accounts have inbox and Direct Post access. Confirm saved ES/EN account identities in the updated app. Validate Direct Post with explicitly approved content and the visibility permitted by TikTok. The PoC remains in progress; no release until the owner declares it complete.
