@@ -8,7 +8,6 @@ import (
 	"math"
 	"net/http"
 	"os"
-	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
@@ -82,7 +81,7 @@ func TestTikTokDirectOptInAndScope(t *testing.T) {
 	if err := SetTikTokDirectEnabled(false); err != nil || TikTokDirectEnabled() {
 		t.Fatal("could not opt out", err)
 	}
-	raw, err := os.ReadFile(filepath.Join(cfg, "CATsoup Publisher", "tiktok-desktop.json"))
+	raw, err := readDeveloperConfiguration("tiktok-desktop.json")
 	if err != nil || !strings.Contains(string(raw), "fixture-key") || !strings.Contains(string(raw), "fixture-secret") {
 		t.Fatal("configuration lost")
 	}

@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"math"
-	"os"
-	"path/filepath"
 	"slices"
 	"strings"
 	"unicode/utf16"
@@ -84,11 +82,7 @@ func TikTokDirectEnabled() bool {
 	return err == nil && strings.Contains(","+cfg.scope+",", ",video.publish,")
 }
 func SetTikTokDirectEnabled(enabled bool) error {
-	dir, err := os.UserConfigDir()
-	if err != nil {
-		return err
-	}
-	raw, err := os.ReadFile(filepath.Join(dir, "CATsoup Publisher", "tiktok-desktop.json"))
+	raw, err := readDeveloperConfiguration("tiktok-desktop.json")
 	if err != nil {
 		return errMissingClient
 	}

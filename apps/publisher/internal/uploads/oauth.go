@@ -36,15 +36,11 @@ func fieldsPresent(values ...string) bool {
 }
 
 func desktopConfig(platform string) (desktopOAuth, error) {
-	configDir, err := os.UserConfigDir()
-	if err != nil {
-		return desktopOAuth{}, err
-	}
 	file := map[string]string{"instagram": "meta-desktop.json", "youtube": "google-desktop.json", "tiktok": "tiktok-desktop.json", "x": "x-desktop.json"}[platform]
 	if file == "" {
 		return desktopOAuth{}, errors.New("unsupported provider")
 	}
-	raw, err := os.ReadFile(filepath.Join(configDir, "CATsoup Publisher", file))
+	raw, err := readDeveloperConfiguration(file)
 	if errors.Is(err, os.ErrNotExist) {
 		return desktopOAuth{}, errMissingClient
 	}
