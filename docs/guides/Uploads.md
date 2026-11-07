@@ -51,7 +51,24 @@ The list has 20 videos per page. Grouping happens before pagination, so a video'
 
 Statuses distinguish local **Draft**, **Approved**, **Private video**, **TikTok inbox**, **Limited visibility**, **Published**, **Failed** and **Check result**. The last label means the result is uncertain, not that publishing failed. The view shows the file currently linked to each saved post and its local receipt. **Refresh posts** reloads local records; it does not query social networks or reconstruct remote history. Browser handoffs to X cannot establish a published status.
 
+## Read post statistics
+
+Open **Posts**, choose a video, then its destination account. Select **Load statistics** in the details. **Refresh statistics** makes a new read-only request; there is no automatic polling or paid statistics API.
+
+| Platform | Available in Publisher |
+| --- | --- |
+| YouTube | Views, likes and comments returned by the video API |
+| Instagram | Likes and comments |
+| Facebook Page Reels | Likes and comments; likes exclude other reactions |
+| TikTok | Not implemented; needs `video.list` and the published video ID, which an inbox receipt does not provide |
+| X | Not queried, to avoid paid API usage |
+
+Counts use the connected account and the saved receipt for this exact video file. Missing or hidden counters are omitted, not replaced with zero. The timestamp describes when counts were fetched, not when the provider last updated them. Providers may lag. If a refresh fails, the last successful counts remain visibly dated. Counts are held in memory while the detail is open, not stored as a historical analytics database. Reconnecting an account can be necessary if permissions expire.
+
+These are individual platform counters, not a cross-platform reach total. Retention, revenue, reach and watch time are not included. YouTube's [video statistics](https://developers.google.com/youtube/data/reference/rest/v3/videos#statistics) use that platform's definitions. The request consumes normal API quota; Publisher does not buy quota or enable billing.
+
 ## Uploads in the background
+
 
 Confirm an individual send or a batch to add its API transfers to **Uploads**, at the foot of the sidebar. The confirmation closes and you can switch videos, languages or modules while Publisher sends. Each entry shows the platform, language, account, mode, title, elapsed time and result. Transfers run one at a time to keep local memory and bandwidth use bounded; one failed destination does not stop the rest.
 
