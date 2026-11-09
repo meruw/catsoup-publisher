@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import {tikTokWeb} from './services/tiktokWeb';
 import UiDialog from './components/UiDialog.vue';
-import {activeTransfers,transferJobs} from './services/transfers';
+import {activeTransfers,transferJobs,transferUpdates} from './services/transfers';
 import TransferActivity from './components/TransferActivity.vue';
 import EpisodeBrowser from './components/EpisodeBrowser.vue';
-import { computed, defineAsyncComponent, onMounted, onUnmounted, ref } from 'vue';
+import { computed, defineAsyncComponent, onMounted, onUnmounted, ref, watch } from 'vue';
 import VideoPreview from './components/VideoPreview.vue';
 import UiButton from './components/UiButton.vue';
 import UiSegmented from './components/UiSegmented.vue';
@@ -16,7 +16,8 @@ import PublicationDraft from './components/PublicationDraft.vue';
 import UiTooltip from './components/UiTooltip.vue';
 import UiIcon from './components/UiIcon.vue';
 import { uploads } from './services/uploads';
-import type { PostStatus } from './services/drafts';
+import {pendingDeliveries} from './services/completion';
+import type { Completion, PostStatus } from './services/drafts';
 import { drafts } from './services/drafts';
 import { publisher, mediaURL, type Entry, type Episode } from './services/publisher';
 
@@ -54,6 +55,16 @@ function showSettings(provider?:SetupPlatform, lang?:string) {
   void navigate(() => { settingsProvider.value=provider ?? null; if(lang) accountLanguage.value=lang; module.value='settings'; });
 }
 const entries = ref<Entry[]>([]);
+const completed=ref<Completion[]>([]);
+const pendingEntries=computed(()=>pendingDeliveries(entries.value,completed.value));
+let completionRequest=0;
+async function refreshCompletion(){
+ const request=++completionRequest;
+ try{const result=await drafts.completedLanguages();if(request===completionRequest)completed.value=result||[];}
+ catch{if(request===completionRequest)completed.value=[];}
+}
+watch(transferUpdates,()=>{void refreshCompletion()});
+watch(accountBusy,busy=>{if(!busy)void refreshCompletion()});
 const episode = ref<Episode | null>(null);
 const busy = ref(false);
 const importing = ref(false);
@@ -65,6 +76,7 @@ async function importDelivery() {
     const result=await publisher.importDelivery();
     if(!result) { importMessage.value=''; return; }
     entries.value=await publisher.list() || [];
+    await refreshCompletion();
     module.value='publisher';
     await select(result.id);
     importMessage.value=result.existing ? 'Already imported' : 'Delivery imported';
@@ -111,7 +123,8 @@ async function refresh() {
   error.value = '';
   try {
     entries.value = await publisher.list() || [];
-    const target = entries.value.find(e => e.id === episode.value?.id) || entries.value.find(e => e.valid);
+    await refreshCompletion();
+    const target = pendingEntries.value.find(e => e.id === episode.value?.id) || pendingEntries.value.find(e => e.valid);
     if (target) await select(target.id);
     else episode.value = null;
   } catch (e) {
@@ -161,10 +174,10 @@ onUnmounted(() => {stopCloseListener?.();window.removeEventListener('keydown',di
         <button class="module-item" :aria-current="module==='accounts'?'page':undefined" :disabled="navigating || accountBusy" @click="showAccounts">Accounts</button>
         <button class="module-item" :aria-current="module==='settings'?'page':undefined" :disabled="busy || navigating || accountBusy" @click="showSettings()">Settings</button>
       </nav>
-      <div class="library-label"><span>Episodes</span><span class="mono">{{ entries.length }}</span></div>
+      <div class="library-label"><span>Pending episodes</span><span class="mono">{{ pendingEntries.length }}</span></div>
       <UiButton class="import-delivery" variant="secondary" :busy="importing" :disabled="busy || navigating || accountBusy || transferBusy" @click="navigate(importDelivery)">{{ importing ? 'Importing…' : 'Import delivery' }}</UiButton>
       <p v-if="importMessage" class="import-feedback" :class="{'import-error':importError}" :role="importError ? 'alert' : 'status'">{{ importMessage }}</p>
-      <EpisodeBrowser :entries="entries" :selected="episode?.id" :disabled="busy || navigating || accountBusy" @select="id=>navigate(async()=>{module='publisher';await select(id)})"/>
+      <EpisodeBrowser :entries="pendingEntries" :completed="entries.length-pendingEntries.length" :selected="episode?.id" :disabled="busy || navigating || accountBusy" @select="id=>navigate(async()=>{module='publisher';await select(id)})"/>
       <div class="sidebar-tools"><button id="uploads-launcher" class="console-launcher" :aria-expanded="uploadsOpen" @click="uploadsOpen=true"><span>Uploads</span><span v-if="activeTransfers" role="status">{{activeTransfers}} active</span><span v-else-if="transferJobs.some(j=>j.state==='attention')">Needs attention</span><span v-else-if="transferJobs.length">Finished</span></button><button class="console-launcher" :aria-expanded="consoleOpen && !consoleCollapsed" aria-controls="diagnostics-console" aria-keyshortcuts="Control+Shift+D" title="Console (Ctrl+Shift+D)" @click="consoleOpen ? consoleCollapsed=false : openDiagnostics()"><span aria-hidden="true" class="console-symbol">&gt;_</span><span>Console</span><kbd>Ctrl ⇧ D</kbd></button></div>
     </aside>
     <AccountManager v-if="module==='accounts'" :initial-language="accountLanguage" @settings="showSettings" @language="accountLanguage=$event" @busy="accountBusy=$event" @diagnostics="openDiagnostics"/>
@@ -210,7 +223,7 @@ onUnmounted(() => {stopCloseListener?.();window.removeEventListener('keydown',di
         </div>
       </section>
       <section v-if="!episode && !busy && !error" class="empty">
-        <h2>No delivery to preview</h2><p>Choose Import delivery and select the folder containing manifest.json</p>
+        <template v-if="entries.length&&!pendingEntries.length"><h2>All deliveries are complete</h2><UiButton variant="quiet" @click="showPosts()">View Posts</UiButton></template><template v-else><h2>No delivery to preview</h2><p>Choose Import delivery and select the folder containing manifest.json</p></template>
       </section>
     </main>
   </div>

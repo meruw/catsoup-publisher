@@ -13,6 +13,13 @@ import * as drafts$0 from "./internal/drafts/models.js";
 // @ts-ignore: Unused imports
 import * as $models from "./models.js";
 
+/**
+ * CompletedLanguages reads local receipts only; it never publishes or hides data.
+ */
+export function CompletedLanguages(): $CancellablePromise<drafts$0.Completion[] | null> {
+    return $Call.ByID(4143930326);
+}
+
 export function ConfirmClose(): $CancellablePromise<void> {
     return $Call.ByID(3721874590);
 }

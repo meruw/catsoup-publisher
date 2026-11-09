@@ -2,7 +2,7 @@
 import {computed,ref,watch} from 'vue';
 import type {Entry} from '../services/publisher';
 import UiButton from './UiButton.vue';
-const props=defineProps<{entries:Entry[];selected?:string;disabled:boolean}>();
+const props=defineProps<{entries:Entry[];completed?:number;selected?:string;disabled:boolean}>();
 const emit=defineEmits<{select:[id:string]}>();
 const search=ref(''),page=ref(0),size=6;
 const matches=computed(()=>{const q=search.value.trim().toLocaleLowerCase();return props.entries.filter(e=>!q||`${e.title} ${e.id}`.toLocaleLowerCase().includes(q));});
@@ -20,7 +20,7 @@ watch(()=>props.selected,id=>{const index=matches.value.findIndex(e=>e.id===id);
     <span>{{entry.title}}</span><small v-if="!entry.valid">Needs attention</small>
    </button>
   </nav>
-  <p v-if="!matches.length" class="episode-empty">{{entries.length?'No matching episodes':'No deliveries yet'}}</p>
+  <p v-if="!matches.length" class="episode-empty">{{entries.length?'No matching episodes':completed?'All sent · available in Posts':'No deliveries yet'}}</p>
   <footer v-if="pages>1" class="episode-pages"><UiButton variant="quiet" size="compact" aria-label="Previous episodes" :disabled="page===0" @click="page--">Previous</UiButton><span>{{page+1}} / {{pages}}</span><UiButton variant="quiet" size="compact" aria-label="Next episodes" :disabled="page+1>=pages" @click="page++">Next</UiButton></footer>
  </section>
 </template>

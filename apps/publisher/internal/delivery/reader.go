@@ -63,10 +63,12 @@ type Episode struct {
 	Warnings    []string `json:"warnings"`
 }
 type Entry struct {
-	ID      string `json:"id"`
-	Title   string `json:"title"`
-	Valid   bool   `json:"valid"`
-	Problem string `json:"problem"`
+	Languages   []string `json:"languages"`
+	Fingerprint string   `json:"fingerprint"`
+	ID          string   `json:"id"`
+	Title       string   `json:"title"`
+	Valid       bool     `json:"valid"`
+	Problem     string   `json:"problem"`
 }
 type Verdict struct {
 	Errors      []string `json:"errors"`
@@ -244,6 +246,8 @@ func (r *Reader) List() ([]Entry, error) {
 		if err != nil {
 			entry.Problem = err.Error()
 		} else {
+			entry.Languages = episode.Languages
+			entry.Fingerprint = episode.Fingerprint
 			entry.Title = episode.Title
 			entry.Valid = true
 		}

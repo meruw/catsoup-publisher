@@ -28,3 +28,10 @@ func (s *DraftService) PostGroups(filter drafts.PostFilter) (drafts.PostGroupPag
 	defer cancel()
 	return s.store.PostGroups(ctx, filter)
 }
+
+// CompletedLanguages reads local receipts only; it never publishes or hides data.
+func (s *DraftService) CompletedLanguages() ([]drafts.Completion, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	return s.store.CompletedLanguages(ctx)
+}

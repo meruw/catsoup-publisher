@@ -45,6 +45,7 @@ node apps/publisher/support/check_ui.mjs
 node apps/publisher/support/check_design.mjs
 node apps/publisher/support/check_thumbnails.mjs
 node apps/publisher/support/check_post_times.mjs
+node apps/publisher/support/check_episode_completion.mjs
 ```
 
 Reports/screenshots go into ignored `work/`. Browser checks use a fixture bridge;

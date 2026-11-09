@@ -97,7 +97,11 @@ Keep Publisher running; minimizing is supported. Closing the window during an ac
 
 ## Find an episode
 
-The sidebar shows up to six episodes per page. Search by title or identifier; selecting a video from Posts brings its episode into view. Pagination bounds the visible list without removing or archiving deliveries.
+The sidebar shows **Pending episodes**, up to six per page, with search by title or identifier. An episode leaves this list when every language in its current delivery has at least one connected non-X account and every such account has a successful receipt for its linked video: **Published**, or **TikTok inbox** for TikTok. X never blocks completion, including paid API accounts. It does not matter whether sends were individual or part of Publish all.
+
+Private uploads, limited visibility, browser preparation, failures and uncertain results remain pending. Missing account drafts also remain pending. The check uses the current delivery fingerprint, account identity and video hash: a new delivery version or replacement account can bring the episode back. Receipt changes update the list after a transfer completes, without remote polling. If the completion lookup fails, episodes stay visible.
+
+Completed episodes are still available in **Posts**, including their editor, statistics and receipts. No files or drafts are deleted or archived. Finishing a transfer does not forcibly close the currently open editor. Selecting Publisher or refreshing chooses an available pending episode; if all are complete, the workspace offers **View Posts**.
 
 ## Check the result
 
