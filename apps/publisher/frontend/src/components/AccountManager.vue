@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import TikTokBrowserSession from './TikTokBrowserSession.vue';
 import { computed,onMounted,ref } from 'vue';
 import { uploads, type Profile, type SetupPlatform } from '../services/uploads';
 import UiButton from './UiButton.vue';
@@ -86,6 +87,7 @@ onMounted(()=>{void run(async()=>{
     </div>
     <UiButton v-if="editing!==p && remove!==p" class="row-action" :disabled="pending || (p!=='x' && configured[p]===undefined)" @click="edit(p)">{{ p!=='x' && configured[p]===false?'Set up credentials':isMeta(p) && !metaCallbackReady?'Set up callback':account(p)?'Change':p==='x'?'Set handle':'Connect' }}</UiButton>
    </div>
+   <TikTokBrowserSession v-if="p==='tiktok' && account(p) && !editing && !remove" :key="language+account(p)!.id" :language="language" :account="account(p)!.id"/>
    <div v-if="remove===p" class="draft-fields"><p>Remove {{ account(p)?.name }} from {{ langName }} uploads?</p>
     <div class="draft-actions"><UiButton :disabled="pending" @click="unlink(p)">Remove account</UiButton><UiButton variant="quiet" :disabled="pending" @click="reset">Cancel</UiButton></div>
    </div>

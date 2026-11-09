@@ -27,13 +27,26 @@ func (s *Store) Receipt(platform, account, hash string) (Receipt, error) {
 	return r, err
 }
 func (s *Store) Reserve(d Draft, account string) error {
+	return s.reserveTransfer(d, account, "sending")
+}
+
+// Web preparation shares the API reservation so neither path can duplicate the
+// same account/file. It deliberately has no automatic retry/expiry unlock.
+func (s *Store) ReserveTikTokWeb(d Draft, account string) error {
+	if d.Key.Platform != "tiktok" {
+		return errors.New("select a TikTok post")
+	}
+	return s.reserveTransfer(d, account, "web_preparing")
+}
+
+func (s *Store) reserveTransfer(d Draft, account, state string) error {
 	if err := CheckDestination(d.Key, account); err != nil {
 		return err
 	}
 	res, err := s.db.Exec(`INSERT OR IGNORE INTO upload_attempts(platform,account_id,video_hash,state,reference,started)
- SELECT platform,?,video_hash,'sending','',? FROM drafts
+ SELECT platform,?,video_hash,?,'',? FROM drafts
  WHERE episode=? AND language=? AND platform=? AND account=? AND revision=? AND video_hash=? AND EXISTS(SELECT 1 FROM accounts a WHERE a.platform=drafts.platform AND a.language=drafts.language AND a.account_id=?)
- AND `+approvalCondition+``, account, time.Now().Unix(), d.Key.Episode, d.Key.Language, d.Key.Platform, d.Key.Account, d.Revision, d.VideoHash, account)
+ AND `+approvalCondition+``, account, state, time.Now().Unix(), d.Key.Episode, d.Key.Language, d.Key.Platform, d.Key.Account, d.Revision, d.VideoHash, account)
 	if err != nil {
 		return err
 	}

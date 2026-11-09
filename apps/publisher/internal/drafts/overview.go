@@ -109,6 +109,7 @@ const postSnapshotSQL = `WITH posts AS (
  CASE WHEN u.state='sent' THEN CASE d.platform WHEN 'youtube' THEN 'private' WHEN 'tiktok' THEN 'inbox' ELSE 'published' END
  WHEN u.state IN ('sending','publishing') THEN CASE WHEN u.started<? THEN 'check' ELSE 'sending' END
  WHEN u.state IN ('check','check_publish') THEN 'check'
+ WHEN u.state IN ('web_preparing','web_ready','web_check') THEN 'check'
  WHEN u.state IS NOT NULL THEN u.state
  WHEN d.approved_revision=d.revision THEN 'approved' ELSE 'draft' END AS status,
  COALESCE(u.reference,'') AS reference,MAX(COALESCE(unixepoch(d.updated_at),0),COALESCE(u.started,0)) AS updated

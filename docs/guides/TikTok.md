@@ -17,6 +17,23 @@ Publisher can send an approved MP4 to the TikTok inbox or use optional Direct Po
 ## Connect each language
 Select **Accounts → ES → TikTok → Connect → Sign in with TikTok**. TikTok can reuse the account active in your browser. Check the @username before granting access; use **Change account** if the wrong account is active. Repeat under **EN**. The ES/EN selector in Publisher controls where the resulting connection is stored.
 
+## Prepare in the browser
+
+Use this route to upload the video and caption in TikTok Studio, then click **Publish** yourself. It uses your installed Chrome, not the Content Posting API, and Publisher adds no subscription or API charge. TikTok can require a login, verification challenge or additional posting choices; Publisher does not bypass them.
+
+1. In **Accounts**, select **ES** or **EN**, then expand **Set up browser session** under TikTok. Enter that account's exact `@username` and choose **Open TikTok browser**.
+2. Sign in in that dedicated window, then choose **Verify account** in Publisher. Repeat for the other language. These sessions are separate from your everyday Chrome profile and from each other. When creator-info access is available, Publisher also compares the username with the connected OAuth account.
+3. Save and approve the account's post. Choose **Send to TikTok → Browser → Prepare in TikTok**. The app checks the current username, attaches the validated video and combines its title, description and hashtags into one caption. The browser-preparation caption limit is 2,200 characters.
+4. Follow progress in **Uploads** while continuing to use Publisher. When TikTok's form is ready, review visibility and any content disclosures and click **Publish** in TikTok. Publisher never clicks that button. Keep Publisher open until you finish, then close the dedicated Chrome window before preparing another video for that account.
+
+A web preparation is an individual action. **Publish all** keeps the saved API/inbox mode; it does not silently change a batch into browser uploads. Browser preparation does not require enabling Direct Post.
+
+The browser and API share duplicate protection. Any existing receipt for the same account and video blocks a new browser attachment, including an inbox receipt whose notification has not appeared. Failed or interrupted browser preparations stay locked for checking; they are not retried automatically. **Ready in TikTok** means the form was prepared, not that TikTok confirmed publication. Posts keeps these preparations under **Check result**.
+
+If the signed-in username is wrong, switch accounts in the dedicated browser and verify again. If TikTok changes its editor or blocks automation, Publisher stops and reports the stage instead of guessing at controls or uploading twice. A fresh session and live posting-form behavior still require testing with each operator's account; local fixtures are not evidence of successful TikTok publication.
+
+Chrome stores its session data under `%LOCALAPPDATA%/CATsoup Publisher/browser-profiles/tiktok/`, separated by language and account identity. Publisher stores the verified username beside that profile and does not copy cookies into the workspace, repository or diagnostic logs. To erase browser sessions, close Publisher and its dedicated Chrome windows, then remove that folder. Removing an OAuth account does not sign its browser session out.
+
 ## Send to the inbox
 Review the video and edit its **TikTok** post, then choose **Approve post** and the send action above the editor. Confirm the destination and select **Send to TikTok inbox**. Open the inbox notification in TikTok, paste the prepared caption if desired and finish posting there. An inbox receipt does not mean the video is public. Finish in the TikTok mobile app using the destination account. Inbox transfer sends the video without pre-filling its caption; copy the prepared text to your phone and paste it in the editor. The browser session does not select the upload destination; the saved account authorization does.
 

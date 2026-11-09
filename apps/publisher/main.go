@@ -16,6 +16,7 @@ import (
 	"catsoup/publisher/internal/delivery"
 	"catsoup/publisher/internal/diagnostics"
 	"catsoup/publisher/internal/drafts"
+	"catsoup/publisher/internal/tiktokweb"
 	"catsoup/publisher/internal/uploads"
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
@@ -103,6 +104,9 @@ func main() {
 	uploadService := &UploadService{store: store, reader: reader, client: uploads.New()}
 	uploadService.diagnostics = diagnosticStore
 	uploadService.client.BrowserIcon = appIcon
+	browser := tiktokweb.New(filepath.Join(logRoot, "CATsoup Publisher", "browser-profiles", "tiktok"))
+	defer browser.Close()
+	tikTokWebService := &TikTokWebService{uploads: uploadService, browser: browser}
 	publisherService := &PublisherService{reader: reader}
 	var activeWindow atomic.Pointer[application.WebviewWindow]
 	app := application.New(application.Options{Name: "CATsoup Publisher", Description: "Local release preparation",
@@ -116,7 +120,7 @@ func main() {
 			},
 		},
 		Icon:     appIcon,
-		Services: []application.Service{application.NewService(publisherService), application.NewService(draftService), application.NewService(uploadService), application.NewService(diagnosticService)},
+		Services: []application.Service{application.NewService(publisherService), application.NewService(draftService), application.NewService(uploadService), application.NewService(diagnosticService), application.NewService(tikTokWebService)},
 		Assets:   application.AssetOptions{Handler: assetHandler(reader, assets)}})
 	window := app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Title: "CATsoup Publisher", Width: 1200, Height: 840, MinWidth: 820, MinHeight: 650, URL: "/", Frameless: true,

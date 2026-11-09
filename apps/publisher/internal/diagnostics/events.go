@@ -11,6 +11,9 @@ import (
 )
 
 var messages = map[string]string{
+	"web_attaching":             "TikTok browser account verified; attaching approved video",
+	"web_attention":             "TikTok browser preparation needs attention; no automatic retry",
+	"web_ready":                 "TikTok browser is ready for manual publishing",
 	"transfer_started":          "Video transfer started",
 	"transfer_finished":         "Video transfer finished",
 	"transfer_failed":           "Video transfer failed",

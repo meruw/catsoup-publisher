@@ -48,7 +48,7 @@ onUnmounted(()=>{clearInterval(timer);clearTimeout(debounce);++request});
       <li v-for="job in group.jobs" :key="job.id">
        <div class="upload-heading"><strong>{{names[job.platform]}} Â· {{job.language.toUpperCase()}}</strong><span v-if="job.started" class="upload-time">{{elapsed(job.started,job.finished)}}</span></div>
        <p class="upload-account">{{job.account}} Â· {{job.mode}}</p>
-       <div class="upload-result" :class="job.state" role="status"><span>{{job.state==='queued'?'Waiting for '+names[job.platform]:job.state==='sending'?'Sending / awaiting platform confirmation':job.state==='attention'?'Needs attention':job.result}}</span><UiButton v-if="job.state==='queued'" variant="quiet" size="compact" @click="cancelQueued(job.id)">Cancel</UiButton></div>
+       <div class="upload-result" :class="job.state" role="status"><span>{{job.state==='queued'?'Waiting for '+names[job.platform]:job.state==='sending'?(job.result||'Sending / awaiting platform confirmation'):job.state==='attention'?'Needs attention':job.result}}</span><UiButton v-if="job.state==='queued'" variant="quiet" size="compact" @click="cancelQueued(job.id)">Cancel</UiButton></div>
        <p v-if="job.state==='sending'&&now-job.started>=60000" class="upload-note">Still waiting for {{names[job.platform]}}. Other platforms can continue. Do not resend this video while this attempt is active.</p>
        <details v-if="job.state==='attention'" class="upload-error"><summary>Details</summary><p>{{job.result}}</p></details>
       </li>

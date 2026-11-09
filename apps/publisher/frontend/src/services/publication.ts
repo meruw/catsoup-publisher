@@ -10,7 +10,7 @@ export const accountKey=(profile?:Profile)=>profile ? `account:${profile.id}` : 
 export const postApproved=(d?:Draft)=>!!d?.revision && d.approvedRevision===d.revision;
 export function sendLabel(d:Draft|undefined,p?:Profile){
  if(!d)return 'Select a platform';
- if(d.key.platform==='tiktok' && d.deliveryMode==='publish')return 'Post on TikTok…';
+  if(d.key.platform==='tiktok')return 'Send to TikTok…';
  if(d.deliveryMode!=='publish')return d.key.platform==='youtube'?'Upload privately…':d.key.platform==='tiktok'?'Send to TikTok inbox…':'Keep local draft';
  return d.key.platform==='x'&&!p?.api?'Finish in X…':`Publish on ${d.key.platform==='youtube'?'YouTube':d.key.platform==='instagram'?'Instagram':d.key.platform==='facebook'?'Facebook':'X'}…`;
 }

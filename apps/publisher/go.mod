@@ -3,6 +3,7 @@ module catsoup/publisher
 go 1.27.3
 
 require (
+	github.com/chromedp/chromedp v0.23.0
 	github.com/wailsapp/wails/v3 v3.1.0
 	golang.org/x/sys v0.49.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
@@ -10,9 +11,11 @@ require (
 )
 
 require (
+	github.com/chromedp/cdproto v0.159.0 // indirect
 	github.com/coder/websocket v1.8.14 // indirect
 	github.com/dustin/go-humanize v1.1.0 // indirect
 	github.com/ebitengine/purego v0.11.1 // indirect
+	github.com/go-json-experiment/json v0.0.0-20260213210345-44df1a37e875 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/godbus/dbus/v5 v5.2.2 // indirect
 	github.com/google/uuid v1.6.0 // indirect

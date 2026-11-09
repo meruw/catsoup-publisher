@@ -4,11 +4,13 @@
 import * as DiagnosticsService from "./diagnosticsservice.js";
 import * as DraftService from "./draftservice.js";
 import * as PublisherService from "./publisherservice.js";
+import * as TikTokWebService from "./tiktokwebservice.js";
 import * as UploadService from "./uploadservice.js";
 export {
     DiagnosticsService,
     DraftService,
     PublisherService,
+    TikTokWebService,
     UploadService
 };
 

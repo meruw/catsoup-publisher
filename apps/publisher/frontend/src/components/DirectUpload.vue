@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import TikTokWebPrepare from './TikTokWebPrepare.vue';
+import UiSegmented from './UiSegmented.vue';
 import {computed,nextTick,onMounted,ref,watch} from 'vue';
 import UiTooltip from './UiTooltip.vue';
 import UiButton from './UiButton.vue';
@@ -12,6 +14,7 @@ const emit=defineEmits<{busy:[value:boolean];accounts:[];queued:[]}>();
 const account=ref<Profile>({id:'',name:'',api:false,directPost:false,platform:'',language:''});
 const receipt=ref({state:'',reference:'',retryAllowed:false});
 const loading=ref(true);
+const transport=ref('browser');
 const creator=ref<TikTokCreator|null>(null),creatorError=ref('');
 const options=ref<TikTokOptions>({privacy:'',comments:false,duet:false,stitch:false,commercial:false,ownBrand:false,branded:false,synthetic:false,consent:false});
 const directTikTok=computed(()=>platform.value==='tiktok'&&mode.value==='publish');
@@ -74,6 +77,9 @@ function clearAttempt(){void run(async()=>{await uploads.clear(props.draft.key,a
   <p v-if="loading" role="status">Checking connection...</p>
   <template v-else>
   <div v-if="account.id" class="send-account"><strong :title="account.id">{{account.name}}</strong><span>{{draft.key.language==='es'?'Spanish':'English'}}</span></div>
+  <UiSegmented v-if="platform==='tiktok'" v-model="transport" label="TikTok upload method" :options="[{value:'browser',label:'Browser'},{value:'api',label:'Inbox / API'}]"/>
+  <TikTokWebPrepare v-if="platform==='tiktok' && transport==='browser'" :draft="draft" :account="account" :receipt="receipt.state" :hint="hint" :flush="flush" @queued="emit('queued')"/>
+  <template v-else>
   <div v-if="receipt.state" class="send-receipt" role="status"><strong>{{receiptLabel}}</strong><span class="mono">{{receipt.reference}}</span><small v-if="failedInstagram">Finish the saved upload. If Meta lost its file, Publisher can resend the same bytes to the same container before publishing.</small><small v-else-if="!completed && !privateVideo">Check the destination before retrying.</small></div>
   <template v-if="!completed && (!receipt.state || privateVideo || failedInstagram)">
    <template v-if="hint">
@@ -114,6 +120,7 @@ function clearAttempt(){void run(async()=>{await uploads.clear(props.draft.key,a
   <template v-else-if="receipt.state && !completed">
    <UiButton :disabled="busy" @click="run(refreshReceipt)">Refresh receipt</UiButton>
    <div v-if="receipt.retryAllowed" class="retry-confirmation"><label><input v-model="reconciled" type="checkbox"> I checked this account and the upload is absent.</label><UiButton :disabled="!reconciled || busy" @click="clearAttempt">Allow another attempt</UiButton></div>
+  </template>
   </template>
   </template>
   <p v-if="error" role="alert" class="notice error">{{error}}</p>

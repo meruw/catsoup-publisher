@@ -18,3 +18,8 @@
 
 No production video, voice model, social account or third-party content is bundled.
 The optional demo is generated locally from FFmpeg test sources.
+
+- Browser preparation uses [chromedp](https://github.com/chromedp/chromedp) v0.23.0
+  and cdproto v0.159.0, MIT licensed. Their notices are bundled in
+  `apps/publisher/frontend/public/licenses/chromedp.txt`. Chrome is installed and
+  updated separately by the user; Publisher does not distribute a browser.

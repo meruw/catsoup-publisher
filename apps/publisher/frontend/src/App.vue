@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import {tikTokWeb} from './services/tiktokWeb';
+import UiDialog from './components/UiDialog.vue';
 import {activeTransfers,transferJobs} from './services/transfers';
 import TransferActivity from './components/TransferActivity.vue';
 import EpisodeBrowser from './components/EpisodeBrowser.vue';
@@ -19,6 +21,8 @@ import { drafts } from './services/drafts';
 import { publisher, mediaURL, type Entry, type Episode } from './services/publisher';
 
 const module = ref<'publisher'|'posts'|'accounts'|'settings'>('publisher');
+const browserCloseWarning=ref(false);
+async function finishClose(){browserCloseWarning.value=false;if(module.value==='accounts')await drafts.confirmClose();else await navigate(async()=>{await drafts.confirmClose()});}
 const initialPlatform=ref('');
 const initialPublish=ref(false),postsEpisode=ref('');
 const PostOverview=defineAsyncComponent(()=>import('./components/PostOverview.vue'));
@@ -131,10 +135,10 @@ function switchVideo(event: Event) {
 
 onMounted(async () => {
   window.addEventListener('keydown',diagnosticShortcut);
-  stopCloseListener = drafts.onCloseRequested(() => {
+  stopCloseListener = drafts.onCloseRequested(async () => {
     if(activeTransfers.value){uploadsOpen.value=true;return;}
-    if (module.value==='accounts') void drafts.confirmClose();
-    else void navigate(async () => { await drafts.confirmClose(); });
+    try{if(await tikTokWeb.hasPreparedBrowser()){browserCloseWarning.value=true;return;}await finishClose();}
+    catch{error.value='Could not check browser work. Finish in TikTok before closing Publisher.';}
   });
   try { await drafts.enableCloseGuard(); }
   catch { error.value = 'Close protection is unavailable. Save your draft before closing.'; }
@@ -145,6 +149,7 @@ onUnmounted(() => {stopCloseListener?.();window.removeEventListener('keydown',di
 
 <template>
   <WindowBar />
+  <UiDialog v-if="browserCloseWarning" title="TikTok is still open" @close="browserCloseWarning=false"><p>Closing Publisher also closes its TikTok browser. Finish publishing there first. Its upload record will be kept to prevent another attachment.</p><div class="draft-actions"><UiButton @click="browserCloseWarning=false">Keep open</UiButton><UiButton variant="quiet" @click="finishClose">Close Publisher</UiButton></div></UiDialog>
   <TransferActivity v-if="uploadsOpen" :open="uploadsOpen" @close="uploadsOpen=false" @posts="showPosts"/>
   <DiagnosticsConsole v-if="consoleOpen" v-model:collapsed="consoleCollapsed" :service="diagnosticFilter.service" :language="diagnosticFilter.language" @close="consoleOpen=false"/>
   <div class="workspace">

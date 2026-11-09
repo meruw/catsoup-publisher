@@ -16,6 +16,7 @@ const platforms=new Set(['youtube','instagram','facebook','tiktok','x']);
 const actions=new Map<number,()=>Promise<string>>();
 const destination=(d:Draft)=>JSON.stringify([d.key.platform,d.key.account,d.videoHash]);
 export const transferPending=(d:Draft)=>transferJobs.some(j=>j.destination===destination(d)&&(j.state==='queued'||j.state==='sending'));
+export function updateTransferProgress(d:Draft,text:string){const job=transferJobs.find(j=>j.destination===destination(d)&&j.state==='sending');if(job)job.result=text;}
 export function enqueueTransfers(requests:TransferRequest[]) {
  if(!requests.length)return;
  if(activeTransfers.value+requests.length>50)throw Error('The upload queue is full. Wait for a transfer to finish.');
