@@ -5,6 +5,7 @@ import type {PostStatus} from '../services/drafts';
 import UiButton from './UiButton.vue';
 import StatisticsChart from './StatisticsChart.vue';
 const props=defineProps<{post:PostStatus;heading?:string}>();
+const emit=defineEmits<{published:[at:string]}>();
 const metrics=ref<{label:string;value:string}[]>([]),busy=ref(false),error=ref(''),note=ref(''),updated=ref('');
 const history=ref<{updatedAt:string;items:{label:string;value:string}[]}[]>([]),historyNote=ref(''),metric=ref('');
 let generation=0;
@@ -15,6 +16,7 @@ async function refresh(force=true){
  if(statisticsNote(props.post))return false;
  const request=++generation;busy.value=true;error.value='';
  try {const result=await readStatistics(props.post,force);if(request!==generation)return false;
+ if(result.publishedAt)emit('published',result.publishedAt);
  metrics.value=result.items||[];updated.value=result.updatedAt;note.value=result.note;
  history.value=(result.history||[]).map(s=>({...s,items:s.items||[]}));historyNote.value=result.historyNote||'';
  if(!metrics.value.some(m=>m.label===metric.value))metric.value=metrics.value[0]?.label||'';
@@ -27,12 +29,12 @@ const count=(value:string)=>{try{return new Intl.NumberFormat().format(BigInt(va
 </script>
 <template>
  <section class="post-statistics" aria-label="Post statistics" :aria-busy="busy">
-  <header><h3>{{heading || 'Statistics'}}</h3><UiButton variant="quiet" size="compact" :busy="busy" v-if="!statisticsNote(post)" :disabled="busy" @click="refresh(true)">{{busy?'Loadingâ€¦':updated?'Refresh statistics':'Retry statistics'}}</UiButton></header>
+  <header><h3>{{heading || 'Statistics'}}</h3><UiButton variant="quiet" size="compact" :busy="busy" v-if="!statisticsNote(post)" :disabled="busy" @click="refresh(true)">{{busy?'Loading…':updated?'Refresh statistics':'Retry statistics'}}</UiButton></header>
   <dl v-if="metrics.length" class="metric-strip"><div v-for="item in metrics" :key="item.label" :class="{active:metric===item.label}"><dt><button :aria-pressed="metric===item.label" @click="metric=item.label">{{item.label}}</button></dt><dd>{{count(item.value)}}</dd></div></dl>
   <StatisticsChart v-if="history.length&&metric" :samples="history" :metric="metric"/>
   <p v-if="historyNote" class="statistics-error" role="status">{{historyNote}}</p>
   <p v-if="updated" class="statistics-note">{{error?'Last successful update':'Updated'}} {{new Date(updated).toLocaleString()}}</p>
-  <p v-else-if="!note&&!error" class="statistics-note">{{busy?'Reading available countsâ€¦':'No counts loaded'}}</p>
+  <p v-else-if="!note&&!error" class="statistics-note">{{busy?'Reading available counts…':'No counts loaded'}}</p>
   <p v-if="note" class="statistics-note">{{note}}</p>
   <p v-if="error" role="alert" class="statistics-error">{{error}} Counts may require renewed account permissions.</p>
  </section>

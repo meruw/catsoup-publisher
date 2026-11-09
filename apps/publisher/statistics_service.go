@@ -11,7 +11,7 @@ import (
 )
 
 // PostStatistics accepts a local draft key, never a remote URL or access token.
-// It performs no uploads and never changes publication receipts or approvals.
+// It performs no uploads and never changes receipt states or approvals.
 func (s *UploadService) PostStatistics(key drafts.Key) (uploads.Statistics, error) {
 	out := uploads.Statistics{Items: []uploads.Metric{}}
 	id := strings.TrimPrefix(key.Account, "account:")
@@ -47,6 +47,13 @@ func (s *UploadService) PostStatistics(key drafts.Key) (uploads.Statistics, erro
 	// Persistence gets its own timeout even when the provider used most of its budget.
 	saveCtx, saveCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer saveCancel()
+	if out.PublishedAt != "" && r.State == "published" {
+		if e := s.store.RecordPublicationTime(saveCtx, key.Platform, id, r.Reference, out.PublishedAt); e != nil {
+			out.HistoryNote = "Publication date loaded, but could not be saved locally."
+		}
+	} else {
+		out.PublishedAt = ""
+	}
 	out.History, err = s.store.RecordStatistics(saveCtx, key.Platform, id, r.Reference, statistics.Sample{Items: out.Items, UpdatedAt: out.UpdatedAt})
 	if err != nil {
 		out.HistoryNote = "Current counts loaded, but local history could not be saved."

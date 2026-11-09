@@ -18,15 +18,19 @@ type PostFilter struct {
 	Offset         int      `json:"offset"`
 }
 type PostStatus struct {
-	Key         Key    `json:"key"`
-	Title       string `json:"title"`
-	VideoID     string `json:"videoId"`
-	AccountName string `json:"accountName"`
-	Connected   bool   `json:"connected"`
-	Mode        string `json:"mode"`
-	State       string `json:"state"`
-	Reference   string `json:"reference"`
-	UpdatedAt   string `json:"updatedAt"`
+	PublishedAt  string `json:"publishedAt"`
+	ConfirmedAt  string `json:"confirmedAt"`
+	StartedAt    string `json:"startedAt"`
+	ReceiptState string `json:"receiptState"`
+	Key          Key    `json:"key"`
+	Title        string `json:"title"`
+	VideoID      string `json:"videoId"`
+	AccountName  string `json:"accountName"`
+	Connected    bool   `json:"connected"`
+	Mode         string `json:"mode"`
+	State        string `json:"state"`
+	Reference    string `json:"reference"`
+	UpdatedAt    string `json:"updatedAt"`
 }
 type PostPage struct {
 	Items []PostStatus `json:"items"`
@@ -39,7 +43,7 @@ func (s *Store) PostStatuses(ctx context.Context, f PostFilter) (PostPage, error
 	if err := validatePostFilter(f); err != nil {
 		return out, err
 	}
-	rows, err := s.db.QueryContext(ctx, postSnapshotSQL+` SELECT episode,language,platform,account,title,video_id,delivery_mode,account_name,connected,status,reference,updated FROM posts
+	rows, err := s.db.QueryContext(ctx, postSnapshotSQL+` SELECT episode,language,platform,account,title,video_id,delivery_mode,account_name,connected,status,reference,updated,published_at,confirmed_at,started,receipt_state FROM posts
  WHERE (?='' OR episode=?) AND (?='' OR platform=?) AND (?='' OR language=?) AND (?='' OR status IN (SELECT value FROM json_each(?)))
  AND (?='' OR instr(lower(title||' '||episode||' '||account_name||' '||account),lower(?))>0)
  ORDER BY updated DESC,episode,language,platform,account LIMIT 51 OFFSET ?`, time.Now().Add(-30*time.Minute).Unix(), f.Episode, f.Episode, f.Platform, f.Platform, f.Language, f.Language, f.State, postStateValues(f.State), f.Search, f.Search, f.Offset)
@@ -49,11 +53,14 @@ func (s *Store) PostStatuses(ctx context.Context, f PostFilter) (PostPage, error
 	defer rows.Close()
 	for rows.Next() {
 		var p PostStatus
-		var updated int64
-		if err = rows.Scan(&p.Key.Episode, &p.Key.Language, &p.Key.Platform, &p.Key.Account, &p.Title, &p.VideoID, &p.Mode, &p.AccountName, &p.Connected, &p.State, &p.Reference, &updated); err != nil {
+		var updated, published, confirmed, started int64
+		if err = rows.Scan(&p.Key.Episode, &p.Key.Language, &p.Key.Platform, &p.Key.Account, &p.Title, &p.VideoID, &p.Mode, &p.AccountName, &p.Connected, &p.State, &p.Reference, &updated, &published, &confirmed, &started, &p.ReceiptState); err != nil {
 			return out, err
 		}
 		p.UpdatedAt = time.Unix(updated, 0).UTC().Format(time.RFC3339)
+		p.PublishedAt = isoTime(published)
+		p.ConfirmedAt = isoTime(confirmed)
+		p.StartedAt = isoTime(started)
 		out.Items = append(out.Items, p)
 	}
 	if len(out.Items) > 50 {
@@ -112,9 +119,11 @@ const postSnapshotSQL = `WITH posts AS (
  WHEN u.state IN ('web_preparing','web_ready','web_check') THEN 'check'
  WHEN u.state IS NOT NULL THEN u.state
  WHEN d.approved_revision=d.revision THEN 'approved' ELSE 'draft' END AS status,
- COALESCE(u.reference,'') AS reference,MAX(COALESCE(unixepoch(d.updated_at),0),COALESCE(u.started,0)) AS updated
+ COALESCE(u.state,'') AS receipt_state,COALESCE(u.started,0) AS started,COALESCE(t.confirmed_at,0) AS confirmed_at,COALESCE(t.published_at,0) AS published_at,
+ COALESCE(u.reference,'') AS reference,MAX(COALESCE(unixepoch(d.updated_at),0),COALESCE(u.started,0),COALESCE(t.confirmed_at,0)) AS updated
  FROM drafts d LEFT JOIN accounts a ON a.platform=d.platform AND a.language=d.language AND 'account:'||a.account_id=d.account
  LEFT JOIN upload_attempts u ON u.platform=d.platform AND 'account:'||u.account_id=d.account AND u.video_hash=d.video_hash
+ LEFT JOIN receipt_times t ON t.platform=u.platform AND t.account_id=u.account_id AND t.video_hash=u.video_hash AND t.reference=u.reference AND t.state=u.state
  )`
 
 type PostGroup struct {

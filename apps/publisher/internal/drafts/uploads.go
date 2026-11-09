@@ -60,8 +60,25 @@ func (s *Store) reserveTransfer(d Draft, account, state string) error {
 	return nil
 }
 func (s *Store) SaveReceipt(d Draft, account, state, reference string) error {
-	_, err := s.db.Exec("UPDATE upload_attempts SET state=?,reference=CASE WHEN ?='' THEN reference ELSE ? END WHERE platform=? AND account_id=? AND video_hash=?", state, reference, reference, d.Key.Platform, account, d.VideoHash)
-	return err
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err = tx.Exec("UPDATE upload_attempts SET state=?,reference=CASE WHEN ?='' THEN reference ELSE ? END WHERE platform=? AND account_id=? AND video_hash=?", state, reference, reference, d.Key.Platform, account, d.VideoHash); err != nil {
+		return err
+	}
+	// Record when a result was confirmed, never infer publication from upload start.
+	if state == "published" || state == "restricted" || state == "private" || state == "inbox" || state == "web_ready" {
+		_, err = tx.Exec(`INSERT INTO receipt_times(platform,account_id,video_hash,state,reference,confirmed_at)
+ SELECT platform,account_id,video_hash,state,reference,? FROM upload_attempts WHERE platform=? AND account_id=? AND video_hash=?
+ ON CONFLICT(platform,account_id,video_hash) DO UPDATE SET state=excluded.state,reference=excluded.reference,confirmed_at=excluded.confirmed_at,published_at=0
+ WHERE receipt_times.state<>excluded.state OR receipt_times.reference<>excluded.reference`, time.Now().Unix(), d.Key.Platform, account, d.VideoHash)
+		if err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
 }
 
 // Associate the provider container with both the approved input and exact

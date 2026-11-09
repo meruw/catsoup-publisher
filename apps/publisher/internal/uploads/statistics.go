@@ -16,6 +16,7 @@ import (
 // Values stay decimal strings across the desktop bridge (no JavaScript rounding).
 type Metric = statistics.Metric
 type Statistics struct {
+	PublishedAt string              `json:"publishedAt"`
 	Items       []Metric            `json:"items"`
 	UpdatedAt   string              `json:"updatedAt"`
 	Note        string              `json:"note"`
@@ -40,12 +41,16 @@ func (c *Client) Statistics(ctx context.Context, platform, token, account, refer
 			Items []struct {
 				ID      string
 				Snippet struct {
-					ChannelID string `json:"channelId"`
+					ChannelID   string `json:"channelId"`
+					PublishedAt string `json:"publishedAt"`
+				}
+				Status struct {
+					PrivacyStatus string `json:"privacyStatus"`
 				}
 				Statistics map[string]json.RawMessage
 			}
 		}
-		_, err := c.request(ctx, "GET", "https://www.googleapis.com/youtube/v3/videos?"+url.Values{"part": {"snippet,statistics"}, "id": {reference}}.Encode(), "Bearer "+token, nil, nil, -1, &result)
+		_, err := c.request(ctx, "GET", "https://www.googleapis.com/youtube/v3/videos?"+url.Values{"part": {"snippet,statistics,status"}, "id": {reference}}.Encode(), "Bearer "+token, nil, nil, -1, &result)
 		if err != nil {
 			return out, err
 		}
@@ -53,19 +58,23 @@ func (c *Client) Statistics(ctx context.Context, platform, token, account, refer
 			return out, errors.New("video unavailable for this connected channel")
 		}
 		raw = result.Items[0].Statistics
+		if result.Items[0].Status.PrivacyStatus == "public" {
+			out.PublishedAt = providerTime(result.Items[0].Snippet.PublishedAt)
+		}
 	case "instagram", "facebook":
 		if !facebookID.MatchString(reference) || !facebookID.MatchString(account) {
 			return out, errors.New("no valid Meta media ID is recorded")
 		}
-		fields := "id,owner{id},like_count,comments_count"
+		fields := "id,timestamp,owner{id},like_count,comments_count"
 		if platform == "facebook" {
 			fields = "id,from{id},likes.limit(0).summary(true),comments.limit(0).summary(true)"
 		}
 		var result struct {
-			ID    string
-			Owner struct{ ID string }
-			From  struct{ ID string }
-			Likes struct {
+			ID        string
+			Timestamp string `json:"timestamp"`
+			Owner     struct{ ID string }
+			From      struct{ ID string }
+			Likes     struct {
 				Summary struct {
 					Total json.RawMessage `json:"total_count"`
 				}
@@ -91,6 +100,8 @@ func (c *Client) Statistics(ctx context.Context, platform, token, account, refer
 		if result.ID != reference || owner != account {
 			return out, errors.New("media unavailable for this connected account")
 		}
+		out.PublishedAt = providerTime(result.Timestamp)
+
 		out.Note = "Views, reach and watch time are not included."
 		if platform == "facebook" {
 			out.Note += " Likes do not include other reactions."
@@ -122,4 +133,13 @@ func (c *Client) Statistics(ctx context.Context, platform, token, account, refer
 	}
 	out.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
 	return out, nil
+}
+
+func providerTime(raw string) string {
+	for _, layout := range []string{time.RFC3339, "2006-01-02T15:04:05-0700"} {
+		if at, err := time.Parse(layout, raw); err == nil && at.Unix() > 0 && !at.After(time.Now().Add(time.Minute)) {
+			return at.UTC().Format(time.RFC3339)
+		}
+	}
+	return ""
 }

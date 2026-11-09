@@ -71,3 +71,31 @@ func TestStatisticsRejectsArbitraryRequestsAndRedactsErrors(t *testing.T) {
 		t.Fatal("provider failure not safely reported")
 	}
 }
+
+func TestProviderPublicationDates(t *testing.T) {
+	for _, tc := range []struct{ platform, body, want string }{
+		{"youtube", `{"items":[{"id":"abcdefghijk","snippet":{"channelId":"456","publishedAt":"2024-01-02T10:05:06Z"},"status":{"privacyStatus":"public"},"statistics":{"viewCount":"1"}}]}`, "2024-01-02T10:05:06Z"},
+		{"youtube", `{"items":[{"id":"abcdefghijk","snippet":{"channelId":"456","publishedAt":"2024-01-02T10:05:06Z"},"status":{"privacyStatus":"private"},"statistics":{"viewCount":"1"}}]}`, ""},
+		{"instagram", `{"id":"123","owner":{"id":"456"},"timestamp":"2024-01-02T04:05:06-0600","like_count":0}`, "2024-01-02T10:05:06Z"},
+		{"instagram", `{"id":"123","owner":{"id":"456"},"timestamp":"bad","like_count":0}`, ""},
+		{"facebook", `{"id":"123","from":{"id":"456"},"created_time":"2024-01-02T10:05:06Z","likes":{"summary":{"total_count":0}}}`, ""},
+	} {
+		c := New()
+		calls := 0
+		c.HTTP.Transport = transport(func(r *http.Request) (*http.Response, error) {
+			calls++
+			if r.Method != "GET" {
+				t.Fatal("not read only")
+			}
+			return response(tc.body), nil
+		})
+		id := "123"
+		if tc.platform == "youtube" {
+			id = "abcdefghijk"
+		}
+		got, err := c.Statistics(context.Background(), tc.platform, "fixture", "456", id)
+		if err != nil || got.PublishedAt != tc.want || calls != 1 {
+			t.Fatal(tc.platform, got, err, calls)
+		}
+	}
+}

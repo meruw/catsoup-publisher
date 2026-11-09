@@ -153,7 +153,7 @@ func (s *Store) migrate() error {
 	if err = tx.QueryRowContext(ctx, "SELECT version FROM schema_version WHERE id=1").Scan(&version); err != nil {
 		return err
 	}
-	if version > 9 || version < 0 {
+	if version > 10 || version < 0 {
 		return errors.New("unsupported schema version; use a compatible Publisher build")
 	}
 	if version == 0 {
@@ -225,6 +225,17 @@ func (s *Store) migrate() error {
 	}
 	if version < 9 {
 		if _, err = tx.ExecContext(ctx, `ALTER TABLE upload_attempts ADD COLUMN upload_hash TEXT NOT NULL DEFAULT ''; ALTER TABLE upload_attempts ADD COLUMN preparation TEXT NOT NULL DEFAULT ''; UPDATE schema_version SET version=9 WHERE id=1;`); err != nil {
+			return err
+		}
+	}
+	if version < 10 {
+		if _, err = tx.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS receipt_times (
+ platform TEXT NOT NULL, account_id TEXT NOT NULL, video_hash TEXT NOT NULL,
+ state TEXT NOT NULL, reference TEXT NOT NULL, confirmed_at INTEGER NOT NULL DEFAULT 0,
+ published_at INTEGER NOT NULL DEFAULT 0,
+ PRIMARY KEY(platform,account_id,video_hash),
+ FOREIGN KEY(platform,account_id,video_hash) REFERENCES upload_attempts(platform,account_id,video_hash) ON DELETE CASCADE);
+ UPDATE schema_version SET version=10 WHERE id=1;`); err != nil {
 			return err
 		}
 	}

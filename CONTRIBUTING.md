@@ -44,6 +44,7 @@ npm.cmd install --prefix .tools/visual-qa --save-exact --ignore-scripts --no-aud
 node apps/publisher/support/check_ui.mjs
 node apps/publisher/support/check_design.mjs
 node apps/publisher/support/check_thumbnails.mjs
+node apps/publisher/support/check_post_times.mjs
 ```
 
 Reports/screenshots go into ignored `work/`. Browser checks use a fixture bridge;

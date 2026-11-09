@@ -11,6 +11,7 @@ import * as statistics$0 from "../statistics/models.js";
 export type Metric = statistics$0.Metric;
 
 export interface Statistics {
+    "publishedAt": string;
     "items": Metric[] | null;
     "updatedAt": string;
     "note": string;

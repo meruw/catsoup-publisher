@@ -51,6 +51,17 @@ The list has 20 videos per page. Grouping happens before pagination, so a video'
 
 Statuses distinguish local **Draft**, **Approved**, **Private video**, **TikTok inbox**, **Limited visibility**, **Published**, **Failed** and **Check result**. The last label means the result is uncertain, not that publishing failed. The view shows the file currently linked to each saved post and its local receipt. **Refresh posts** reloads local records; it does not query social networks or reconstruct remote history. Browser handoffs to X cannot establish a published status.
 
+## Publication dates and times
+
+Each destination in **Posts → video → Posts** shows its recorded date and time below the status. Open an account for the publication date, latest attempt start and last local update. Dates use this PC's local time zone, shown above the destination list and in the detail dialog; storage uses UTC.
+
+- **Published** uses the publication timestamp returned by YouTube for a public video or Instagram for the published media. Opening statistics or choosing **Refresh all** retrieves and saves these dates for existing posts, using the same read request as the counters.
+- **Publication confirmed** records when Publisher received a successful publishing result. It is a confirmation time, not an independently reported platform publication timestamp. Facebook and optional direct API posts use this record; YouTube and Instagram can replace the displayed fallback with their provider date when statistics load.
+- **Private upload confirmed**, **Sent to inbox** and **Prepared in browser** identify their actual events. A TikTok inbox confirmation is not the arrival time of the mobile notification or the time you publish from your phone.
+- **Latest attempt started** is a transfer start, not publication. Draft updates and private YouTube upload dates are never used as public publication dates.
+
+Dates survive app restarts. Re-reading a receipt does not reset its confirmation time. Older receipts without a recorded confirmation remain undated unless a supported provider returns their publication date. Facebook video creation dates are not substituted for publication; manual TikTok/X publishing cannot be dated from an inbox or browser handoff. **Publication time unavailable** states that limit explicitly. Refreshing statistics does not send or republish videos.
+
 ## Read post statistics
 
 Open **Posts**, choose a video, then **Statistics**. Counts are grouped by platform and separated by account and language. They load automatically when this view or an individual post detail opens. Successful results are reused for five minutes within the app session; **Refresh statistics** requests fresh values for one account. **Refresh all** updates the eligible accounts displayed for the current video and language filter, with two requests at a time. Its progress reports individual failures without stopping the remaining accounts; failed reads keep the last successful counts and timestamp. There is no continuous background polling or paid statistics API. Click outside a detail dialog, press Escape or use Close to dismiss it. Dialogs cannot be dismissed during a blocking operation.

@@ -54,6 +54,10 @@ export interface PostPage {
 }
 
 export interface PostStatus {
+    "publishedAt": string;
+    "confirmedAt": string;
+    "startedAt": string;
+    "receiptState": string;
     "key": Key;
     "title": string;
     "videoId": string;
