@@ -53,6 +53,24 @@ func TestHistoryFiltersPaginationAndRestart(t *testing.T) {
 	}
 }
 
+func TestEmptyRestartsPreserveSavedHistory(t *testing.T) {
+	dir := t.TempDir()
+	s := Open(dir)
+	ctx := Start(context.Background(), s, "instagram", "en")
+	Record(ctx, slog.LevelError, "provider_failed", Details{HTTPStatus: 400, ProviderCode: 100, ProviderSubcode: 33})
+	s.Close()
+	// More empty sessions than the backup limit must retain the original error.
+	for i := 0; i < 12; i++ {
+		s = Open(dir)
+		result, err := s.Query(Query{Service: "instagram", Language: "en", Level: "ERROR"})
+		if err != nil || result.Warning != "" || len(result.Events) != 1 || result.Events[0].ProviderSubcode != 33 {
+			t.Fatalf("restart %d lost the persisted error: %+v, %v", i, result, err)
+		}
+		s.Close()
+		time.Sleep(2 * time.Millisecond)
+	}
+}
+
 func TestClearWatermarkPreservesSavedHistory(t *testing.T) {
 	s := Open(t.TempDir())
 	defer s.Close()

@@ -5,7 +5,7 @@ import UiButton from './UiButton.vue';
 import UiSegmented from './UiSegmented.vue';
 
 const emit=defineEmits<{busy:[value:boolean];settings:[platform:SetupPlatform,language:string];language:[value:string];diagnostics:[service:string,language:string]}>();
-const platforms = {youtube:'YouTube',tiktok:'TikTok',instagram:'Instagram',x:'X'};
+const platforms = {youtube:'YouTube',tiktok:'TikTok',instagram:'Instagram',facebook:'Facebook',x:'X'};
 type Platform = keyof typeof platforms;
 const rows=ref<Profile[]>([]);
 const props=defineProps<{initialLanguage:string}>();
@@ -21,19 +21,21 @@ const paidAccepted=ref(false);
 const message=ref('');
 const error=ref('');
 const metaCallbackReady=ref(false);
-const configured=ref<Partial<Record<SetupPlatform,boolean>>>({});
+const configured=ref<Partial<Record<Platform,boolean>>>({});
+const isMeta=(p:string)=>p==='instagram'||p==='facebook';
+const setupProvider=(p:Platform):SetupPlatform=>p==='facebook'?'instagram':p;
 const langName=computed(()=>language.value==='es'?'Spanish':'English');
 function account(p:Platform){return rows.value.find(a=>a.language===language.value && a.platform===p);}
 function reset(){editing.value=null;remove.value=null;pageToken.value='';handle.value='';advanced.value=false;paidAccepted.value=false;message.value='';error.value='';}
 function edit(p:Platform){
  reset();
- if(p!=='x' && (configured.value[p]===false || (p==='instagram' && !metaCallbackReady.value))) {
-   emit('settings',p,language.value);
+ if(p!=='x' && (configured.value[p]===false || (isMeta(p) && !metaCallbackReady.value))) {
+   emit('settings',setupProvider(p),language.value);
    return;
  }
  editing.value=p;
  xMode.value=account(p)?.api?'api':'browser';
- handle.value=account(p)?.name||'';
+ handle.value=p==='facebook'?(account(p)?.id||account('instagram')?.name||''):account(p)?.name||'';
 }
 function switchLanguage(value:string){if(!pending.value){reset();language.value=value;emit('language',value);}}
 async function run(task:()=>Promise<void>){
@@ -54,7 +56,7 @@ function unlink(p:Platform){void run(async()=>{
 });}
 onMounted(()=>{void run(async()=>{
  await load();
- await Promise.all((['youtube','tiktok','instagram','x'] as const).map(async p=>{
+ await Promise.all((['youtube','tiktok','instagram','facebook','x'] as const).map(async p=>{
    configured.value[p]=await uploads.clientReady(p);
    if(p==='instagram') metaCallbackReady.value=Boolean(await uploads.metaCallback());
  }));
@@ -82,7 +84,7 @@ onMounted(()=>{void run(async()=>{
       </div>
      </details>
     </div>
-    <UiButton v-if="editing!==p && remove!==p" class="row-action" :disabled="pending || (p!=='x' && configured[p]===undefined)" @click="edit(p)">{{ p!=='x' && configured[p]===false?'Set up credentials':p==='instagram' && !metaCallbackReady?'Set up callback':account(p)?'Change':p==='x'?'Set handle':'Connect' }}</UiButton>
+    <UiButton v-if="editing!==p && remove!==p" class="row-action" :disabled="pending || (p!=='x' && configured[p]===undefined)" @click="edit(p)">{{ p!=='x' && configured[p]===false?'Set up credentials':isMeta(p) && !metaCallbackReady?'Set up callback':account(p)?'Change':p==='x'?'Set handle':'Connect' }}</UiButton>
    </div>
    <div v-if="remove===p" class="draft-fields"><p>Remove {{ account(p)?.name }} from {{ langName }} uploads?</p>
     <div class="draft-actions"><UiButton :disabled="pending" @click="unlink(p)">Remove account</UiButton><UiButton variant="quiet" :disabled="pending" @click="reset">Cancel</UiButton></div>
@@ -90,6 +92,7 @@ onMounted(()=>{void run(async()=>{
    <div v-if="editing===p" class="draft-fields">
     <UiSegmented v-if="p==='x'" label="X publishing mode" v-model="xMode" :disabled="pending" :options="[{value:'browser',label:'Browser · Free'},{value:'api',label:'API · Paid'}]" @update:model-value="paidAccepted=false"/>
     <label v-if="p==='instagram'||p==='x'" class="field-group">{{ name }} username<input v-model="handle" class="ui-field" placeholder="@username" :disabled="pending" maxlength="32"></label>
+    <label v-if="p==='facebook'" class="field-group">Page ID or linked Instagram username<input v-model="handle" class="ui-field" placeholder="@username or Page ID" :disabled="pending" maxlength="32" title="Connect the Facebook Page linked to this Instagram account, or enter its numeric Page ID. Meta credentials are shared with Instagram."></label>
     <p v-if="p==='x' && xMode==='browser'" class="publication-hint">Use X's account switcher in one browser. Confirm this handle before posting; Publisher cannot select the browser account.</p>
     <template v-if="p==='x' && xMode==='api'">
      <p class="publication-hint">Sign in with the username above. Videos can be published directly from Publisher.</p>
@@ -100,7 +103,7 @@ onMounted(()=>{void run(async()=>{
      <label><input type="checkbox" v-model="advanced" :disabled="pending"> Use an existing Facebook Page token</label>
      <input v-if="advanced" type="password" class="ui-field" v-model="pageToken" aria-label="Facebook Page access token" autocomplete="off" :disabled="pending">
     </details>
-    <div class="draft-actions"><UiButton v-if="(p==='x' && (xMode==='browser'||configured.x))||(p!=='x' && configured[p] && (p!=='instagram'||metaCallbackReady))||(p==='instagram'&&advanced)" variant="primary" :busy="pending" :disabled="(advanced && !pageToken.trim()) || ((p==='instagram'||p==='x') && !handle.trim()) || (p==='x' && xMode==='api' && !paidAccepted)" @click="link(p)">{{ p==='x'?(xMode==='api'?'Sign in with X':'Save handle'):p==='instagram'?(advanced?'Connect Page':'Sign in with Facebook'):p==='youtube'?'Sign in with Google':'Sign in with TikTok' }}</UiButton><UiButton variant="quiet" :disabled="pending" @click="reset">Cancel</UiButton></div>
+    <div class="draft-actions"><UiButton v-if="(p==='x' && (xMode==='browser'||configured.x))||(p!=='x' && configured[p] && (!isMeta(p)||metaCallbackReady))||(p==='instagram'&&advanced)" variant="primary" :busy="pending" :disabled="(advanced && !pageToken.trim()) || ((isMeta(p)||p==='x') && !handle.trim()) || (p==='x' && xMode==='api' && !paidAccepted)" @click="link(p)">{{ p==='x'?(xMode==='api'?'Sign in with X':'Save handle'):isMeta(p)?(advanced?'Connect Page':'Sign in with Facebook'):p==='youtube'?'Sign in with Google':'Sign in with TikTok' }}</UiButton><UiButton variant="quiet" :disabled="pending" @click="reset">Cancel</UiButton></div>
     <p v-if="pending" role="status">Connecting to {{ name }}…</p>
     <div v-else-if="error"><p class="notice error" role="alert">{{ error }}</p><UiButton size="compact" variant="quiet" @click="emit('diagnostics',p,language)">View diagnostics</UiButton></div>
    </div>

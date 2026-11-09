@@ -8,7 +8,7 @@ import UiButton from './UiButton.vue';
 import UiTooltip from './UiTooltip.vue';
 const emit=defineEmits<{busy:[value:boolean];setup:[]}>();
 const profiles=ref<Profile[]>([]),defaults=ref<PublishingDefault[]>([]),language=ref('es'),busy=ref(false),error=ref(''),feedback=ref('');
-const platforms={youtube:'YouTube',tiktok:'TikTok',instagram:'Instagram',x:'X'};
+const platforms={youtube:'YouTube',tiktok:'TikTok',instagram:'Instagram',facebook:'Facebook',x:'X'};
 const rows=computed(()=>Object.entries(platforms).map(([id,label])=>({id,label,profile:profiles.value.find(p=>p.language===language.value&&p.platform===id)})));
 const mode=(p?:Profile)=>defaults.value.find(d=>d.platform===p?.platform&&d.language===p?.language&&d.accountId===p?.id)?.mode||'draft';
 async function load(){try{profiles.value=await uploads.accounts()||[];defaults.value=await drafts.publishingDefaults()||[];}catch(e){error.value=String(e)}}

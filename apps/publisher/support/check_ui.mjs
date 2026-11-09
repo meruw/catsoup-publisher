@@ -37,8 +37,9 @@ const server = await createServer({
     if (id.replaceAll('\\', '/').endsWith('/src/services/diagnostics.ts')) return diagnosticsFixture;
     if (id.replaceAll('\\', '/').endsWith('/src/services/uploads.ts')) return `
       const none = {state:'',reference:'',retryAllowed:false};
-      const receipts = new Map(); window.__clearReceipts=()=>receipts.clear();window.__sendCalls=[]; const profiles = () => JSON.parse(localStorage.getItem('account-fixture') || '[]');
+      const receipts = new Map(); window.__clearReceipts=()=>receipts.clear();window.__setReceipt=(id,r)=>receipts.set(id,r);window.__sendCalls=[]; const profiles = () => JSON.parse(localStorage.getItem('account-fixture') || '[]');
       export const uploads = {
+        statistics:async key=>{window.__statisticsReads=(window.__statisticsReads||0)+1;if(window.__statisticsDelay){window.__statisticsActive=(window.__statisticsActive||0)+1;window.__statisticsPeak=Math.max(window.__statisticsPeak||0,window.__statisticsActive);await new Promise(r=>setTimeout(r,50));window.__statisticsActive--;}if(key.account===window.__statisticsFail)throw Error('Fixture read failed');return {items:[{label:'Likes',value:key.language==='es'?'42':'18'},{label:'Comments',value:'3'}],updatedAt:new Date().toISOString(),note:''}},
         tikTokDirectEnabled:async()=>!!window.__tikTokDirect,
         setTikTokDirectEnabled:async enabled=>{window.__tikTokDirect=enabled},
         tikTokPolicy:async policy=>{window.__tikTokPolicy=policy},
@@ -135,6 +136,7 @@ try {
       await route.fulfill({ contentType: 'video/mp4', headers: { 'Accept-Ranges': 'bytes' }, body: data });
     }
   });
+  const waitUploads=async()=>{await page.getByRole('dialog').waitFor({state:'detached'});await page.waitForFunction(()=>!document.querySelector('#uploads-launcher')?.textContent?.includes('active'));};
   const closePublishing=async()=>{const button=page.getByRole('button',{name:'Close publishing options',exact:true});if(await button.isVisible())await button.click();};
   const moreTools=async()=>{if(!await page.locator('.post-tools-menu').evaluate(el=>el.open))await page.locator('.post-tools-menu>summary').click();};
   const step=async value=>{
@@ -368,7 +370,7 @@ try {
       }
       await row.getByRole('button',{name:'Set up credentials'}).click();
       await page.getByRole('heading',{name:'Developer credentials',exact:true}).waitFor();
-      const setup=page.getByRole('region',{name:platform+' settings'});
+      const setup=page.getByRole('region',{name:(platform==='Instagram'?'Meta':platform)+' settings'});
       if(platform==='YouTube') {
         await setup.getByText('Google Cloud setup').click();
         await setup.getByRole('button',{name:'Open Google clients'}).click();
@@ -407,7 +409,7 @@ try {
         await setup.getByText('CATsoup hosting is on.',{exact:false}).waitFor();
         await setup.getByLabel('App ID',{exact:true}).fill('123');
         await setup.getByLabel('App secret',{exact:true}).fill('fixture');
-        const save=setup.getByRole('button',{name:'Save Instagram credentials'});
+        const save=setup.getByRole('button',{name:'Save Meta credentials'});
         assert(await save.isDisabled());
         await setup.getByLabel('Configuration ID',{exact:true}).fill('456');
         await save.click();
@@ -500,13 +502,8 @@ try {
     await page.getByRole('checkbox',{name:/I confirm Fixture es and/}).check();
     if(platform==='youtube')await page.evaluate(()=>window.__sendDelay=300);
     await send.click();
-    if(platform==='youtube'){
-      assert(await page.getByRole('button',{name:'Close publishing options'}).isDisabled());
-      await page.keyboard.press('Escape');
-      assert(await page.getByRole('dialog').isVisible(),'cannot dismiss an in-flight transfer');
-    }
-    await page.getByRole('region',{name:'Platform upload'}).getByText(result,{exact:true}).waitFor();
-    if(platform==='youtube'){await closePublishing();await page.getByLabel('YouTube delivery mode',{exact:true}).selectOption('publish');await review();await step('Publish');await page.getByLabel('Audience',{exact:true}).selectOption('general');await page.getByLabel('I confirm Fixture es and this public post.').check();await page.getByRole('button',{name:'Publish existing YouTube video'}).click();await page.getByRole('region',{name:'Platform upload'}).getByText('Published',{exact:true}).waitFor();assert.equal((await page.evaluate(()=>window.__promotion)).reference,'fixture-post');}
+    await waitUploads();
+    if(platform==='youtube'){await closePublishing();await page.getByLabel('YouTube delivery mode',{exact:true}).selectOption('publish');await review();await step('Publish');await page.getByLabel('Audience',{exact:true}).selectOption('general');await page.getByLabel('I confirm Fixture es and this public post.').check();await page.getByRole('button',{name:'Publish existing YouTube video'}).click();await waitUploads();assert.equal((await page.evaluate(()=>window.__promotion)).reference,'fixture-post');}
   }
   // X stays free until the user explicitly connects API mode. All calls below
   // are local fixture adapters, including paid consent and the post receipt.
@@ -555,7 +552,7 @@ try {
   await paidSend.scrollIntoViewIfNeeded();
   await page.screenshot({path:path.join(output,'x-publish-paid.png')});
   await paidSend.click();
-  await page.getByText('https://x.com/i/status/123',{exact:true}).waitFor();
+  await waitUploads();
   assert.equal(await page.evaluate(()=>window.__xPaidRequest.key.language),'es');
   assert.equal(await paidSend.count(),0,'successful receipt prevents another post');
   await closePublishing();
@@ -593,6 +590,27 @@ try {
   await page.getByRole('button',{name:'Refresh',exact:true}).click();
   await page.waitForFunction(title=>document.querySelector('#draft-title')?.value===title,oldTitle);
   assert.equal(await page.locator('#saved-destination').count(),0,'no combined draft selector');
+  // Reuse only text from a connected account for the same episode and language.
+  await page.getByLabel('Post platform',{exact:true}).selectOption('youtube');
+  await page.getByLabel('Description',{exact:true}).fill('Una historia para compartir');
+  await page.getByLabel('Hashtags',{exact:true}).fill('#catsoup #animación');
+  await page.getByRole('button',{name:'Save draft',exact:true}).click();
+  await page.getByLabel('Post platform',{exact:true}).selectOption('instagram');
+  await review();
+  const beforeCopy=await page.evaluate(()=>Object.values(JSON.parse(localStorage.getItem('draft-fixture'))).find(d=>d.key.episode==='catsoup-handoff-fixture'&&d.key.language==='es'&&d.key.platform==='instagram'));
+  const sourceCopy=await page.evaluate(()=>Object.values(JSON.parse(localStorage.getItem('draft-fixture'))).find(d=>d.key.episode==='catsoup-handoff-fixture'&&d.key.language==='es'&&d.key.platform==='youtube'&&d.key.account==='account:youtube-es'));
+  await page.getByRole('button',{name:'Copy from…',exact:true}).click();
+  const copyDialog=page.getByRole('dialog',{name:'Copy post text'});
+  assert.equal(await copyDialog.locator('#copy-source option[value="instagram"]').count(),0);
+  await copyDialog.locator('#copy-source').selectOption('youtube');
+  await page.screenshot({path:path.join(output,'copy-post-text.png')});
+  await copyDialog.getByRole('button',{name:'Replace text',exact:true}).click();
+  await page.getByText('Text copied from YouTube · draft saved',{exact:true}).waitFor();
+  const afterCopy=await page.evaluate(()=>Object.values(JSON.parse(localStorage.getItem('draft-fixture'))).find(d=>d.key.episode==='catsoup-handoff-fixture'&&d.key.language==='es'&&d.key.platform==='instagram'));
+  for(const field of ['title','description','hashtags'])assert.equal(afterCopy[field],sourceCopy[field]);
+  for(const field of ['key','videoId','videoHash','deliveryMode'])assert.deepEqual(afterCopy[field],beforeCopy[field]);
+  assert.equal(afterCopy.approvedRevision,0,'copied text requires its own approval');
+  assert.deepEqual(await page.evaluate(()=>Object.values(JSON.parse(localStorage.getItem('draft-fixture'))).find(d=>d.key.episode==='catsoup-handoff-fixture'&&d.key.language==='es'&&d.key.platform==='youtube'&&d.key.account==='account:youtube-es')),sourceCopy,'source unchanged');
   // Batch preparation and mode persistence across reload of the workspace.
   for(const [platform,label,mode] of [['youtube','YouTube','draft'],['tiktok','TikTok','draft'],['instagram','Instagram','publish'],['x','X','draft']]){
     await page.getByLabel('Post platform',{exact:true}).selectOption(platform);
@@ -607,6 +625,17 @@ try {
   await page.locator('.batch-header-action').focus();
   await page.getByRole('tooltip').filter({hasText:'Approval needed: X'}).waitFor();
   await page.keyboard.press('Escape');
+  // Manual X is excluded even when its draft has no approval. Paid X still blocks above.
+  await page.evaluate(()=>{const p=JSON.parse(localStorage.getItem('account-fixture'));p.find(p=>p.platform==='x'&&p.language==='es').api=false;localStorage.setItem('account-fixture',JSON.stringify(p));});
+  await page.getByRole('button',{name:'Refresh',exact:true}).click();
+  await page.locator('#publish-all:not([disabled])').waitFor();
+  await page.locator('#publish-all').click();
+  await page.getByText('X is handled separately in the browser.',{exact:true}).waitFor();
+  assert.equal(await page.getByRole('dialog').locator('.batch-row').filter({hasText:'X /'}).count(),0);
+  await closePublishing();
+  await page.evaluate(()=>{const p=JSON.parse(localStorage.getItem('account-fixture'));p.find(p=>p.platform==='x'&&p.language==='es').api=true;localStorage.setItem('account-fixture',JSON.stringify(p));});
+  await page.getByRole('button',{name:'Refresh',exact:true}).click();
+  await page.getByLabel('Post platform',{exact:true}).selectOption('x');
   await review();
   await page.getByRole('button',{name:'Restore draft',exact:true}).click();
   await page.getByRole('dialog').getByRole('button',{name:'Reload saved draft',exact:true}).click();
@@ -623,8 +652,7 @@ try {
   await batch.getByLabel('I confirm the selected accounts and delivery modes.').check();
   await page.screenshot({path:path.join(output,'publish-all.png')});
   await batch.getByRole('button',{name:'Send to 4 destinations',exact:true}).click();
-  assert(await batch.getByRole('button',{name:'Close publishing options'}).isDisabled());
-  await batch.getByText('Kept locally',{exact:true}).waitFor();
+  await waitUploads();
   assert.deepEqual((await page.evaluate(()=>window.__sendCalls)).map(c=>[c.key.platform,c.mode]),[['youtube','draft'],['tiktok','draft'],['instagram','publish']]);
   assert((await page.evaluate(()=>window.__sendCalls)).every(c=>c.key.language==='es'));
   await closePublishing();
@@ -645,16 +673,15 @@ try {
   await closePublishing();
   await page.getByLabel('Post platform',{exact:true}).selectOption('x');
   await review();
-  // A partial failure stops the batch; no automatic retries or later requests.
+  // A partial failure is retained while later approved accounts continue; no automatic retries.
   await page.evaluate(()=>{window.__clearReceipts();window.__sendCalls=[];window.__failPlatform='tiktok';});
   await page.getByRole('button',{name:'Publish all…',exact:true}).click();
   await batch.getByLabel('YouTube audience').selectOption('general');
   await batch.getByLabel('I confirm the selected accounts and delivery modes.').check();
   await batch.getByRole('button',{name:'Send to 4 destinations',exact:true}).click();
-  await batch.getByText('Simulated transfer failure',{exact:false}).waitFor();
-  assert.deepEqual((await page.evaluate(()=>window.__sendCalls)).map(c=>c.key.platform),['youtube','tiktok']);
-  assert.equal(await batch.getByText('Not sent',{exact:true}).count(),2);
-  assert.equal(await batch.getByRole('button',{name:/Send to/}).count(),0);
+  await waitUploads();
+  assert.deepEqual((await page.evaluate(()=>window.__sendCalls)).map(c=>c.key.platform),['youtube','tiktok','instagram']);
+  assert(await page.locator('#uploads-launcher').getByText('Needs attention').isVisible());
   await closePublishing();
   // A changed account invalidates the whole selection before its first request.
   await page.evaluate(()=>{window.__clearReceipts();window.__sendCalls=[];window.__failPlatform='';});
@@ -703,7 +730,7 @@ try {
   await direct.getByRole('checkbox',{name:/I confirm Fixture es and/}).check();
   await page.screenshot({path:path.join(output,'publish-tiktok-direct.png')});
   await direct.getByRole('button',{name:'Post on TikTok',exact:true}).click();
-  await direct.getByText('Posted · Only me',{exact:true}).waitFor();
+  await waitUploads();
   const directCall=(await page.evaluate(()=>window.__sendCalls)).at(-1);
   assert.equal(directCall.options.privacy,'SELF_ONLY');assert.equal(directCall.options.branded,false);
   await closePublishing();
@@ -751,7 +778,56 @@ try {
   await page.getByRole('dialog').waitFor();
   await page.keyboard.press('Escape');
   assert.equal(await page.getByRole('dialog').count(),0);
+  await page.evaluate(()=>{const d=Object.values(JSON.parse(localStorage.getItem('draft-fixture')))[0];window.__statusRows=['youtube','instagram','facebook'].flatMap(platform=>['es','en'].map(language=>({key:{...d.key,platform,language,account:'account:'+platform+'-'+language},title:'The price of a light',videoId:d.videoId,accountName:'CATsoup '+language.toUpperCase(),connected:true,state:'published',reference:platform==='youtube'?'abcdefghijk':'123456',updatedAt:'2026-11-07T18:00:00Z'})));});
+  await page.getByRole('button',{name:'Refresh posts',exact:true}).click();
+  await page.getByRole('navigation',{name:'Video details'}).getByRole('button',{name:'Statistics',exact:true}).click();
+  await page.waitForFunction(()=>document.querySelectorAll('.metric-strip').length===6);
+  assert.equal(await page.locator('.statistics-platform').count(),3);
+  for(const platform of ['YouTube','Instagram','Facebook'])assert.equal(await page.locator('.statistics-platform').filter({has:page.getByRole('heading',{name:platform,exact:true})}).locator('.post-statistics').count(),2);
+  await page.screenshot({path:path.join(output,'statistics-platforms.png')});
+  const reads=await page.evaluate(()=>window.__statisticsReads);
+  await page.getByRole('navigation',{name:'Video details'}).getByRole('button',{name:'Posts',exact:true}).click();
+  await page.getByRole('navigation',{name:'Video details'}).getByRole('button',{name:'Statistics',exact:true}).click();
+  await page.waitForFunction(()=>document.querySelectorAll('.metric-strip').length===6);
+  assert.equal(await page.evaluate(()=>window.__statisticsReads),reads,'tab switching reuses cached counts');
+  await page.getByRole('button',{name:'Refresh all',exact:true}).click();
+  await page.getByText('6 accounts updated',{exact:true}).waitFor();
+  assert.equal(await page.evaluate(()=>window.__statisticsReads),reads+6,'refresh all bypasses cache for each supported account');
+  await page.evaluate(()=>{window.__statisticsDelay=true;window.__statisticsFail='account:youtube-es'});
+  await page.getByRole('button',{name:'Refresh all',exact:true}).click();
+  await page.getByText('5 updated · 1 failed',{exact:true}).waitFor();
+  assert.equal(await page.evaluate(()=>window.__statisticsReads),reads+12,'failure does not stop other accounts');
+  assert.equal(await page.evaluate(()=>window.__statisticsPeak),2,'bulk reads have bounded concurrency');
+  assert.equal(await page.locator('.metric-strip').count(),6,'failure retains dated counts');
+  await page.evaluate(()=>{window.__statisticsDelay=false;window.__statisticsFail=''});
+
+
   await page.getByRole('button',{name:'Back to Posts',exact:true}).click();
+  // Saved Instagram receipt opens the confirmation, never an automatic send.
+  await page.evaluate(()=>{
+    const stored=JSON.parse(localStorage.getItem('draft-fixture'));
+    const d=Object.values(stored).find(d=>d.key.episode==='catsoup-handoff-fixture'&&d.key.platform==='instagram'&&d.key.language==='es');
+    const profiles=JSON.parse(localStorage.getItem('account-fixture'));
+    profiles.find(p=>p.platform==='instagram'&&p.language==='es').id=d.key.account.slice(8);
+    localStorage.setItem('account-fixture',JSON.stringify(profiles));
+    window.__statusRows=[{key:d.key,title:d.title,videoId:d.videoId,accountName:'Instagram ES',connected:true,state:'check',reference:'saved-container',updatedAt:d.updatedAt}];
+    window.__setReceipt(d.key.account.slice(8),{state:'check',reference:'saved-container',retryAllowed:false});
+  });
+  await page.getByRole('button',{name:'Refresh posts',exact:true}).click();
+  await page.locator('.video-row').first().click();
+  await page.locator('.destination-row').first().click();
+  // A changed account must show its error inside the detail dialog.
+  await page.evaluate(()=>{const p=JSON.parse(localStorage.getItem('account-fixture'));window.__restoreAccount=p;p.find(r=>r.platform==='instagram'&&r.language==='es').id='replacement';localStorage.setItem('account-fixture',JSON.stringify(p));});
+  await page.getByRole('dialog').getByRole('button',{name:'Review Instagram upload',exact:true}).click();
+  await page.getByRole('dialog').getByRole('alert').filter({hasText:'This account changed'}).waitFor();
+  await page.evaluate(()=>{const d=window.__statusRows[0];window.__restoreAccount.find(r=>r.platform==='instagram'&&r.language==='es').id=d.key.account.slice(8);localStorage.setItem('account-fixture',JSON.stringify(window.__restoreAccount));});
+  const sendsBeforeReview=await page.evaluate(()=>window.__sendCalls.length);
+  await page.getByRole('dialog').getByRole('button',{name:'Review Instagram upload',exact:true}).click();
+  await page.getByRole('button',{name:'Check and finish on Instagram',exact:true}).waitFor();
+  assert.equal(await page.getByLabel('Post platform',{exact:true}).inputValue(),'instagram');
+  assert.equal(await page.evaluate(()=>window.__sendCalls.length),sendsBeforeReview,'opening recovery never publishes');
+  await closePublishing();
+  await page.getByRole('button',{name:'Posts',exact:true}).click();
   await checkDiagnostics(page,output);
   await page.getByRole('button',{name:'Publisher',exact:true}).click();
   await page.evaluate(() => { window.__empty = true; });
@@ -759,7 +835,7 @@ try {
   await page.getByRole('heading', { name: 'No delivery to preview' }).waitFor();
   assert.equal(await page.locator('video').count(), 0);
   assert.deepEqual(errors, []);
-  const report = { passed: true, checks: ['post overview search, filters and detail dialog', 'TikTok Direct Post explicit privacy, disabled interactions, commercial disclosures and private receipts', 'per-account publishing defaults, language isolation and failed-save recovery', 'hover and keyboard tooltips without help buttons', 'account ID isolation with identical names', 'saved per-account delivery modes', 'batch language routing, duplicate protection, preflight and stop on failure', 'visible save action', 'native dialog focus, Escape and busy dismissal guard', 'minimal composer and folded secondary actions', 'per-account approval persistence and edit invalidation', 'review and approval gates', 'private/public modes and same-ID promotion', 'per-destination receipts and duplicate prevention', 'ES/EN decode and playback', 'seek', 'variant selection', 'refresh keeps language', 'non-publishable state', 'empty state', '1200/820px layout', 'module navigation', 'window controls with fixture adapter', 'draft autosave and reload', 'language/platform/account isolation', 'typing during save', 'failed saves block navigation and close', 'conflict recovery', 'delivery change and explicit rebind', 'copy/reveal adapters', 'close flush', 'diagnostics search and filters', 'attempt grouping and export', 'history pagination and pause', 'live diagnostics and keyboard access', 'console collapse and expansion preserve filters', 'no JS errors'], native: false };
+  const report = { passed: true, checks: ['post overview search, filters and detail dialog', 'TikTok Direct Post explicit privacy, disabled interactions, commercial disclosures and private receipts', 'per-account publishing defaults, language isolation and failed-save recovery', 'hover and keyboard tooltips without help buttons', 'account ID isolation with identical names', 'saved per-account delivery modes', 'batch language routing, duplicate protection, preflight and independent failure handling', 'visible save action', 'dialog focus, Escape and background transfer handoff', 'minimal composer and folded secondary actions', 'per-account approval persistence and edit invalidation', 'review and approval gates', 'private/public modes and same-ID promotion', 'per-destination receipts and duplicate prevention', 'ES/EN decode and playback', 'seek', 'variant selection', 'refresh keeps language', 'non-publishable state', 'empty state', '1200/820px layout', 'module navigation', 'window controls with fixture adapter', 'draft autosave and reload', 'language/platform/account isolation', 'typing during save', 'failed saves block navigation and close', 'conflict recovery', 'delivery change and explicit rebind', 'copy/reveal adapters', 'close flush', 'diagnostics search and filters', 'attempt grouping and export', 'history pagination and pause', 'live diagnostics and keyboard access', 'console collapse and expansion preserve filters', 'no JS errors'], native: false };
   await writeFile(path.join(output, 'report.json'), JSON.stringify(report, null, 2));
   console.log(JSON.stringify(report));
 } catch (error) {

@@ -4,5 +4,6 @@
 export type {
     Entry,
     Episode,
+    ImportResult,
     Video
 } from "./models.js";

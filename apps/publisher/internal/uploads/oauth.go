@@ -36,6 +36,9 @@ func fieldsPresent(values ...string) bool {
 }
 
 func desktopConfig(platform string) (desktopOAuth, error) {
+	if platform == "facebook" {
+		platform = "instagram"
+	}
 	file := map[string]string{"instagram": "meta-desktop.json", "youtube": "google-desktop.json", "tiktok": "tiktok-desktop.json", "x": "x-desktop.json"}[platform]
 	if file == "" {
 		return desktopOAuth{}, errors.New("unsupported provider")
@@ -122,7 +125,7 @@ func ClientStatus(platform string) string {
 }
 
 func ClientReady(platform string) bool {
-	if platform != "youtube" && platform != "tiktok" && platform != "instagram" && platform != "x" {
+	if platform != "youtube" && platform != "tiktok" && platform != "instagram" && platform != "facebook" && platform != "x" {
 		return false
 	}
 	_, err := desktopConfig(platform)
@@ -130,6 +133,9 @@ func ClientReady(platform string) bool {
 }
 
 func (c *Client) SignIn(ctx context.Context, platform string, open func(string) error) (Token, error) {
+	if platform == "facebook" {
+		platform = "instagram"
+	}
 	cfg, err := desktopConfig(platform)
 	if err != nil {
 		return Token{}, err

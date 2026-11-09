@@ -61,7 +61,7 @@ func ValidateKey(k Key) error {
 		return errors.New("choose Spanish or English")
 	}
 	switch k.Platform {
-	case "youtube", "tiktok", "instagram", "x":
+	case "youtube", "tiktok", "instagram", "facebook", "x":
 	default:
 		return errors.New("unsupported platform")
 	}
@@ -153,7 +153,7 @@ func (s *Store) migrate() error {
 	if err = tx.QueryRowContext(ctx, "SELECT version FROM schema_version WHERE id=1").Scan(&version); err != nil {
 		return err
 	}
-	if version > 7 || version < 0 {
+	if version > 9 || version < 0 {
 		return errors.New("unsupported schema version; use a compatible Publisher build")
 	}
 	if version == 0 {
@@ -210,6 +210,21 @@ func (s *Store) migrate() error {
 	}
 	if version < 7 {
 		if _, err = tx.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS publishing_defaults(platform TEXT NOT NULL,language TEXT NOT NULL,account_id TEXT NOT NULL,mode TEXT NOT NULL CHECK(mode IN ('draft','publish')),PRIMARY KEY(platform,language,account_id)); UPDATE schema_version SET version=7 WHERE id=1;`); err != nil {
+			return err
+		}
+	}
+	if version < 8 {
+		if _, err = tx.ExecContext(ctx, `CREATE TABLE statistics_samples (
+ platform TEXT NOT NULL, account TEXT NOT NULL, reference TEXT NOT NULL,
+ bucket INTEGER NOT NULL, observed INTEGER NOT NULL, items TEXT NOT NULL,
+ PRIMARY KEY(platform,account,reference,bucket));
+ CREATE INDEX statistics_expiry ON statistics_samples(observed);
+ UPDATE schema_version SET version=8 WHERE id=1;`); err != nil {
+			return err
+		}
+	}
+	if version < 9 {
+		if _, err = tx.ExecContext(ctx, `ALTER TABLE upload_attempts ADD COLUMN upload_hash TEXT NOT NULL DEFAULT ''; ALTER TABLE upload_attempts ADD COLUMN preparation TEXT NOT NULL DEFAULT ''; UPDATE schema_version SET version=9 WHERE id=1;`); err != nil {
 			return err
 		}
 	}

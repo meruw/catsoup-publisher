@@ -45,7 +45,7 @@ let stop: (() => void) | undefined;
 let previousFocus: HTMLElement | null = null;
 let changedDuringRead = false;
 let dragStart: { y: number; height: number } | null = null;
-const serviceName: Record<string, string> = { youtube: 'YouTube', tiktok: 'TikTok', instagram: 'Instagram', x: 'X' };
+const serviceName: Record<string, string> = { youtube: 'YouTube', tiktok: 'TikTok', instagram: 'Instagram', facebook: 'Facebook', x: 'X' };
 const time = (value: string) => new Date(value).toLocaleTimeString([], { hour12: false });
 watch(() => props.service, value => { service.value = value || ''; });
 watch(() => props.language, value => { language.value = value || ''; });
@@ -292,6 +292,7 @@ onUnmounted(() => {
      <dt>Elapsed</dt><dd>{{ selected.elapsed_ms.toLocaleString() }} ms</dd>
      <template v-if="selected.reason"><dt>Reason</dt><dd>{{ selected.reason.replaceAll('_',' ') }}</dd></template>
      <template v-if="selected.http_status"><dt>HTTP</dt><dd>{{ selected.http_status }}</dd></template>
+     <template v-if="selected.provider_error_code"><dt>Provider error</dt><dd><code>{{ selected.provider_error_code }}</code></dd></template>
      <template v-if="selected.provider_code"><dt>Provider code</dt><dd>{{ selected.provider_code }}<span v-if="selected.provider_subcode"> / {{ selected.provider_subcode }}</span></dd></template>
      <template v-if="selected.stage==='pages_received'"><dt>Pages</dt><dd>{{ selected.pages }}</dd></template>
      <dt>Attempt</dt><dd><code>{{ selected.attempt }}</code></dd>
@@ -360,7 +361,7 @@ onUnmounted(() => {
 .filtered .ui-field {border-color:#78634a}
 .console-body {flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr);border-top:1px solid var(--line)}
 .console-body.inspecting {grid-template-columns:minmax(0,1fr) 272px}
-.log-scroll {min-height:0;overflow:auto;scrollbar-color:var(--control-border) var(--page)}
+.log-scroll {min-height:0;overflow:auto}
 .log-table {width:100%;border-collapse:collapse;text-align:left;font:inherit}
 .log-table th {position:sticky;top:0;background:var(--sidebar);font-weight:400;color:var(--secondary);z-index:1}
 .log-table th,.log-table td {padding:6px 8px;vertical-align:top}

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import {transferPending} from '../services/transfers';
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import UiButton from './UiButton.vue';
 import UiTooltip from './UiTooltip.vue';
@@ -6,13 +7,13 @@ import UiDialog from './UiDialog.vue';
 import {uploads,type Profile} from '../services/uploads';
 import DirectUpload from './DirectUpload.vue';
 import BatchPublish from './BatchPublish.vue';
-import { accountKey, modeOptions, modeHint, postApproved, sendLabel, draftBlocker, type DeliveryMode } from '../services/publication';
+import { batchAccount, accountKey, modeOptions, modeHint, postApproved, sendLabel, draftBlocker, type DeliveryMode } from '../services/publication';
 import { drafts, type Draft, type DraftKey } from '../services/drafts';
 import type { Episode, Video } from '../services/publisher';
 
-const props = defineProps<{ initialPlatform?:string; episode: Episode; language: string; video: Video; locked: boolean; stage:'prepare'|'publish' }>();
+const props = defineProps<{ initialPlatform?:string; initialPublish?:boolean; episode: Episode; language: string; video: Video; locked: boolean; stage:'prepare'|'publish' }>();
 const region = ref<HTMLElement | null>(null);
-const platforms = { youtube: 'YouTube', tiktok: 'TikTok', instagram: 'Instagram', x: 'X' };
+const platforms = { youtube: 'YouTube', tiktok: 'TikTok', instagram: 'Instagram', facebook: 'Facebook', x: 'X' };
 const emit=defineEmits<{accounts:[];prepare:[];publish:[];busy:[value:boolean]}>();
 const profiles=ref<Profile[]>([]);
 const batchOpen=ref(false);
@@ -20,6 +21,26 @@ const destinations=computed(()=>Object.entries(platforms).map(([id,label])=>{con
 const recoverable=computed(()=>saved.value.filter(d=>d.key.platform===form.value?.key.platform && !d.key.account.startsWith('account:') && d.key.account!==form.value?.key.account));
 const recovery=ref('');
 const restoreOpen=ref(false);
+const copyOpen=ref(false), copying=ref(false), copySource=ref('');
+const textSources=computed(()=>destinations.value.filter(r=>r.id!==form.value?.key.platform && r.profile && r.draft &&
+  r.draft.key.episode===props.episode.id && r.draft.key.language===props.language &&
+  (r.draft.title+r.draft.description+r.draft.hashtags).trim()));
+const sourceText=computed(()=>textSources.value.find(r=>r.id===copySource.value)?.draft);
+function openCopy(){copySource.value=textSources.value[0]?.id || '';copyOpen.value=true;}
+async function copyFromPlatform(){
+  const source=sourceText.value;
+  if(!source || !form.value || copying.value || props.locked)return;
+  const text={title:source.title,description:source.description,hashtags:source.hashtags};
+  const label=platforms[source.key.platform as keyof typeof platforms];
+  copying.value=true;emit('busy',true);
+  try{
+    await flush();
+    Object.assign(form.value,text);edited();await flush();
+    copyOpen.value=false;feedback.value=`Text copied from ${label} · draft saved`;
+  }catch{ /* Keep unsaved text and the save error visible. */ }
+  finally{copying.value=false;emit('busy',false);}
+}
+
 const approving=ref(false);
 const destination=computed(()=>profiles.value.find(p=>p.platform===form.value?.key.platform && p.language===props.language && accountKey(p)===form.value?.key.account));
 const platform = ref('youtube');
@@ -46,11 +67,11 @@ const stale = computed(() => !!form.value?.revision && (form.value.deliveryFinge
 const differentVideo = computed(() => form.value?.videoId !== props.video.id);
 const approved=computed(()=>!dirty.value && postApproved(form.value || undefined) && !stale.value && !differentVideo.value);
 const approvalHint=computed(()=>!destination.value?'Connect this account first':stale.value || differentVideo.value || props.video.kind!=='final' || props.video.lang!==props.language?'Link the current final video first':!form.value || !(form.value.title+form.value.description+form.value.hashtags).trim()?'Add post text first':'');
-const uploadHint=computed(()=>draftBlocker(form.value || undefined,destination.value,props.episode,props.video));
+const uploadHint=computed(()=>form.value&&transferPending(form.value)?'This video is in Uploads':draftBlocker(form.value || undefined,destination.value,props.episode,props.video));
 const batchBlocker=computed(()=>{
  if(loading.value || saving.value || dirty.value || platformBusy.value || approving.value)return 'Wait for your changes to finish saving.';
- const connected=destinations.value.filter(r=>r.profile);
- if(!connected.length)return 'Connect an account to publish.';
+ const connected=destinations.value.filter(r=>r.profile && batchAccount(r.profile));
+ if(!connected.length)return 'Connect an account that supports sending from Publisher. X browser posts are handled separately.';
  const missing=connected.filter(r=>!postApproved(r.draft));
  if(missing.length)return 'Approval needed: '+missing.map(r=>r.label+' / '+r.profile!.name).join(', ')+'. Select each account and choose Approve post.';
  const blocked=connected.map(r=>({label:r.label,reason:draftBlocker(r.draft,r.profile,props.episode,props.video)})).filter(r=>r.reason);
@@ -159,6 +180,7 @@ async function publishAll() {
   batchOpen.value=true;emit('publish');
 }
 function closePublish(){batchOpen.value=false;emit('prepare');}
+function queued(){platformBusy.value=false;emit('busy',false);feedback.value='Added to Uploads · you can keep working';closePublish();}
 async function publishingOptions() {
   if (loading.value || props.locked || !form.value) return;
   await saveNow();
@@ -213,6 +235,7 @@ onMounted(async () => {
     loading.value = false;
     const p=profiles.value.find(p=>p.language===props.language && p.platform===(props.initialPlatform||'youtube')) || profiles.value.find(p=>p.language===props.language);
     await open({episode:props.episode.id,language:props.language,platform:p?.platform || 'youtube',account:accountKey(p)},true);
+    if(props.initialPublish && !error.value && form.value)emit('publish');
   } catch (e) { error.value = `Could not load saved destinations. ${String(e)}`; }
   finally { loading.value = false; }
 });
@@ -222,7 +245,7 @@ function focusEditor() {
   region.value?.querySelector<HTMLElement>(form.value ? '#draft-title' : '#draft-account')?.focus({ preventScroll: true });
 }
 async function beforeLeaving() {
-  if (platformBusy.value || approving.value) throw new Error('Wait for the current account action to finish.');
+  if (platformBusy.value || approving.value || copying.value) throw new Error('Wait for the current account action to finish.');
   await flush();
 }
 defineExpose({ flush: beforeLeaving, focusEditor, publishAll, batchBlocker });
@@ -230,7 +253,7 @@ defineExpose({ flush: beforeLeaving, focusEditor, publishAll, batchBlocker });
 
 <template>
   <section ref="region" class="publication" aria-label="Publication">
-    <fieldset :disabled="locked || loading || preparingUpload || platformBusy || approving" class="draft-fields">
+    <fieldset :disabled="locked || loading || preparingUpload || platformBusy || approving || copying" class="draft-fields">
       <div class="compose-destination">
         <label for="post-platform" class="sr-only">Post platform</label>
         <select id="post-platform" :value="form?.key.platform || platform" class="ui-field" @change="choosePlatform(($event.target as HTMLSelectElement).value)">
@@ -251,7 +274,7 @@ defineExpose({ flush: beforeLeaving, focusEditor, publishAll, batchBlocker });
           <UiButton size="compact" :disabled="saving" @click="useSelectedVideo">Use selected video</UiButton>
         </div>
         <p v-if="stale" class="notice warning">The delivery changed since this draft was linked. Your text is preserved.</p>
-        <div class="field-group"><label for="draft-title">Title</label><input id="draft-title" v-model="form.title" class="ui-field" maxlength="500" @input="edited"></div>
+        <div class="field-group"><div class="title-tools"><label for="draft-title">Title</label><UiButton id="copy-from" variant="quiet" size="compact" :disabled="!textSources.length || saving" title="Copy title, description and hashtags from another platform for this video and language" @click="openCopy">Copy from…</UiButton></div><input id="draft-title" v-model="form.title" class="ui-field" maxlength="500" @input="edited"></div>
         <div class="field-group"><label for="draft-description">Description</label><textarea id="draft-description" v-model="form.description" class="ui-field" rows="4" maxlength="10000" @input="edited"></textarea></div>
         <div class="field-group"><label for="draft-hashtags">Hashtags</label><input id="draft-hashtags" v-model="form.hashtags" class="ui-field" maxlength="2000" placeholder="#catsoup" @input="edited"></div>
         <div class="post-edit-actions">
@@ -277,6 +300,13 @@ defineExpose({ flush: beforeLeaving, focusEditor, publishAll, batchBlocker });
         </div>
       </template>
     </fieldset>
+    <UiDialog v-if="copyOpen" title="Copy post text" return-focus-id="copy-from" :busy="copying" @close="copyOpen=false">
+      <div class="field-group"><label for="copy-source">From · {{languageName}}</label><select id="copy-source" v-model="copySource" class="ui-field" :disabled="copying"><option v-for="r in textSources" :key="r.id" :value="r.id">{{r.label}} / {{r.profile?.name}}</option></select></div>
+      <div v-if="sourceText" class="copy-preview"><strong v-if="sourceText.title">{{sourceText.title}}</strong><p v-if="sourceText.description">{{sourceText.description}}</p><p v-if="sourceText.hashtags">{{sourceText.hashtags}}</p></div>
+      <p class="muted">Replaces title, description and hashtags for {{platforms[platform as keyof typeof platforms]}} / {{destination?.name}}. Review the copied text before approving.</p>
+      <UiButton variant="primary" :busy="copying" :disabled="!sourceText" @click="copyFromPlatform">Replace text</UiButton>
+      <p v-if="error" role="alert" class="notice error">{{error}}</p>
+    </UiDialog>
     <UiDialog v-if="restoreOpen" title="Restore draft" return-focus-id="restore-draft" @close="restoreOpen=false">
       <p class="restore-account">{{platforms[platform as keyof typeof platforms]}} / {{destination?.name || 'Unassigned'}}</p>
       <p class="muted">Reload the last saved text for this account. Edits save automatically; this is not a version history.</p>
@@ -290,10 +320,10 @@ defineExpose({ flush: beforeLeaving, focusEditor, publishAll, batchBlocker });
       <p v-if="error" role="alert" class="notice error">{{error}}</p>
     </UiDialog>
     <UiDialog v-if="stage==='publish' && batchOpen" title="Publish all" return-focus-id="publish-all" :busy="platformBusy" @close="closePublish">
-      <BatchPublish :episode="episode" :language="language" :video="video" :profiles="profiles" :saved="saved" @busy="platformBusy=$event;emit('busy',$event)"/>
+      <BatchPublish :episode="episode" :language="language" :video="video" :profiles="profiles" :saved="saved" @queued="queued" @busy="platformBusy=$event;emit('busy',$event)"/>
     </UiDialog>
     <UiDialog v-if="stage==='publish' && !batchOpen && form" :title="'Publish to '+platforms[form.key.platform as keyof typeof platforms]" return-focus-id="open-publishing" :busy="platformBusy || preparingUpload" @close="closePublish">
-      <DirectUpload :key="JSON.stringify([form.key,form.videoHash])" :draft="form" :hint="uploadHint" :flush="flush" @busy="platformBusy=$event;emit('busy',$event)" @accounts="emit('accounts')"/>
+      <DirectUpload :key="JSON.stringify([form.key,form.videoHash])" :draft="form" :hint="uploadHint" :flush="flush" @queued="queued" @busy="platformBusy=$event;emit('busy',$event)" @accounts="emit('accounts')"/>
       <details v-if="!uploadHint && form.key.platform!=='x'" class="manual-handoff">
         <summary>Upload manually</summary>
         <fieldset :disabled="platformBusy || preparingUpload" class="draft-fields">
@@ -313,3 +343,7 @@ defineExpose({ flush: beforeLeaving, focusEditor, publishAll, batchBlocker });
     </div>
   </section>
 </template>
+
+<style scoped>
+.title-tools{display:flex;align-items:center;justify-content:space-between;gap:12px}.title-tools label{margin:0}.copy-preview{display:grid;gap:12px;max-height:240px;overflow:auto;margin:20px 0;padding:4px;white-space:pre-wrap;overflow-wrap:anywhere}.copy-preview p{margin:0}
+</style>

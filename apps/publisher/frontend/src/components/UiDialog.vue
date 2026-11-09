@@ -6,6 +6,9 @@ const props=defineProps<{title:string;busy?:boolean;returnFocusId?:string;closeL
 const emit=defineEmits<{close:[]}>();
 const dialog=ref<HTMLDialogElement|null>(null);
 let restoreFocus=false;
+let outsideStart=false;
+function outside(event:PointerEvent){const box=dialog.value?.getBoundingClientRect();return !!box && event.target===dialog.value && (event.clientX<box.left || event.clientX>box.right || event.clientY<box.top || event.clientY>box.bottom);}
+function pointerUp(event:PointerEvent){if(outsideStart && outside(event))close();outsideStart=false;}
 function close(){if(!props.busy){restoreFocus=true;emit('close');}}
 onMounted(()=>dialog.value?.showModal());
 onBeforeUnmount(()=>{
@@ -15,7 +18,7 @@ onBeforeUnmount(()=>{
 });
 </script>
 <template>
-  <dialog ref="dialog" class="ui-dialog" aria-labelledby="publish-dialog-title" @cancel.prevent="close">
+  <dialog ref="dialog" class="ui-dialog" aria-labelledby="publish-dialog-title" @cancel.prevent="close" @pointerdown="outsideStart=$event.button===0 && outside($event)" @pointerup="pointerUp" @pointercancel="outsideStart=false">
     <header><h2 id="publish-dialog-title">{{title}}</h2><UiButton variant="quiet" size="compact" :disabled="busy" :aria-label="closeLabel||'Close publishing options'" title="Close" @click="close"><UiIcon name="close"/></UiButton></header>
     <slot/>
   </dialog>

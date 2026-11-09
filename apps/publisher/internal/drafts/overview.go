@@ -75,13 +75,13 @@ func validatePostFilter(f PostFilter) error {
 	if len(f.Search) > 200 || len(f.Episode) > 160 || f.Offset < 0 || f.Offset > 1000000 {
 		return errors.New("invalid post filter")
 	}
-	if f.Platform != "" && !slices.Contains([]string{"youtube", "tiktok", "instagram", "x"}, f.Platform) {
+	if f.Platform != "" && !slices.Contains([]string{"youtube", "tiktok", "instagram", "facebook", "x"}, f.Platform) {
 		return errors.New("invalid platform")
 	}
 	if f.Language != "" && f.Language != "es" && f.Language != "en" {
 		return errors.New("invalid language")
 	}
-	if f.State != "" && !slices.Contains([]string{"draft", "approved", "published", "private", "restricted", "inbox", "sending", "check", "failed", "unsent", "active", "delivered", "attention"}, f.State) {
+	if f.State != "" && !slices.Contains([]string{"draft", "approved", "published", "private", "restricted", "inbox", "sending", "check", "failed", "unsent", "active", "delivered", "attention", "transfers"}, f.State) {
 		return errors.New("invalid status")
 	}
 
@@ -94,6 +94,7 @@ func postStateValues(state string) string {
 		"unsent": {"draft", "approved"}, "active": {"sending"},
 		"delivered": {"published", "private", "restricted", "inbox"},
 		"attention": {"failed", "check"},
+		"transfers": {"published", "private", "restricted", "inbox", "sending", "check", "failed"},
 	}[state]
 	if states == nil {
 		states = []string{state}
@@ -146,8 +147,8 @@ func (s *Store) PostGroups(ctx context.Context, f PostFilter) (PostGroupPage, er
  GROUP BY episode ORDER BY MAX(updated) DESC,episode LIMIT 21 OFFSET ?
  ) SELECT episode,MIN(title),MIN(video_id),GROUP_CONCAT(DISTINCT language),COUNT(DISTINCT platform),COUNT(*),
  SUM(status='draft'),SUM(status='approved'),SUM(status='published'),SUM(status='private'),SUM(status='restricted'),SUM(status='inbox'),SUM(status='sending'),SUM(status='check'),SUM(status='failed'),MAX(updated)
- FROM posts WHERE episode IN (SELECT episode FROM selected) GROUP BY episode ORDER BY MAX(updated) DESC,episode`,
-		time.Now().Add(-30*time.Minute).Unix(), f.Episode, f.Episode, f.Platform, f.Platform, f.Language, f.Language, f.State, postStateValues(f.State), f.Search, f.Search, string(matched), f.Offset)
+ FROM posts WHERE episode IN (SELECT episode FROM selected) AND (?<>'transfers' OR status NOT IN ('draft','approved')) GROUP BY episode ORDER BY MAX(updated) DESC,episode`,
+		time.Now().Add(-30*time.Minute).Unix(), f.Episode, f.Episode, f.Platform, f.Platform, f.Language, f.Language, f.State, postStateValues(f.State), f.Search, f.Search, string(matched), f.Offset, f.State)
 	if err != nil {
 		return out, err
 	}

@@ -21,6 +21,11 @@ export interface Episode {
     "warnings": string[] | null;
 }
 
+export interface ImportResult {
+    "id": string;
+    "existing": boolean;
+}
+
 export interface Video {
     "id": string;
     "lang": string | null;

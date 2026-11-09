@@ -62,18 +62,20 @@ func (c *Client) request(ctx context.Context, method, endpoint, auth string, hea
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		// Only numeric Meta error identifiers are retained. Response text may
-		// contain identifiers or credentials, so it is never logged.
-		var provider struct {
-			Error struct {
-				Code    int
-				Subcode int `json:"error_subcode"`
-			}
+		if req.URL.Host == "open.tiktokapis.com" {
+			raw, _ := io.ReadAll(io.LimitReader(resp.Body, 16*1024))
+			return nil, fmt.Errorf("TikTok returned HTTP %d: %w", resp.StatusCode, tikTokRejectionStatus(ctx, tikTokResponseCode(raw), resp.StatusCode))
 		}
-		if req.URL.Host == "graph.facebook.com" {
-			_ = json.NewDecoder(io.LimitReader(resp.Body, 16*1024)).Decode(&provider)
+		var code, subcode int
+		var kind string
+		if req.URL.Host == "graph.facebook.com" || req.URL.Host == "rupload.facebook.com" {
+			raw, _ := io.ReadAll(io.LimitReader(resp.Body, 16*1024))
+			code, subcode, kind = metaErrorIdentifiers(raw)
 		}
-		diagnostics.Record(ctx, slog.LevelError, "provider_failed", diagnostics.Details{Reason: "provider_rejected", HTTPStatus: resp.StatusCode, ProviderCode: provider.Error.Code, ProviderSubcode: provider.Error.Subcode})
+		diagnostics.Record(ctx, slog.LevelError, "provider_failed", diagnostics.Details{Reason: "provider_rejected", HTTPStatus: resp.StatusCode, ProviderCode: code, ProviderSubcode: subcode, ProviderErrorCode: kind})
+		if code != 0 || subcode != 0 || kind != "" {
+			return nil, fmt.Errorf("Meta returned HTTP %d (code %d, subcode %d, type %s); check the saved upload result", resp.StatusCode, code, subcode, kind)
+		}
 		if req.URL.Host == "api.x.com" && resp.StatusCode == http.StatusPaymentRequired {
 			return nil, errors.New("X returned HTTP 402; check your developer project's API credits and billing controls before retrying")
 		}
@@ -153,6 +155,16 @@ func (c *Client) Identify(ctx context.Context, platform, token string) (Account,
 		if out.Error.Code == "ok" {
 			a = Account{out.Data.User.ID, out.Data.User.Name}
 		}
+	case "facebook":
+		var out struct{ ID, Name string }
+		_, err := c.request(ctx, "GET", graph+"me?fields=id,name", auth, nil, nil, 0, &out)
+		if err != nil {
+			return a, err
+		}
+		if !facebookID.MatchString(out.ID) {
+			return a, errors.New("Facebook did not identify the selected Page")
+		}
+		a = Account{out.ID, out.Name}
 	case "instagram":
 		var out struct {
 			IG struct{ ID, Username string } `json:"instagram_business_account"`
@@ -190,6 +202,13 @@ func Validate(platform string, m Media) error {
 		if strings.TrimSpace(m.Title) == "" || utf8.RuneCountInString(m.Title) > 100 || len(m.Caption) > 5000 || strings.ContainsAny(m.Title+m.Caption, "<>") {
 			return errors.New("YouTube requires a title up to 100 characters and a description up to 5000 bytes, without angle brackets")
 		}
+	case "facebook":
+		if m.Mode != "publish" {
+			return errors.New("Facebook draft mode stays on this PC")
+		}
+		if utf8.RuneCountInString(m.Title) > 255 || utf8.RuneCountInString(m.Caption) > 5000 {
+			return errors.New("shorten the Facebook title to 255 characters and description to 5000 characters")
+		}
 	case "instagram":
 		if utf8.RuneCountInString(m.Caption) > 2200 {
 			return errors.New("shorten the Instagram caption to 2200 characters")
@@ -213,6 +232,8 @@ func (c *Client) Send(ctx context.Context, platform, token string, a Account, m 
 		return c.youtube(ctx, token, m)
 	case "tiktok":
 		return c.tiktok(ctx, token, m, record)
+	case "facebook":
+		return c.facebook(ctx, token, a, m, record)
 	case "instagram":
 		return c.instagram(ctx, token, a, m, record)
 	}

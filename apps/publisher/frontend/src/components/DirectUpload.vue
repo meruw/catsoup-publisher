@@ -5,9 +5,10 @@ import UiButton from './UiButton.vue';
 import {mediaURL} from '../services/publisher';
 import {uploads,type Profile,type TikTokCreator,type TikTokOptions} from '../services/uploads';
 import {accountKey,modeLabel,transfer} from '../services/publication';
+import {enqueueTransfers,transferPending,receiptSummary} from '../services/transfers';
 import {type Draft} from '../services/drafts';
 const props=defineProps<{draft:Draft;hint:string;flush:()=>Promise<void>}>();
-const emit=defineEmits<{busy:[value:boolean];accounts:[]}>();
+const emit=defineEmits<{busy:[value:boolean];accounts:[];queued:[]}>();
 const account=ref<Profile>({id:'',name:'',api:false,directPost:false,platform:'',language:''});
 const receipt=ref({state:'',reference:'',retryAllowed:false});
 const loading=ref(true);
@@ -28,10 +29,12 @@ const browserX=computed(()=>platform.value==='x' && !account.value.api);
 const localOnly=computed(()=>mode.value==='draft' && !['youtube','tiktok'].includes(platform.value));
 const privateVideo=computed(()=>platform.value==='youtube' && ['private','sent','check_publish'].includes(receipt.value.state));
 const completed=computed(()=>['published','inbox','restricted'].includes(receipt.value.state) || (receipt.value.state==='sent' && platform.value!=='youtube') || (receipt.value.state==='private'&&platform.value==='tiktok'));
+const failedInstagram=computed(()=>platform.value==='instagram' && ['failed','check'].includes(receipt.value.state));
 const action=computed(()=>{
+ if(failedInstagram.value)return 'Check and finish on Instagram';
  if(privateVideo.value) return 'Publish existing YouTube video';
  if(browserX.value) return 'Copy video path and open X';
- return ({youtube:mode.value==='draft'?'Upload privately to YouTube':'Publish on YouTube',tiktok:mode.value==='publish'?'Post on TikTok':'Send to TikTok inbox',instagram:'Publish Reel on Instagram',x:'Publish on X · Paid API'})[platform.value];
+ return ({youtube:mode.value==='draft'?'Upload privately to YouTube':'Publish on YouTube',tiktok:mode.value==='publish'?'Post on TikTok':'Send to TikTok inbox',instagram:'Publish Reel on Instagram',facebook:'Publish Reel on Facebook',x:'Publish on X · Paid API'})[platform.value];
 });
 const note=computed(()=>{
  if(privateVideo.value && mode.value==='draft')return '';
@@ -40,9 +43,9 @@ const note=computed(()=>{
  if(platform.value==='tiktok')return directTikTok.value?'Choose who can see this post. TikTok may take time to process and moderate it.':'Finish editing and posting in TikTok.';
  if(browserX.value)return 'Publisher opens the prepared text and copies the video path. Paste it into X’s file picker, then review and post in X.';
  if(platform.value==='x')return 'Post the video and text using your paid X API access. X bills your developer project.';
- return 'Publish a Reel on the connected Instagram profile.';
+ return platform.value==='facebook'?'Publish a Reel on the connected Facebook Page.':'Publish a Reel on the connected Instagram profile. Audio is prepared at 128 kb/s; your original file and video stream stay unchanged.';
 });
-const blocked=computed(()=>tikTokBlocked.value||!!props.hint || !confirmed.value || (platform.value==='youtube' && !audience.value) || (platform.value==='x' && !browserX.value && !paidAccepted.value));
+const blocked=computed(()=>transferPending(props.draft)||tikTokBlocked.value||!!props.hint || !confirmed.value || (platform.value==='youtube' && !audience.value) || (platform.value==='x' && !browserX.value && !paidAccepted.value));
 const receiptLabel=computed(()=>receipt.value.state==='failed'?'Failed':receipt.value.state==='restricted'?'Posted with limited visibility':receipt.value.state==='private'&&platform.value==='tiktok'?'Posted · Only me':receipt.value.state==='published'?'Published':receipt.value.state==='inbox'?'Sent to inbox':privateVideo.value?(receipt.value.state==='check_publish'?'Check visibility in YouTube Studio':'Private video uploaded'):receipt.value.state==='sent'?(platform.value==='tiktok'?'Sent to inbox':'Published'):'Check the platform');
 watch([mode,audience,synthetic,()=>props.draft.revision,()=>props.hint],()=>{confirmed.value=false;paidAccepted.value=false});
 async function run(task:()=>Promise<void>){if(busy.value)return;busy.value=true;emit('busy',true);error.value='';try{await task()}catch(e){error.value=String(e)}finally{busy.value=false;emit('busy',false)}}
@@ -51,10 +54,18 @@ async function refreshReceipt(){if(account.value.id && !browserX.value)receipt.v
 onMounted(async()=>{try{const p=(await uploads.accounts()||[]).find(p=>p.platform===platform.value && p.language===props.draft.key.language);if(p && accountKey(p)===props.draft.key.account){account.value=p;await refreshReceipt();if(directTikTok.value)await loadCreator()}}catch(e){error.value=String(e)}finally{loading.value=false}});
 function send(){void run(async()=>{
  await props.flush();await nextTick();
- try{
- if(directTikTok.value)await uploads.sendTikTok(props.draft.key,props.draft.revision,account.value.id,confirmed.value,options.value);
- else await transfer(props.draft,account.value,receipt.value,confirmed.value,paidAccepted.value,audience.value,synthetic.value,true);
- }finally{confirmed.value=false;paidAccepted.value=false;await refreshReceipt()}
+ const d:Draft=JSON.parse(JSON.stringify(props.draft));
+ const p:Profile=JSON.parse(JSON.stringify(account.value));
+ const r=JSON.parse(JSON.stringify(receipt.value));
+ const opts:TikTokOptions=JSON.parse(JSON.stringify(options.value));
+ const ok=confirmed.value,paid=paidAccepted.value,group=audience.value,ai=synthetic.value;
+ const direct=directTikTok.value;
+ if(browserX.value){await transfer(d,p,r,ok,paid,group,ai,true);confirmed.value=false;return;}
+ enqueueTransfers([{draft:d,profile:p,mode:modeLabel(d.key.platform,d.deliveryMode,p),send:async()=>direct
+  ? receiptSummary((await uploads.sendTikTok(d.key,d.revision,p.id,ok,opts)).state)
+  : transfer(d,p,r,ok,paid,group,ai,true)}]);
+ confirmed.value=false;paidAccepted.value=false;
+ busy.value=false;emit('busy',false);emit('queued');
 })}
 function clearAttempt(){void run(async()=>{await uploads.clear(props.draft.key,account.value.id,props.draft.videoHash,reconciled.value);reconciled.value=false;await refreshReceipt()})}
 </script>
@@ -63,17 +74,18 @@ function clearAttempt(){void run(async()=>{await uploads.clear(props.draft.key,a
   <p v-if="loading" role="status">Checking connection...</p>
   <template v-else>
   <div v-if="account.id" class="send-account"><strong :title="account.id">{{account.name}}</strong><span>{{draft.key.language==='es'?'Spanish':'English'}}</span></div>
-  <div v-if="receipt.state" class="send-receipt" role="status"><strong>{{receiptLabel}}</strong><span class="mono">{{receipt.reference}}</span><small v-if="!completed && !privateVideo">Check the destination before retrying.</small></div>
-  <template v-if="!completed && (!receipt.state || privateVideo)">
+  <div v-if="receipt.state" class="send-receipt" role="status"><strong>{{receiptLabel}}</strong><span class="mono">{{receipt.reference}}</span><small v-if="failedInstagram">Finish the saved upload. If Meta lost its file, Publisher can resend the same bytes to the same container before publishing.</small><small v-else-if="!completed && !privateVideo">Check the destination before retrying.</small></div>
+  <template v-if="!completed && (!receipt.state || privateVideo || failedInstagram)">
    <template v-if="hint">
     <p class="send-blocker" role="status">{{hint}}</p>
    </template>
    <template v-else>
    <p class="delivery-mode-label">{{modeLabel(platform,mode,account)}}</p>
+   <p v-if="transferPending(draft)" role="status">This video is in Uploads</p>
    <p v-if="note" class="send-explanation" :class="{'local-draft-status':localOnly}">{{note}}</p>
    <template v-if="localOnly"></template>
    <template v-else-if="privateVideo && mode==='draft'"></template>
-   <template v-else-if="!account.id"><UiButton @click="emit('accounts')">Connect {{platform==='youtube'?'YouTube':platform==='tiktok'?'TikTok':platform==='instagram'?'Instagram':'X'}}</UiButton></template>
+   <template v-else-if="!account.id"><UiButton @click="emit('accounts')">Connect {{platform==='youtube'?'YouTube':platform==='tiktok'?'TikTok':platform==='instagram'?'Instagram':platform==='facebook'?'Facebook':'X'}}</UiButton></template>
    <fieldset v-else class="draft-fields send-confirmation" :disabled="busy">
     <template v-if="directTikTok">
      <p v-if="creatorError" role="alert" class="notice error">{{creatorError}}</p>

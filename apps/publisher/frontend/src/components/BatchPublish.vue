@@ -1,12 +1,13 @@
 <script setup lang="ts">
+import {enqueueTransfers,transferPending,type TransferRequest} from '../services/transfers';
 import {computed,onMounted,ref} from 'vue';
 import UiButton from './UiButton.vue';
 import {drafts,type Draft} from '../services/drafts';
 import {uploads,type Profile} from '../services/uploads';
 import type {Episode,Video} from '../services/publisher';
-import {accountKey,postApproved,draftBlocker,localDraft,modeLabel,receiptBlocker,transfer,type TransferReceipt} from '../services/publication';
+import {batchAccount,accountKey,postApproved,draftBlocker,localDraft,modeLabel,receiptBlocker,transfer,type TransferReceipt} from '../services/publication';
 const props=defineProps<{episode:Episode;language:string;video:Video;profiles:Profile[];saved:Draft[]}>();
-const emit=defineEmits<{busy:[value:boolean]}>();
+const emit=defineEmits<{busy:[value:boolean];queued:[]}>();
 type Row={profile:Profile;draft?:Draft;selected:boolean;reason:string;result:string;receipt:TransferReceipt};
 const rows=ref<Row[]>([]),loading=ref(true),busy=ref(false),finished=ref(false),error=ref('');
 const confirmed=ref(false),paid=ref(false),audience=ref(''),synthetic=ref(false);
@@ -16,11 +17,11 @@ const needsPaid=computed(()=>selected.value.some(r=>r.profile.platform==='x'&&r.
 const ready=computed(()=>!loading.value&&!busy.value&&!finished.value&&selected.value.length>0&&confirmed.value&&(!needsAudience.value||!!audience.value)&&(!needsPaid.value||paid.value));
 onMounted(async()=>{
  try{
-  for(const profile of props.profiles.filter(p=>p.language===props.language)){
+  for(const profile of props.profiles.filter(p=>p.language===props.language && batchAccount(p))){
    const draft=props.saved.find(d=>d.key.platform===profile.platform&&d.key.account===accountKey(profile));
    let reason=draftBlocker(draft,profile,props.episode,props.video);
    const receipt=draft&&!localDraft(draft)&&!(profile.platform==='x'&&!profile.api)?await uploads.receipt(draft.key,profile.id):{state:'',reference:'',retryAllowed:false};
-   if(!reason&&draft)reason=receiptBlocker(draft,receipt);
+   if(!reason&&draft)reason=transferPending(draft)?'Already in Uploads':receiptBlocker(draft,receipt);
    if(!reason&&profile.platform==='tiktok'&&draft?.deliveryMode==='publish')reason='Confirm privacy and disclosures in the individual TikTok dialog';
    if(!postApproved(draft))error.value='Every connected account must have an approved post. Close this dialog and approve the missing accounts.';
    rows.value.push({profile,draft,selected:!reason,reason,result:'',receipt});
@@ -33,7 +34,7 @@ async function sendAll(){
  try{
   // Check every selected snapshot before making the first external request.
   const current=await uploads.accounts() || [];
-  const connected=current.filter(p=>p.language===props.language);
+  const connected=current.filter(p=>p.language===props.language && batchAccount(p));
   if(connected.length!==rows.value.length)throw new Error('Connected accounts changed. Review the destinations again.');
   for(const profile of connected){
    const row=rows.value.find(r=>r.profile.platform===profile.platform&&r.profile.id===profile.id);
@@ -41,7 +42,7 @@ async function sendAll(){
   }
   for(const row of selected.value){
    const d=row.draft!;const latest=await drafts.get(d.key);
-   const profile=current.find(p=>p.platform===row.profile.platform&&p.language===props.language);
+   const profile=current.find(p=>p.platform===row.profile.platform&&p.language===props.language && batchAccount(p));
    if(profile?.id!==row.profile.id||profile.api!==row.profile.api||latest.revision!==d.revision)throw new Error('A draft or account changed. Close this dialog and review the destinations again.');
    const blocked=draftBlocker(latest,profile,props.episode,props.video);if(blocked)throw new Error(blocked);
    if(!localDraft(d)&&!(profile.platform==='x'&&!profile.api)){
@@ -49,23 +50,32 @@ async function sendAll(){
     const reason=receiptBlocker(d,row.receipt);if(reason)throw new Error(`${profile.name}: ${reason}`);
    }
   }
-  finished.value=true;
+  const batchPaid=paid.value,batchAudience=audience.value,batchSynthetic=synthetic.value;
+  const requests:TransferRequest[]=[];
+  // Browser handoff changes the clipboard: keep it tied to this explicit interaction.
   for(const row of selected.value){
-   row.result='Sending…';
-   try{row.result=await transfer(row.draft!,row.profile,row.receipt,true,paid.value,audience.value,synthetic.value);}
-   catch(e){row.result='Needs checking';throw e;}
+   const d:Draft=JSON.parse(JSON.stringify(row.draft!));
+   const p:Profile=JSON.parse(JSON.stringify(row.profile));
+   const r=JSON.parse(JSON.stringify(row.receipt));
+   if(localDraft(d)||(p.platform==='x'&&!p.api)){
+    try{row.result=await transfer(d,p,r,true,batchPaid,batchAudience,batchSynthetic)}catch(e){row.result=String(e)}
+   }else requests.push({draft:d,profile:p,mode:modeLabel(p.platform,d.deliveryMode,p),send:()=>transfer(d,p,r,true,batchPaid,batchAudience,batchSynthetic)});
   }
+  enqueueTransfers(requests);finished.value=true;
+  busy.value=false;emit('busy',false);
+  if(requests.length)emit('queued');
  }catch(e){error.value=String(e);for(const row of selected.value){if(!row.result)row.result='Not sent';}}
  finally{busy.value=false;emit('busy',false);}
 }
 </script>
 <template>
+ <p v-if="profiles.some(p=>p.language===language && !batchAccount(p))" class="muted">X is handled separately in the browser.</p>
  <p class="batch-language">{{language==='es'?'Spanish':'English'}} accounts</p>
  <p v-if="loading" role="status">Checking destinations…</p>
  <fieldset :disabled="loading||busy||finished" class="draft-fields batch-rows">
   <label v-for="row in rows" :key="row.profile.platform" class="batch-row">
    <input v-model="row.selected" type="checkbox" :disabled="!!row.reason" @change="confirmed=false;paid=false">
-   <span><strong>{{row.profile.platform==='x'?'X':row.profile.platform==='youtube'?'YouTube':row.profile.platform==='tiktok'?'TikTok':'Instagram'}} / {{row.profile.name}}</strong><small>{{row.reason||modeLabel(row.profile.platform,row.draft?.deliveryMode||'draft',row.profile)}}</small><small v-if="row.result" role="status">{{row.result}}</small></span>
+   <span><strong>{{row.profile.platform==='x'?'X':row.profile.platform==='youtube'?'YouTube':row.profile.platform==='tiktok'?'TikTok':row.profile.platform==='facebook'?'Facebook':'Instagram'}} / {{row.profile.name}}</strong><small>{{row.reason||modeLabel(row.profile.platform,row.draft?.deliveryMode||'draft',row.profile)}}</small><small v-if="row.result" role="status">{{row.result}}</small></span>
   </label>
  </fieldset>
  <fieldset v-if="!finished" :disabled="loading||busy" class="draft-fields batch-confirmation">

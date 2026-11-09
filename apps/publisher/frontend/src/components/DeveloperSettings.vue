@@ -6,7 +6,7 @@ import CredentialState from './CredentialState.vue';
 
 const props = defineProps<{ initialProvider: SetupPlatform; statuses: Record<string,string | undefined> }>();
 const emit = defineEmits<{ busy: [value: boolean]; saved: [] }>();
-const names = { youtube: 'YouTube', tiktok: 'TikTok', instagram: 'Instagram', x:'X' };
+const names = { youtube: 'YouTube', tiktok: 'TikTok', instagram: 'Meta', x:'X' };
 const provider = ref(props.initialProvider);
 
 const pending = ref(false);

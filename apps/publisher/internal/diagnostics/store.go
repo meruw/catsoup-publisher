@@ -25,22 +25,23 @@ const memoryLimit = 2000
 const retention = 7 * 24 * time.Hour
 
 type Event struct {
-	ID              int64     `json:"id"`
-	Time            time.Time `json:"time"`
-	Level           string    `json:"level"`
-	Message         string    `json:"msg"`
-	Session         string    `json:"session"`
-	Service         string    `json:"service"`
-	Language        string    `json:"language"`
-	Attempt         string    `json:"attempt"`
-	Stage           string    `json:"stage"`
-	ElapsedMS       int64     `json:"elapsed_ms"`
-	Reason          string    `json:"reason"`
-	HTTPStatus      int       `json:"http_status"`
-	ProviderCode    int       `json:"provider_code"`
-	ProviderSubcode int       `json:"provider_subcode"`
-	Pages           int       `json:"pages"`
-	Matches         int       `json:"matches"`
+	ProviderErrorCode string    `json:"provider_error_code,omitempty"`
+	ID                int64     `json:"id"`
+	Time              time.Time `json:"time"`
+	Level             string    `json:"level"`
+	Message           string    `json:"msg"`
+	Session           string    `json:"session"`
+	Service           string    `json:"service"`
+	Language          string    `json:"language"`
+	Attempt           string    `json:"attempt"`
+	Stage             string    `json:"stage"`
+	ElapsedMS         int64     `json:"elapsed_ms"`
+	Reason            string    `json:"reason"`
+	HTTPStatus        int       `json:"http_status"`
+	ProviderCode      int       `json:"provider_code"`
+	ProviderSubcode   int       `json:"provider_subcode"`
+	Pages             int       `json:"pages"`
+	Matches           int       `json:"matches"`
 }
 
 type Query struct {
@@ -117,12 +118,27 @@ func Open(dir string) *Store {
 		})
 	}
 	s.writer = &lumberjack.Logger{Filename: active, MaxSize: 10, MaxBackups: 5, MaxAge: 7}
-	if err := s.writer.Rotate(); err != nil {
+	if err := s.rotateNonempty(); err != nil {
 		s.warning = "Log rotation failed. Check access to the local log folder."
 	}
 	s.handler = slog.NewJSONHandler(s.writer, &slog.HandlerOptions{Level: slog.LevelDebug})
 	go s.maintain()
 	return s
+}
+
+// Empty sessions must not consume the backup limit and evict saved events.
+func (s *Store) rotateNonempty() error {
+	info, err := os.Lstat(s.writer.Filename)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if info.Mode().IsRegular() && info.Size() == 0 {
+		return nil
+	}
+	return s.writer.Rotate()
 }
 
 func (s *Store) maintain() {
@@ -134,7 +150,7 @@ func (s *Store) maintain() {
 			return
 		case <-timer.C:
 			s.mu.Lock()
-			if !s.closed && s.writer.Rotate() != nil {
+			if !s.closed && s.rotateNonempty() != nil {
 				s.warning = "Log rotation failed. Check access to the local log folder."
 			}
 			s.mu.Unlock()
@@ -157,6 +173,7 @@ func (s *Store) record(e Event, level slog.Level) {
 		slog.String("attempt", e.Attempt), slog.String("stage", e.Stage),
 		slog.Int64("elapsed_ms", e.ElapsedMS), slog.String("reason", e.Reason),
 		slog.Int("http_status", e.HTTPStatus), slog.Int("provider_code", e.ProviderCode),
+		slog.String("provider_error_code", e.ProviderErrorCode),
 		slog.Int("provider_subcode", e.ProviderSubcode), slog.Int("pages", e.Pages), slog.Int("matches", e.Matches))
 	if s.handler.Handle(context.Background(), r) != nil {
 		s.warning = "Some events could not be saved. Recent events remain available in memory."
@@ -243,7 +260,7 @@ func scan(path string, accept func(Event)) {
 // arbitrary text inserted into a local file out of exports and the UI.
 func validEvent(e Event) bool {
 	message, known := messages[e.Stage]
-	if !known || message != e.Message || len(e.Attempt) > 64 || len(e.Session) > 64 || e.ID < 1 || e.ID > 9007199254740990 || e.Reason != safeReason(e.Reason) {
+	if !known || message != e.Message || len(e.Attempt) > 64 || len(e.Session) > 64 || e.ID < 1 || e.ID > 9007199254740990 || e.Reason != safeReason(e.Reason) || e.ProviderErrorCode != SafeProviderErrorCode(e.ProviderErrorCode) {
 		return false
 	}
 	for _, value := range []string{e.Attempt, e.Session, e.Reason} {
@@ -254,7 +271,7 @@ func validEvent(e Event) bool {
 		}
 	}
 	switch e.Service {
-	case "youtube", "tiktok", "instagram", "x":
+	case "youtube", "tiktok", "instagram", "facebook", "x":
 	default:
 		return false
 	}
@@ -286,7 +303,7 @@ func (s *Store) CopyResults(q Query, minutes int) (Result, error) {
 func (s *Store) query(q Query, limit int, since time.Time) (Result, error) {
 	if len(q.Search) > 200 || len(q.Attempt) > 64 || q.Before < 0 || q.Before > 9007199254740991 || q.After < 0 || q.After > 9007199254740991 ||
 		(q.Level != "" && q.Level != "DEBUG" && q.Level != "INFO" && q.Level != "WARN" && q.Level != "ERROR") ||
-		(q.Service != "" && q.Service != "youtube" && q.Service != "tiktok" && q.Service != "instagram" && q.Service != "x") ||
+		(q.Service != "" && q.Service != "youtube" && q.Service != "tiktok" && q.Service != "instagram" && q.Service != "facebook" && q.Service != "x") ||
 		(q.Language != "" && q.Language != "es" && q.Language != "en") {
 		return Result{}, errors.New("invalid diagnostic filter")
 	}
@@ -312,7 +329,7 @@ func (s *Store) query(q Query, limit int, since time.Time) (Result, error) {
 		if q.CurrentSession && e.Session != session || q.Level != "" && e.Level != q.Level || q.Service != "" && e.Service != q.Service || q.Language != "" && e.Language != q.Language || q.Attempt != "" && e.Attempt != q.Attempt {
 			return
 		}
-		if search != "" && !strings.Contains(strings.ToLower(e.Message+" "+e.Stage+" "+e.Reason+" "+e.Attempt+" "+e.Service+" "+e.Language+" "+strconv.Itoa(e.HTTPStatus)+" "+strconv.Itoa(e.ProviderCode)+" "+strconv.Itoa(e.ProviderSubcode)), search) {
+		if search != "" && !strings.Contains(strings.ToLower(e.Message+" "+e.Stage+" "+e.Reason+" "+e.ProviderErrorCode+" "+e.Attempt+" "+e.Service+" "+e.Language+" "+strconv.Itoa(e.HTTPStatus)+" "+strconv.Itoa(e.ProviderCode)+" "+strconv.Itoa(e.ProviderSubcode)), search) {
 			return
 		}
 		heap.Push(matches, e)

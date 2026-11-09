@@ -22,7 +22,7 @@ func TestPostStatusesIsolationAndResults(t *testing.T) {
 	if err := s.PutProfile(Profile{Platform: "youtube", Language: "es", ID: "first", Name: "CATsoup"}, []byte("test"), ""); err != nil {
 		t.Fatal(err)
 	}
-	_, err := s.db.Exec("INSERT INTO upload_attempts VALUES('youtube','first',?,'published','remote1',?)", sample().VideoHash, time.Now().Unix())
+	_, err := s.db.Exec("INSERT INTO upload_attempts(platform,account_id,video_hash,state,reference,started) VALUES('youtube','first',?,'published','remote1',?)", sample().VideoHash, time.Now().Unix())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -90,7 +90,7 @@ func TestPostGroupsKeepAllDestinationsTogether(t *testing.T) {
 			}
 		}
 	}
-	_, err := s.db.Exec("INSERT INTO upload_attempts VALUES('youtube','youtubees',?,'published','remote',?)", sample().VideoHash, time.Now().Unix())
+	_, err := s.db.Exec("INSERT INTO upload_attempts(platform,account_id,video_hash,state,reference,started) VALUES('youtube','youtubees',?,'published','remote',?)", sample().VideoHash, time.Now().Unix())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -105,6 +105,10 @@ func TestPostGroupsKeepAllDestinationsTogether(t *testing.T) {
 	g := page.Items[0]
 	if g.Total != 8 || g.Platforms != 4 || g.Counts["published"] != 1 || g.Counts["draft"] != 7 {
 		t.Fatal("partial summary", g)
+	}
+	history, historyErr := s.PostGroups(ctx, PostFilter{State: "transfers"})
+	if historyErr != nil || len(history.Items) != 1 || history.Items[0].Total != 1 || history.Items[0].Counts["published"] != 1 || history.Items[0].Counts["draft"] != 0 {
+		t.Fatal("upload history must exclude unsent drafts from its counts", history, historyErr)
 	}
 	page, err = s.PostGroups(ctx, PostFilter{Platform: "tiktok", State: "published"})
 	if err != nil || len(page.Items) != 0 {
@@ -154,7 +158,7 @@ func TestPostFilterCategories(t *testing.T) {
 	if err != nil || len(page.Items) != 1 || page.Items[0].VideoID != d.VideoID {
 		t.Fatal(page, err)
 	}
-	_, err = s.db.Exec("INSERT INTO upload_attempts VALUES(?,?,?,'published','remote',?)", d.Key.Platform, "category-test", d.VideoHash, time.Now().Unix())
+	_, err = s.db.Exec("INSERT INTO upload_attempts(platform,account_id,video_hash,state,reference,started) VALUES(?,?,?,'published','remote',?)", d.Key.Platform, "category-test", d.VideoHash, time.Now().Unix())
 	if err != nil {
 		t.Fatal(err)
 	}

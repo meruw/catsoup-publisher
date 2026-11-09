@@ -10,7 +10,7 @@ import (
 	"unicode/utf16"
 )
 
-var ErrProcessingFailed = errors.New("TikTok confirmed that processing failed; inspect the video and account before another attempt")
+var ErrProcessingFailed = errors.New("The platform confirmed that processing failed; inspect the video and account before another attempt")
 
 type TikTokCreator struct {
 	Username        string   `json:"creator_username"`

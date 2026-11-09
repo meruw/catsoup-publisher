@@ -74,6 +74,14 @@ export function OpenXSetup(step: string): $CancellablePromise<void> {
     return $Call.ByID(3723970617, step);
 }
 
+/**
+ * PostStatistics accepts a local draft key, never a remote URL or access token.
+ * It performs no uploads and never changes publication receipts or approvals.
+ */
+export function PostStatistics(key: drafts$0.Key): $CancellablePromise<uploads$0.Statistics> {
+    return $Call.ByID(160979505, key);
+}
+
 export function PublishYouTube(key: drafts$0.Key, revision: number, id: string, confirmed: boolean, audience: string, synthetic: boolean): $CancellablePromise<drafts$0.Receipt> {
     return $Call.ByID(2668659532, key, revision, id, confirmed, audience, synthetic);
 }

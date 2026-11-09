@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import {activeTransfers,transferJobs} from './services/transfers';
+import TransferActivity from './components/TransferActivity.vue';
+import EpisodeBrowser from './components/EpisodeBrowser.vue';
 import { computed, defineAsyncComponent, onMounted, onUnmounted, ref } from 'vue';
 import VideoPreview from './components/VideoPreview.vue';
 import UiButton from './components/UiButton.vue';
@@ -17,8 +20,10 @@ import { publisher, mediaURL, type Entry, type Episode } from './services/publis
 
 const module = ref<'publisher'|'posts'|'accounts'|'settings'>('publisher');
 const initialPlatform=ref('');
+const initialPublish=ref(false),postsEpisode=ref('');
 const PostOverview=defineAsyncComponent(()=>import('./components/PostOverview.vue'));
-async function openPost(post:PostStatus){await navigate(async()=>{const accounts=await uploads.accounts()||[];if(!accounts.some(p=>p.platform===post.key.platform&&p.language===post.key.language&&'account:'+p.id===post.key.account))throw Error('This account changed; reconnect it in Accounts');await select(post.key.episode);chooseLanguage(post.key.language);if(variants.value.some(v=>v.id===post.videoId))videoID.value=post.videoId;initialPlatform.value=post.key.platform;module.value='publisher';});}
+async function openPost(post:PostStatus,reviewUpload=false){await navigate(async()=>{const accounts=await uploads.accounts()||[];if(!accounts.some(p=>p.platform===post.key.platform&&p.language===post.key.language&&'account:'+p.id===post.key.account))throw Error('This account changed; reconnect it in Accounts');await select(post.key.episode);chooseLanguage(post.key.language);if(variants.value.some(v=>v.id===post.videoId))videoID.value=post.videoId;initialPlatform.value=post.key.platform;initialPublish.value=reviewUpload;module.value='publisher';});}
+function showPosts(id=''){void navigate(()=>{postsEpisode.value=id;uploadsOpen.value=false;module.value='posts'});}
 const DiagnosticsConsole = defineAsyncComponent(() => import('./components/DiagnosticsConsole.vue'));
 const consoleOpen = ref(false);
 const consoleCollapsed = ref(false);
@@ -36,6 +41,7 @@ function diagnosticShortcut(event:KeyboardEvent) {
     else openDiagnostics();
   }
 }
+const uploadsOpen=ref(false);
 const accountBusy = ref(false);
 const accountLanguage = ref('es');
 const settingsProvider = ref<SetupPlatform|null>(null);
@@ -46,6 +52,21 @@ function showSettings(provider?:SetupPlatform, lang?:string) {
 const entries = ref<Entry[]>([]);
 const episode = ref<Episode | null>(null);
 const busy = ref(false);
+const importing = ref(false);
+const importMessage = ref('');
+const importError = ref(false);
+async function importDelivery() {
+  importing.value=true; busy.value=true; importMessage.value=''; importError.value=false;
+  try {
+    const result=await publisher.importDelivery();
+    if(!result) { importMessage.value=''; return; }
+    entries.value=await publisher.list() || [];
+    module.value='publisher';
+    await select(result.id);
+    importMessage.value=result.existing ? 'Already imported' : 'Delivery imported';
+  } catch(e) { importError.value=true; importMessage.value=String(e); }
+  finally { importing.value=false; busy.value=false; }
+}
 const error = ref('');
 const language = ref('es');
 const videoID = ref('');
@@ -60,12 +81,14 @@ const source = computed(() => episode.value && video.value ? mediaURL(episode.va
 const languageName = (lang: string) => lang === 'es' ? 'Spanish' : 'English';
 
 function chooseLanguage(lang: string) {
+  initialPublish.value=false;
   stage.value='prepare';
   language.value = lang;
   videoID.value = variants.value.find(v => v.kind === 'final' && v.narration)?.id || variants.value[0]?.id || '';
 }
 async function select(id: string) {
   initialPlatform.value='';
+  initialPublish.value=false;
   busy.value = true;
   error.value = '';
   episode.value = null;
@@ -109,6 +132,7 @@ function switchVideo(event: Event) {
 onMounted(async () => {
   window.addEventListener('keydown',diagnosticShortcut);
   stopCloseListener = drafts.onCloseRequested(() => {
+    if(activeTransfers.value){uploadsOpen.value=true;return;}
     if (module.value==='accounts') void drafts.confirmClose();
     else void navigate(async () => { await drafts.confirmClose(); });
   });
@@ -121,31 +145,26 @@ onUnmounted(() => {stopCloseListener?.();window.removeEventListener('keydown',di
 
 <template>
   <WindowBar />
+  <TransferActivity v-if="uploadsOpen" :open="uploadsOpen" @close="uploadsOpen=false" @posts="showPosts"/>
   <DiagnosticsConsole v-if="consoleOpen" v-model:collapsed="consoleCollapsed" :service="diagnosticFilter.service" :language="diagnosticFilter.language" @close="consoleOpen=false"/>
   <div class="workspace">
     <aside class="sidebar" aria-label="Modules and episodes">
       <div class="module-label">Modules</div>
       <nav class="module-nav" aria-label="Modules">
         <button class="module-item" :aria-current="module==='publisher'?'page':undefined" :disabled="busy || navigating || accountBusy" @click="navigate(async () => { module='publisher'; await refresh(); })">Publisher</button>
-        <button class="module-item" :aria-current="module==='posts'?'page':undefined" :disabled="busy || navigating || accountBusy" @click="navigate(()=>{module='posts'})">Posts</button>
+        <button class="module-item" :aria-current="module==='posts'?'page':undefined" :disabled="busy || navigating || accountBusy" @click="showPosts()">Posts</button>
         <button class="module-item" :aria-current="module==='accounts'?'page':undefined" :disabled="navigating || accountBusy" @click="showAccounts">Accounts</button>
         <button class="module-item" :aria-current="module==='settings'?'page':undefined" :disabled="busy || navigating || accountBusy" @click="showSettings()">Settings</button>
       </nav>
       <div class="library-label"><span>Episodes</span><span class="mono">{{ entries.length }}</span></div>
-      <nav aria-label="Publisher episodes">
-        <button v-for="entry in entries" :key="entry.id" class="episode-button"
-          :aria-current="episode?.id === entry.id ? 'true' : undefined"
-          :disabled="busy || navigating || accountBusy" @click="navigate(async () => { module='publisher'; await select(entry.id); })">
-          <span>{{ entry.title }}</span>
-          <small v-if="!entry.valid">Needs attention</small>
-        </button>
-      </nav>
-      <p v-if="!entries.length && !busy" class="muted">No deliveries yet</p>
-      <div class="sidebar-tools"><button class="console-launcher" :aria-expanded="consoleOpen && !consoleCollapsed" aria-controls="diagnostics-console" aria-keyshortcuts="Control+Shift+D" title="Console (Ctrl+Shift+D)" @click="consoleOpen ? consoleCollapsed=false : openDiagnostics()"><span aria-hidden="true" class="console-symbol">&gt;_</span><span>Console</span><kbd>Ctrl ⇧ D</kbd></button></div>
+      <UiButton class="import-delivery" variant="secondary" :busy="importing" :disabled="busy || navigating || accountBusy || transferBusy" @click="navigate(importDelivery)">{{ importing ? 'Importing…' : 'Import delivery' }}</UiButton>
+      <p v-if="importMessage" class="import-feedback" :class="{'import-error':importError}" :role="importError ? 'alert' : 'status'">{{ importMessage }}</p>
+      <EpisodeBrowser :entries="entries" :selected="episode?.id" :disabled="busy || navigating || accountBusy" @select="id=>navigate(async()=>{module='publisher';await select(id)})"/>
+      <div class="sidebar-tools"><button id="uploads-launcher" class="console-launcher" :aria-expanded="uploadsOpen" @click="uploadsOpen=true"><span>Uploads</span><span v-if="activeTransfers" role="status">{{activeTransfers}} active</span><span v-else-if="transferJobs.some(j=>j.state==='attention')">Needs attention</span><span v-else-if="transferJobs.length">Finished</span></button><button class="console-launcher" :aria-expanded="consoleOpen && !consoleCollapsed" aria-controls="diagnostics-console" aria-keyshortcuts="Control+Shift+D" title="Console (Ctrl+Shift+D)" @click="consoleOpen ? consoleCollapsed=false : openDiagnostics()"><span aria-hidden="true" class="console-symbol">&gt;_</span><span>Console</span><kbd>Ctrl ⇧ D</kbd></button></div>
     </aside>
     <AccountManager v-if="module==='accounts'" :initial-language="accountLanguage" @settings="showSettings" @language="accountLanguage=$event" @busy="accountBusy=$event" @diagnostics="openDiagnostics"/>
     <SettingsPage v-else-if="module==='settings'" :provider="settingsProvider" @select="showSettings" @busy="accountBusy=$event"/>
-    <PostOverview v-else-if="module==='posts'" :entries="entries" :open-error="error" @open="openPost"/>
+    <PostOverview v-else-if="module==='posts'" :entries="entries" :initial-episode="postsEpisode" :open-error="error" @open="openPost"/>
     <main v-else class="publisher-main" :aria-busy="busy">
       <header class="page-header">
         <h1>{{ episode?.title || 'Publisher' }}</h1>
@@ -157,7 +176,7 @@ onUnmounted(() => {stopCloseListener?.();window.removeEventListener('keydown',di
         </div>
       </header>
       <div v-if="error" class="notice error" role="alert">{{ error }}</div>
-      <div v-if="busy" class="notice" role="status">Checking delivery files…</div>
+      <div v-if="busy" class="notice" role="status">{{ importing ? 'Importing and checking delivery files…' : 'Checking delivery files…' }}</div>
       <section v-if="episode && !busy" class="episode-workspace" aria-label="Selected delivery">
         <div class="editor-layout">
           <section class="preview-panel" aria-label="Video preview">
@@ -182,11 +201,11 @@ onUnmounted(() => {stopCloseListener?.();window.removeEventListener('keydown',di
             </details>
           </section>
           <PublicationDraft v-if="video" :key="episode.id + ':' + language" ref="editor"
-            :initial-platform="initialPlatform" :episode="episode" :language="language" :video="video" :locked="navigating" :stage="stage" @busy="transferBusy=$event" @accounts="showAccounts" @prepare="navigate(()=>{stage='prepare'})" @publish="navigate(()=>{stage='publish'})" />
+            :initial-platform="initialPlatform" :initial-publish="initialPublish" :episode="episode" :language="language" :video="video" :locked="navigating" :stage="stage" @busy="transferBusy=$event" @accounts="showAccounts" @prepare="navigate(()=>{stage='prepare'})" @publish="navigate(()=>{stage='publish'})" />
         </div>
       </section>
       <section v-if="!episode && !busy && !error" class="empty">
-        <h2>No delivery to preview</h2><p>Add a production delivery, then refresh</p>
+        <h2>No delivery to preview</h2><p>Choose Import delivery and select the folder containing manifest.json</p>
       </section>
     </main>
   </div>

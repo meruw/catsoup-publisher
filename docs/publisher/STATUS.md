@@ -58,3 +58,17 @@ The operator's three present developer configurations (Google, TikTok and Meta) 
 ## Next action
 
 The owner confirmed both TikTok accounts have inbox and Direct Post access. Confirm saved ES/EN account identities in the updated app. Validate Direct Post with explicitly approved content and the visibility permitted by TikTok. The PoC remains in progress; no release until the owner declares it complete.
+
+## Publishing reliability and workspace update
+
+The implementation includes Facebook Page Reels, background transfer queues, persistent upload history grouped by episode, searchable paginated episode navigation, native delivery import, per-language shared post text, and cached account-specific statistics for YouTube, Instagram and Facebook. X browser handoffs do not block automatic batch destinations. The application uses a single desktop instance.
+
+Instagram prepares a temporary compatibility copy with AAC audio at 48 kHz stereo and 128 kb/s while preserving the video stream and approved source. Receipts retain the source hash, prepared hash and container. Check and finish publishes an already-ready container. For Meta's specific missing-file error with zero received bytes, it can retransmit the exact prepared file into the same saved container; it never creates a replacement for an ambiguous pending result. Recovery requires current approval, matching account, revision and hashes, and an atomic reservation. An interrupted publication remains locked for reconciliation.
+
+TikTok handles regional upload hosts, valid chunk sizing and structured provider error identifiers. An inbox receipt records TikTok's SEND_TO_USER_INBOX response, not a published post or independently verified notification visibility. A reported mismatch between that response and mobile inbox visibility remains unresolved with the provider. Repeated uploads are not an automatic remedy.
+
+Schema version 9 adds bounded statistics history and Instagram preparation checkpoints while retaining existing drafts, connections and receipts. No new runtime dependency is required for these changes. Operator records, credentials, real media, receipts and support diagnostics remain in ignored local storage.
+
+Validation includes all Go tests and vet, strict frontend compilation, provider protocol fixtures, receipt/approval/concurrency and migration tests, media compatibility checks, and browser fixtures for navigation, imports, statistics, batch and background transfers. Browser fixtures do not replace native UI testing. The latest Windows build was installed, launched and responded; a real Instagram same-container recovery was verified successfully.
+
+Next action: resolve the TikTok ES mobile-notification discrepancy using the retained provider request identifiers, without an automatic third upload. The application remains a proof of concept; no stable release is planned yet.

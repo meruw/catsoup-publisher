@@ -14,7 +14,7 @@ func TestDeliveryModeMigrationPreservesDraftAndRevision(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Recreate the last supported schema, with its original draft still present.
-	if _, err = s.db.Exec("ALTER TABLE drafts DROP COLUMN approved_revision; ALTER TABLE drafts DROP COLUMN delivery_mode; UPDATE schema_version SET version=4"); err != nil {
+	if _, err = s.db.Exec("DROP TABLE statistics_samples; ALTER TABLE upload_attempts DROP COLUMN upload_hash; ALTER TABLE upload_attempts DROP COLUMN preparation; ALTER TABLE drafts DROP COLUMN approved_revision; ALTER TABLE drafts DROP COLUMN delivery_mode; UPDATE schema_version SET version=4"); err != nil {
 		t.Fatal(err)
 	}
 	s.Close()

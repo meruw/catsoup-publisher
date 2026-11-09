@@ -30,7 +30,7 @@ func (s *UploadService) Accounts() ([]drafts.Profile, error) {
 }
 func validateSlot(platform, lang string) error {
 	switch platform {
-	case "youtube", "instagram", "tiktok", "x":
+	case "youtube", "instagram", "facebook", "tiktok", "x":
 	default:
 		return errors.New("unsupported platform")
 	}
@@ -94,6 +94,9 @@ func (s *UploadService) linkAccount(platform, language, expectedID, handle, page
 		if platform == "instagram" && !igHandle.MatchString(handle) {
 			return p, errors.New("enter the Instagram username attached to your Page")
 		}
+		if platform == "facebook" && !igHandle.MatchString(handle) {
+			return p, errors.New("enter the Facebook Page ID or linked Instagram username")
+		}
 		reason = "unknown"
 		token, err = s.client.SignIn(ctx, platform, s.openBrowser)
 		if err != nil {
@@ -101,6 +104,12 @@ func (s *UploadService) linkAccount(platform, language, expectedID, handle, page
 		}
 		if platform == "instagram" {
 			token, err = s.client.InstagramPage(ctx, token, handle)
+			if err != nil {
+				return p, err
+			}
+		}
+		if platform == "facebook" {
+			token, err = s.client.FacebookPage(ctx, token, handle)
 			if err != nil {
 				return p, err
 			}
@@ -193,7 +202,7 @@ func (s *UploadService) ClientReady(platform string) bool { return uploads.Clien
 
 func (s *UploadService) CredentialStatuses() map[string]string {
 	result := make(map[string]string, 3)
-	for _, platform := range []string{"youtube", "tiktok", "instagram", "x"} {
+	for _, platform := range []string{"youtube", "tiktok", "instagram", "facebook", "x"} {
 		result[platform] = uploads.ClientStatus(platform)
 	}
 	return result

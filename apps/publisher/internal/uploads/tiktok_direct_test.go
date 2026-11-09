@@ -99,7 +99,7 @@ func TestTikTokDirectTransferAndDefinitiveFailure(t *testing.T) {
 			recorded := ""
 			sent := false
 			c.HTTP.Transport = transport(func(r *http.Request) (*http.Response, error) {
-				if r.URL.Host == "open-upload.tiktokapis.com" {
+				if r.URL.Host == "open-upload-sg.tiktokapis.com" {
 					if recorded != "direct1" || r.Header.Get("Authorization") != "" {
 						t.Fatal("checkpoint or upload credential invalid")
 					}
@@ -134,7 +134,7 @@ func TestTikTokDirectTransferAndDefinitiveFailure(t *testing.T) {
 							t.Fatalf("%s: got %v", k, body.Post[k])
 						}
 					}
-					host := "open-upload.tiktokapis.com"
+					host := "open-upload-sg.tiktokapis.com"
 					if status == "host" {
 						host = "example.com"
 					}

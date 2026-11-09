@@ -66,10 +66,13 @@ func TestTransfers(t *testing.T) {
 						t.Fatal("missing TikTok authorization")
 					}
 					if strings.Contains(r.URL.Path, "inbox/video/init") {
-						return response(`{"data":{"publish_id":"inbox1","upload_url":"https://open-upload.tiktokapis.com/transfer"},"error":{"code":"ok"}}`), nil
+						return response(`{"data":{"publish_id":"inbox1","upload_url":"https://open-upload-sg.tiktokapis.com/transfer?upload_id=fixture&upload_token=signed%2Bvalue"},"error":{"code":"ok"}}`), nil
 					}
 					return response(`{"data":{"status":"SEND_TO_USER_INBOX"},"error":{"code":"ok"}}`), nil
-				case "open-upload.tiktokapis.com":
+				case "open-upload-sg.tiktokapis.com":
+					if r.URL.RawQuery != "upload_id=fixture&upload_token=signed%2Bvalue" {
+						t.Fatal("signed upload query changed")
+					}
 					if auth != "" || recorded != "inbox1" {
 						t.Fatal("unexpected upload credential or missing checkpoint")
 					}

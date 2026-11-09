@@ -36,7 +36,7 @@ export async function checkDiagnostics(page,output) {
  await page.setViewportSize({width:1200,height:840});
  await page.getByRole('button',{name:'Settings',exact:true}).click();
  assert.equal(await page.getByRole('heading',{name:'Diagnostics',exact:true}).count(),0);
- await page.locator('.console-launcher').click();
+ await page.locator('.console-launcher[aria-controls="diagnostics-console"]').click();
  const panel=page.getByRole('region',{name:'Diagnostics console'});
  await panel.getByRole('button',{name:'Older',exact:true}).waitFor();
  await page.waitForFunction(()=>window.__diagnosticsListening);
@@ -106,7 +106,7 @@ export async function checkDiagnostics(page,output) {
  assert.equal(await panel.evaluate(e=>e.getBoundingClientRect().height),36);
  assert.equal(await panel.getByLabel('Search',{exact:true}).count(),0);
  await page.screenshot({path:path.join(output,'diagnostics-collapsed.png')});
- await page.locator('.console-launcher').click();
+ await page.locator('.console-launcher[aria-controls="diagnostics-console"]').click();
  await page.waitForFunction(()=>window.__diagnosticsListening);
  assert.equal(await panel.getByLabel('Search',{exact:true}).inputValue(),'nothing-matches');
  await panel.getByRole('button',{name:'Expand',exact:true}).click();

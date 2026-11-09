@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"io"
+	"log/slog"
 	"net/url"
 	"os"
 	"strings"
@@ -122,7 +123,7 @@ func (s *UploadService) SendX(key drafts.Key, revision int64, id string, confirm
 func (s *UploadService) SendMode(key drafts.Key, revision int64, id, mode string, confirmed, paidAccepted bool, audience string, synthetic bool) (drafts.Receipt, error) {
 	return s.sendMode(key, revision, id, mode, confirmed, paidAccepted, audience, synthetic, nil)
 }
-func (s *UploadService) sendMode(key drafts.Key, revision int64, id, mode string, confirmed, paidAccepted bool, audience string, synthetic bool, tikOptions *uploads.TikTokOptions) (drafts.Receipt, error) {
+func (s *UploadService) sendMode(key drafts.Key, revision int64, id, mode string, confirmed, paidAccepted bool, audience string, synthetic bool, tikOptions *uploads.TikTokOptions) (receipt drafts.Receipt, failure error) {
 	if err := drafts.CheckDestination(key, id); err != nil {
 		return drafts.Receipt{}, err
 	}
@@ -150,6 +151,14 @@ func (s *UploadService) sendMode(key drafts.Key, revision int64, id, mode string
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
 	defer cancel()
+	ctx = diagnostics.StartTransfer(ctx, s.diagnostics, key.Platform, key.Language)
+	defer func() {
+		if failure != nil {
+			diagnostics.Record(ctx, slog.LevelError, "transfer_failed", diagnostics.Details{})
+		} else {
+			diagnostics.Record(ctx, slog.LevelInfo, "transfer_finished", diagnostics.Details{})
+		}
+	}()
 	d, err := s.store.Get(ctx, key)
 	if err != nil {
 		return drafts.Receipt{}, err
@@ -173,6 +182,7 @@ func (s *UploadService) sendMode(key drafts.Key, revision int64, id, mode string
 	}
 	defer os.Remove(file.Name())
 	defer file.Close()
+	uploadHash := d.VideoHash
 	caption := strings.TrimSpace(d.Description + "\n\n" + d.Hashtags)
 	if (key.Platform == "instagram" || key.Platform == "x" || (key.Platform == "tiktok" && mode == "publish")) && strings.TrimSpace(d.Title) != "" {
 		caption = strings.TrimSpace(d.Title + "\n\n" + caption)
@@ -217,10 +227,94 @@ func (s *UploadService) sendMode(key drafts.Key, revision int64, id, mode string
 	if current.ID != id {
 		return drafts.Receipt{}, errors.New("the authorized account changed; reconnect before sending")
 	}
-	if err = s.store.Reserve(d, id); err != nil {
+	previous, err := s.store.Receipt(key.Platform, id, d.VideoHash)
+	if err != nil {
 		return drafts.Receipt{}, err
 	}
-	ref, sendErr := s.client.Send(ctx, key.Platform, token, current, m, func(ref string) error { return s.store.SaveReceipt(d, id, "sending", ref) })
+	resumeBytes := false
+	if key.Platform == "instagram" && (previous.State == "failed" || previous.State == "check") {
+		state, stateErr := s.client.InstagramContainerState(ctx, token, previous.Reference)
+		if stateErr == nil && state == "FINISHED" {
+			if err = s.store.ReserveInstagramResume(d, id, previous.Reference); err != nil {
+				return drafts.Receipt{}, err
+			}
+			ref, publishErr := s.client.PublishReadyInstagram(ctx, token, id, previous.Reference)
+			state = "published"
+			if publishErr != nil {
+				state = "check_publish"
+			}
+			if err = s.store.SaveReceipt(d, id, state, ref); err != nil {
+				return drafts.Receipt{}, errors.New("receipt write failed; check Instagram before retrying")
+			}
+			if publishErr != nil {
+				return drafts.Receipt{}, publishErr
+			}
+			return s.store.Receipt(key.Platform, id, d.VideoHash)
+		}
+		resumeBytes = uploads.CanResumeInstagramBytes(state, stateErr)
+		if !resumeBytes {
+			if err = s.client.ConfirmInstagramFailure(ctx, token, previous.Reference); err != nil {
+				return drafts.Receipt{}, err
+			}
+		}
+	}
+	if key.Platform == "instagram" {
+		if previous.State != "" && previous.State != "failed" && previous.State != "check" {
+			return drafts.Receipt{}, errors.New("an Instagram upload already exists; check its receipt")
+		}
+		diagnostics.Record(ctx, slog.LevelInfo, "upload_preparing", diagnostics.Details{})
+		prepared, preparedSize, hash, cleanup, prepareErr := s.reader.PrepareInstagramAudio(ctx, file.Name())
+		if prepareErr != nil {
+			return drafts.Receipt{}, prepareErr
+		}
+		defer cleanup()
+		m.File, m.Size, uploadHash = prepared, preparedSize, hash
+		diagnostics.Record(ctx, slog.LevelInfo, "upload_prepared", diagnostics.Details{})
+	}
+	if resumeBytes {
+		if err = s.store.ReserveInstagramRetransfer(d, id, previous.Reference, uploadHash); err != nil {
+			return drafts.Receipt{}, err
+		}
+		if err = s.client.ResumeInstagramBytes(ctx, token, previous.Reference, m); err != nil {
+			if saveErr := s.store.SaveReceipt(d, id, "check", ""); saveErr != nil {
+				return drafts.Receipt{}, errors.New("recovery receipt write failed; check Instagram before retrying")
+			}
+			return drafts.Receipt{}, err
+		}
+		// Persist the ambiguous-publish boundary before sending media_publish.
+		if err = s.store.SaveReceipt(d, id, "publishing", ""); err != nil {
+			return drafts.Receipt{}, err
+		}
+		ref, publishErr := s.client.PublishReadyInstagram(ctx, token, id, previous.Reference)
+		state := "published"
+		if publishErr != nil {
+			state = "check_publish"
+		}
+		if err = s.store.SaveReceipt(d, id, state, ref); err != nil {
+			return drafts.Receipt{}, errors.New("receipt write failed; check Instagram before retrying")
+		}
+		if publishErr != nil {
+			return drafts.Receipt{}, publishErr
+		}
+		return s.store.Receipt(key.Platform, id, d.VideoHash)
+	}
+	if key.Platform == "instagram" && (previous.State == "failed" || previous.State == "check") {
+		if err = s.client.ConfirmInstagramFailure(ctx, token, previous.Reference); err != nil {
+			return drafts.Receipt{}, err
+		}
+		err = s.store.ReserveInstagramRetry(d, id, previous.Reference)
+	} else {
+		err = s.store.Reserve(d, id)
+	}
+	if err != nil {
+		return drafts.Receipt{}, err
+	}
+	ref, sendErr := s.client.Send(ctx, key.Platform, token, current, m, func(ref string) error {
+		if key.Platform == "instagram" {
+			return s.store.SaveInstagramCheckpoint(d, id, ref, uploadHash)
+		}
+		return s.store.SaveReceipt(d, id, "sending", ref)
+	})
 	state := "published"
 	if key.Platform == "youtube" && mode == "draft" {
 		state = "private"

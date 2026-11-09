@@ -59,8 +59,11 @@ anything; copy/reveal are also usable with non-publishable test material.
 
 ## Migrations, backup and recovery
 
-Schema version 7 contains drafts with persisted delivery modes and approved revisions, language-specific
-accounts, encrypted credentials, upload receipts, local reviews and publishing defaults.
+Schema version 9 contains drafts with persisted delivery modes and approved revisions, language-specific
+accounts, encrypted credentials, upload receipts, local reviews, publishing defaults and statistics snapshots.
+Instagram receipts retain both the approved source hash and the prepared transport hash,
+with the preparation identifier. A ready container resumes through an atomic publication
+reservation; an unresolved publication cannot unlock a replacement upload.
 Defaults are keyed by platform, language and connected provider account ID. They
 initialize only an unsaved draft; changing a default never edits or approves a saved
 post. A replacement account does not inherit the previous account's default.
@@ -98,10 +101,10 @@ interpreted as private uploads. No background polling or job framework is requir
 Individual TikTok Direct Post uses typed, validated per-send privacy and disclosure options and is excluded from batch transfer. Other entry points use the shared frontend transfer adapter and the same Go
 publication methods, account checks and durable receipt reservations. A batch is
 an explicit, foreground sequence for one language, not a background queue. Before
-the first send it refreshes all connected account identities and approvals, plus every selected draft revision and receipt. The header action is blocked until all connected accounts in the current language have approved posts.
+the first send it refreshes all connected account identities and approvals, plus every selected draft revision and receipt. The header action is blocked until all batch-eligible connected accounts in the current language have approved posts. Browser-only X is excluded from the batch and its approval gate; it is an individual handoff. X connected through the paid API remains subject to approval. Eligibility is checked again before sending.
 New account-bound keys are checked against the destination in Go as well as the UI.
 All remote sends retain account approval, production approval and file-integrity validation in Go.
-The sequence stops on error and cannot be dismissed while busy. It never rolls
+Each destination retains its own result; a failure does not stop other approved sends. It never rolls
 back completed publications or retries automatically. Partial results are shown in
 the dialog; remote transfer receipts survive restart. Local-only and X browser
 handoff results are not remote publication receipts. Uncertain YouTube promotion
@@ -114,3 +117,7 @@ recovery remains an explicit individual action, outside batch sending.
 `PostGroups` uses the same local snapshot to select and paginate 20 episodes before aggregating all their destinations. Platform, language and state must match the same destination. Summary counts include all destinations in each selected episode. Catalog title matches arrive as bounded, validated episode IDs and use parameterized JSON membership; SQL text never interpolates search input. `PostStatuses` accepts an exact episode filter for the destination detail page. Neither query changes approval or transfer state.
 
 The filter categories `unsent`, `active`, `delivered` and `attention` expand to allowlisted precise states in the parameterized query; response states are not coarsened. A group exposes a representative saved video ID for its thumbnail. Thumbnails use the validated local media handler and never authorize a transfer.
+
+## Reuse post text
+
+**Copy fromâ€¦** beside Title lists saved, nonempty drafts from other connected platforms for the same episode and language. The confirmation previews the source text. **Replace text** copies title, description and hashtags into the current account and saves them through the normal revision-aware write path. It preserves the destination account, video and delivery mode, and requires approval of the resulting draft. The source draft is unchanged. Disconnected, unassigned and other-language drafts are not offered. No additional storage or dependency is used.

@@ -126,7 +126,7 @@ func TestV5ApprovalMigrationDoesNotApproveExistingDraft(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = s.db.Exec("ALTER TABLE drafts DROP COLUMN approved_revision; UPDATE schema_version SET version=5"); err != nil {
+	if _, err = s.db.Exec("DROP TABLE statistics_samples; ALTER TABLE upload_attempts DROP COLUMN upload_hash; ALTER TABLE upload_attempts DROP COLUMN preparation; ALTER TABLE drafts DROP COLUMN approved_revision; UPDATE schema_version SET version=5"); err != nil {
 		t.Fatal(err)
 	}
 	s.Close()

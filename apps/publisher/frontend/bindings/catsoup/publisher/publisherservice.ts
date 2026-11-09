@@ -19,6 +19,13 @@ export function GetEpisode(id: string): $CancellablePromise<delivery$0.Episode> 
     return $Call.ByID(295219032, id);
 }
 
+/**
+ * ImportDelivery accepts no frontend path: access starts with an explicit native selection.
+ */
+export function ImportDelivery(): $CancellablePromise<delivery$0.ImportResult | null> {
+    return $Call.ByID(3577924724);
+}
+
 export function ListDeliveries(): $CancellablePromise<delivery$0.Entry[] | null> {
     return $Call.ByID(1241279749);
 }

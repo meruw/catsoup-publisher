@@ -103,9 +103,20 @@ func main() {
 	uploadService := &UploadService{store: store, reader: reader, client: uploads.New()}
 	uploadService.diagnostics = diagnosticStore
 	uploadService.client.BrowserIcon = appIcon
+	publisherService := &PublisherService{reader: reader}
+	var activeWindow atomic.Pointer[application.WebviewWindow]
 	app := application.New(application.Options{Name: "CATsoup Publisher", Description: "Local release preparation",
+		SingleInstance: &application.SingleInstanceOptions{
+			UniqueID: "dev.meruw.catsoup.publisher",
+			OnSecondInstanceLaunch: func(_ application.SecondInstanceData) {
+				if current := activeWindow.Load(); current != nil {
+					current.Restore()
+					current.Focus()
+				}
+			},
+		},
 		Icon:     appIcon,
-		Services: []application.Service{application.NewService(&PublisherService{reader: reader}), application.NewService(draftService), application.NewService(uploadService), application.NewService(diagnosticService)},
+		Services: []application.Service{application.NewService(publisherService), application.NewService(draftService), application.NewService(uploadService), application.NewService(diagnosticService)},
 		Assets:   application.AssetOptions{Handler: assetHandler(reader, assets)}})
 	window := app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Title: "CATsoup Publisher", Width: 1200, Height: 840, MinWidth: 820, MinHeight: 650, URL: "/", Frameless: true,
@@ -118,6 +129,10 @@ func main() {
 			application.PermissionClipboardRead: application.PermissionDeny,
 		},
 	})
+	activeWindow.Store(window)
+	publisherService.chooseDelivery = func() (string, error) {
+		return app.Dialog.OpenFile().SetTitle("Import delivery — choose the episode folder").CanChooseFiles(false).CanChooseDirectories(true).PromptForSingleSelection()
+	}
 	draftService.copyText = app.Clipboard.SetText
 	diagnosticService.copyText = app.Clipboard.SetText
 	diagnosticService.reveal = func(path string) error { return app.Env.OpenFileManager(path, false) }

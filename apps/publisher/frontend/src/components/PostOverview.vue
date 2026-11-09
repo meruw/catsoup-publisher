@@ -1,15 +1,17 @@
 <script setup lang="ts">
+import {transferUpdates} from '../services/transfers';
 import {computed,onMounted,onUnmounted,ref,watch} from 'vue';
 import {drafts,type PostStatus,type PostGroup} from '../services/drafts';
 import type {Entry} from '../services/publisher';
 import VideoThumbnail from './VideoThumbnail.vue';
+import PostStatistics from './PostStatistics.vue';
 import UiButton from './UiButton.vue';
 import UiIcon from './UiIcon.vue';
 import UiDialog from './UiDialog.vue';
 import UiTooltip from './UiTooltip.vue';
-const props=defineProps<{entries:Entry[];openError:string}>();
-const emit=defineEmits<{open:[post:PostStatus]}>();
-const platforms:Record<string,string>={youtube:'YouTube',tiktok:'TikTok',instagram:'Instagram',x:'X'};
+const props=defineProps<{entries:Entry[];openError:string;initialEpisode?:string}>();
+const emit=defineEmits<{open:[post:PostStatus,reviewUpload?:boolean]}>();
+const platforms:Record<string,string>={youtube:'YouTube',tiktok:'TikTok',instagram:'Instagram',facebook:'Facebook',x:'X'};
 const states:Record<string,string>={draft:'Draft',approved:'Approved',published:'Published',restricted:'Limited visibility',private:'Private video',inbox:'TikTok inbox',sending:'Sending',check:'Check result',failed:'Failed'};
 const statusFilters:Record<string,string>={'':'All',unsent:'Not sent',active:'In progress',delivered:'Sent',attention:'Needs attention'};
 const hints:Record<string,string>={draft:'Saved on this PC; no completed transfer is recorded for this file.',approved:'Approved locally. Nothing has been sent yet.',published:'The provider confirmed publishing. Later changes on the platform are not monitored.',restricted:'Posted with friends or followers visibility, not public visibility.',private:'Uploaded with private visibility.',inbox:'Delivered to TikTok’s inbox. Finish posting in TikTok.',sending:'A transfer is in progress. Do not resend it.',processing:'The provider is processing this video.',check:'The result is uncertain. Check the destination before allowing another attempt.',failed:'The provider confirmed that processing failed.',browser:'Opened in the browser. Publisher cannot confirm whether you posted there.'};
@@ -17,6 +19,27 @@ const hints:Record<string,string>={draft:'Saved on this PC; no completed transfe
 const search=ref(''),platform=ref(''),language=ref(''),state=ref('');
 const offset=ref(0),groups=ref<PostGroup[]>([]),more=ref(false),busy=ref(false),error=ref('');
 const group=ref<PostGroup|null>(null),rows=ref<PostStatus[]>([]),detailLanguage=ref(''),detailOffset=ref(0),detailMore=ref(false),selected=ref<PostStatus|null>(null);
+const detailView=ref<'posts'|'statistics'>('posts');
+const statisticsGroups=computed(()=>Object.entries(platforms).map(([id,label])=>({id,label,posts:rows.value.filter(p=>p.key.platform===id)})).filter(g=>g.posts.length));
+const statisticsPanels=ref<InstanceType<typeof PostStatistics>[]>([]);
+const refreshingStatistics=ref(false),refreshProgress=ref('');
+let refreshRun=0;
+watch([group,detailLanguage,detailOffset,detailView],()=>{++refreshRun;refreshingStatistics.value=false;refreshProgress.value='';});
+async function refreshAllStatistics(){
+ if(refreshingStatistics.value)return;
+ const panels=statisticsPanels.value.filter(p=>p.eligible());
+ if(!panels.length)return;
+ const run=++refreshRun;refreshingStatistics.value=true;
+ let cursor=0,done=0,failed=0;
+ refreshProgress.value=`Updating 0 of ${panels.length}`;
+ const worker=async()=>{while(cursor<panels.length&&run===refreshRun){
+  const panel=panels[cursor++]!;
+  if(!await panel.refresh(true))failed++;
+  done++;if(run===refreshRun)refreshProgress.value=`Updating ${done} of ${panels.length}`;
+ }};
+ try{await Promise.all([worker(),worker()]);}
+ finally{if(run===refreshRun){refreshingStatistics.value=false;refreshProgress.value=failed?`${done-failed} updated · ${failed} failed`:`${done} accounts updated`;}}
+}
 const filterOpen=ref(false),pendingFilters=ref({platform:'',language:'',state:''});
 const activeFilters=computed(()=>[platforms[platform.value],language.value==='es'?'Spanish':language.value==='en'?'English':'',state.value?statusFilters[state.value]:''].filter(Boolean));
 const title=(g:PostGroup)=>props.entries.find(e=>e.id===g.episode)?.title||g.title||g.episode;
@@ -33,6 +56,14 @@ const summary=(g:PostGroup)=>{
 };
 const breakdown=(g:PostGroup)=>Object.entries(g.counts||{}).map(([s,n])=>`${n} ${states[s]||s}`).join(' · ');
 const canOpen=computed(()=>selected.value?.connected&&props.entries.some(e=>e.id===selected.value?.key.episode&&e.valid));
+const canReviewUpload=computed(()=>selected.value?.key.platform==='instagram'&&['check','failed'].includes(selected.value.state));
+async function openInitial(){
+ if(!props.initialEpisode){back();return;}
+ const run=++generation;busy.value=true;selected.value=null;error.value='';
+ try{const result=await drafts.groups({...blankFilter(),episode:props.initialEpisode});if(run!==generation)return;const found=result.items?.[0];if(found)openGroup(found);else{group.value=null;error.value='No saved posts for this video';}}
+ catch(e){if(run===generation)error.value=String(e)}
+ finally{if(run===generation)busy.value=false;}
+}
 let generation=0,timer:ReturnType<typeof setTimeout>|undefined;
 const blankFilter=()=>({episodeMatches:[] as string[],episode:'',search:'',platform:'',language:'',state:'',offset:0});
 async function load(){
@@ -50,13 +81,15 @@ async function load(){
 }
 watch([search,platform,language,state],()=>{offset.value=0;clearTimeout(timer);++generation;busy.value=true;timer=setTimeout(load,200)});
 watch(detailLanguage,()=>{detailOffset.value=0;void load()});
-function openGroup(g:PostGroup){clearTimeout(timer);group.value=g;rows.value=[];detailLanguage.value='';detailOffset.value=0;void load();}
+function openGroup(g:PostGroup){clearTimeout(timer);group.value=g;detailView.value='posts';rows.value=[];detailLanguage.value='';detailOffset.value=0;void load();}
 function back(){group.value=null;selected.value=null;void load();}
 function page(delta:number){if(group.value)detailOffset.value=Math.max(0,detailOffset.value+delta);else offset.value=Math.max(0,offset.value+delta);void load();}
 function filters(){pendingFilters.value={platform:platform.value,language:language.value,state:state.value};filterOpen.value=true;}
 function applyFilters(){platform.value=pendingFilters.value.platform;language.value=pendingFilters.value.language;state.value=pendingFilters.value.state;filterOpen.value=false;}
 function resetFilters(){platform.value='';language.value='';state.value='';}
-onMounted(load);onUnmounted(()=>{clearTimeout(timer);++generation});
+watch(transferUpdates,()=>{void load()});
+watch(()=>props.initialEpisode,openInitial);
+onMounted(openInitial);onUnmounted(()=>{clearTimeout(timer);++generation;++refreshRun});
 </script>
 <template>
  <main class="publisher-main posts-main">
@@ -77,8 +110,10 @@ onMounted(load);onUnmounted(()=>{clearTimeout(timer);++generation});
   </template>
   <template v-else>
    <header class="video-detail-heading"><VideoThumbnail :episode="group.episode" :video="group.videoId" :stamp="group.updatedAt"/><div><h2>{{title(group)}}</h2><p>{{breakdown(group)}}</p></div></header>
-   <nav class="language-tabs" aria-label="Video languages"><button v-for="(label,value) in {'':'All languages',es:'Spanish',en:'English'}" :key="value" :aria-current="detailLanguage===value?'page':undefined" @click="detailLanguage=value">{{label}}</button></nav>
-   <div class="destination-list" :aria-busy="busy"><button v-for="row in rows" :key="JSON.stringify(row.key)" class="destination-row" @click="selected=row"><span><strong>{{platforms[row.key.platform]}}</strong><small>{{row.accountName.replace(/^account:/,'')}} · {{row.key.language.toUpperCase()}}{{row.connected?'':' · Disconnected'}}</small></span><span :class="'state-'+row.state">{{states[row.state]||'Check result'}}</span></button></div>
+   <nav class="language-tabs detail-tabs" aria-label="Video details"><button :aria-current="detailView==='posts'?'page':undefined" @click="detailView='posts'">Posts</button><button :aria-current="detailView==='statistics'?'page':undefined" @click="detailView='statistics'">Statistics</button></nav>
+   <div class="statistics-controls"><nav class="language-tabs" aria-label="Video languages"><button v-for="(label,value) in {'':'All languages',es:'Spanish',en:'English'}" :key="value" :aria-current="detailLanguage===value?'page':undefined" @click="detailLanguage=value">{{label}}</button></nav><div v-if="detailView==='statistics'" class="statistics-refresh"><span role="status">{{refreshProgress}}</span><UiTooltip text="Refresh available statistics for the accounts shown below. No uploads or paid X requests."><UiButton :busy="refreshingStatistics" :disabled="busy||!statisticsPanels.some(p=>p.eligible())" @click="refreshAllStatistics"><UiIcon name="refresh"/>{{refreshingStatistics?'Refreshing…':'Refresh all'}}</UiButton></UiTooltip></div></div>
+   <div v-if="detailView==='posts'" class="destination-list" :aria-busy="busy"><button v-for="row in rows" :key="JSON.stringify(row.key)" class="destination-row" @click="selected=row"><span><strong>{{platforms[row.key.platform]}}</strong><small>{{row.accountName.replace(/^account:/,'')}} · {{row.key.language.toUpperCase()}}{{row.connected?'':' · Disconnected'}}</small></span><span :class="'state-'+row.state">{{states[row.state]||'Check result'}}</span></button></div>
+   <div v-else class="platform-statistics" :aria-busy="busy"><section v-for="platform in statisticsGroups" :key="platform.id" class="statistics-platform"><h3>{{platform.label}}</h3><PostStatistics ref="statisticsPanels" v-for="post in platform.posts" :key="JSON.stringify(post.key)" :post="post" :heading="post.key.language.toUpperCase()+' / '+post.accountName.replace(/^account:/,'')"/></section></div>
    <p v-if="!rows.length&&!error" class="posts-empty" role="status">{{busy?'Loading destinations…':'No saved posts in this language'}}</p>
    <footer v-if="detailOffset||detailMore" class="posts-footer"><UiButton variant="quiet" :disabled="busy||!detailOffset" @click="page(-50)">Previous</UiButton><UiButton variant="quiet" :disabled="busy||!detailMore" @click="page(50)">Next</UiButton></footer>
   </template>
@@ -90,13 +125,23 @@ onMounted(load);onUnmounted(()=>{clearTimeout(timer);++generation});
    <p v-if="pendingFilters.state==='delivered'" class="filter-hint">Includes public posts, private uploads and TikTok inbox deliveries.</p>
    <div class="filter-actions"><UiButton variant="quiet" @click="pendingFilters={platform:'',language:'',state:''}">Reset filters</UiButton><UiButton variant="primary" type="submit">Apply filters</UiButton></div>
   </form></UiDialog>
-  <UiDialog v-if="selected" close-label="Close post details" :title="platforms[selected.key.platform]+' / '+selected.accountName.replace(/^account:/,'')" @close="selected=null"><VideoThumbnail :episode="selected.key.episode" :video="selected.videoId" :stamp="selected.updatedAt"/><p class="post-detail-state" :class="'state-'+selected.state">{{states[selected.state]||'Check result'}}</p><p class="muted">{{hints[selected.state]}}</p><dl class="post-details"><div><dt>Language</dt><dd>{{selected.key.language==='es'?'Spanish':'English'}}</dd></div><div><dt>Post title</dt><dd>{{selected.title||'Untitled'}}</dd></div><div><dt>Video version</dt><dd>{{selected.videoId}}</dd></div><div><dt>Last update</dt><dd>{{date(selected.updatedAt)}}</dd></div><div v-if="selected.reference"><dt>Reference</dt><dd class="mono">{{selected.reference}}</dd></div></dl><UiButton :disabled="!canOpen" @click="emit('open',selected)">Open post</UiButton><p v-if="!canOpen" class="muted">Reconnect this account and make the delivery available to edit this post.</p></UiDialog>
+  <UiDialog v-if="selected" close-label="Close post details" :title="platforms[selected.key.platform]+' / '+selected.accountName.replace(/^account:/,'')" @close="selected=null">
+   <VideoThumbnail :episode="selected.key.episode" :video="selected.videoId" :stamp="selected.updatedAt"/>
+   <p class="post-detail-state" :class="'state-'+selected.state">{{states[selected.state]||'Check result'}}</p>
+   <p class="muted">{{canReviewUpload?'Review the saved Instagram upload and confirm the next action. Nothing is sent just by opening it.':hints[selected.state]}}</p>
+   <div class="post-detail-actions"><UiButton v-if="canReviewUpload" variant="primary" :disabled="!canOpen" @click="emit('open',selected,true)">Review Instagram upload</UiButton><UiButton :disabled="!canOpen" :variant="canReviewUpload?'quiet':'secondary'" @click="emit('open',selected)">Open post</UiButton></div>
+   <p v-if="openError" class="notice error" role="alert">{{openError}}</p>
+   <p v-if="!canOpen" class="muted">Reconnect this account and make the delivery available to edit this post.</p>
+   <dl class="post-details"><div><dt>Language</dt><dd>{{selected.key.language==='es'?'Spanish':'English'}}</dd></div><div><dt>Post title</dt><dd>{{selected.title||'Untitled'}}</dd></div><div><dt>Video version</dt><dd>{{selected.videoId}}</dd></div><div><dt>Last update</dt><dd>{{date(selected.updatedAt)}}</dd></div><div v-if="selected.reference"><dt>Reference</dt><dd class="mono">{{selected.reference}}</dd></div></dl><PostStatistics :post="selected"/>
+  </UiDialog>
  </main>
 </template>
 <style scoped>
-.posts-main{min-width:0}.posts-toolbar{display:flex;align-items:center;gap:16px;padding:24px 4px 20px;margin:0 -4px}.posts-search{flex:1;max-width:440px;min-width:0}.posts-search:focus-visible{outline-offset:2px}.active-filters{display:flex;align-items:center;gap:12px;margin-bottom:16px;color:var(--secondary);font-size:var(--text-sm)}
+.post-detail-actions{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:20px 0}
+.detail-tabs{margin-top:4px}.statistics-platform{margin-top:28px}.statistics-platform>h3{font-size:var(--text-section);font-weight:500;margin:0 0 12px}.platform-statistics{max-width:800px}.posts-main{min-width:0}.posts-toolbar{display:flex;align-items:center;gap:16px;padding:24px 4px 20px;margin:0 -4px}.posts-search{flex:1;max-width:440px;min-width:0}.posts-search:focus-visible{outline-offset:2px}.active-filters{display:flex;align-items:center;gap:12px;margin-bottom:16px;color:var(--secondary);font-size:var(--text-sm)}
 .posts-columns,.video-row{display:grid;grid-template-columns:minmax(0,1fr) 180px 140px;gap:24px;text-align:left;align-items:center}.posts-columns{font-size:var(--text-xs);color:var(--muted);padding:12px 16px}.video-row,.destination-row{width:100%;border:0;border-top:1px solid var(--line);background:transparent;color:var(--text);font:inherit;font-size:var(--text-sm);padding:20px 16px;cursor:pointer}.video-row:hover,.destination-row:hover{background:var(--sidebar)}.video-row:focus-visible,.destination-row:focus-visible{outline-offset:-3px}.video-row strong,.destination-row strong{display:block;font-weight:500}.video-row small,.destination-row small{display:block;color:var(--muted);font-size:var(--text-xs);margin-top:8px}.video-name{display:flex;align-items:center;gap:16px;min-width:0;overflow-wrap:anywhere}.video-row time{font-size:var(--text-xs);color:var(--muted)}.video-state{font-size:var(--text-sm)}.needs-attention,.state-check{color:var(--warning)}.state-failed{color:var(--danger)}.state-published,.state-approved{color:var(--success)}
 .posts-footer{display:flex;justify-content:space-between;align-items:center;margin:24px 0;color:var(--muted);font-size:var(--text-xs)}.posts-footer>div{display:flex;align-items:center;gap:12px}.posts-empty{padding:48px 0;color:var(--muted)}.filter-form{display:grid;gap:24px}.filter-form>label{display:grid;gap:8px;font-size:var(--text-sm)}.status-options{border:0;margin:0;padding:0;display:grid;grid-template-columns:1fr 1fr;gap:12px 20px;font-size:var(--text-sm)}.status-options legend{padding:0;margin-bottom:12px}.status-options label{display:flex;align-items:center;gap:8px}.status-options input{accent-color:var(--accent)}.filter-hint{font-size:var(--text-xs);color:var(--secondary);margin:0}.filter-actions{display:flex;justify-content:space-between;gap:16px;margin-top:8px}
 .video-detail-heading{display:flex;align-items:center;gap:20px;padding:28px 0 24px}.video-detail-heading p{color:var(--secondary);font-size:var(--text-sm);margin-top:12px}.language-tabs{display:flex;gap:24px;margin-bottom:8px}.language-tabs button{padding:12px 0;background:none;border:0;border-bottom:2px solid transparent;color:var(--secondary);font:inherit;font-size:var(--text-sm);cursor:pointer}.language-tabs button[aria-current]{border-color:var(--text);color:var(--text)}.destination-row{display:flex;justify-content:space-between;align-items:center;gap:24px;text-align:left}.destination-row>span:first-child{min-width:0;overflow-wrap:anywhere}.destination-row>span:last-child{flex-shrink:0}.post-detail-state{margin-top:12px;font-weight:500;margin-bottom:12px}.post-details{margin:24px 0}.post-details>div{display:flex;justify-content:space-between;gap:24px;padding:12px 0;border-top:1px solid var(--line)}.post-details dd{margin:0;overflow-wrap:anywhere;text-align:right}
 @media(max-width:1000px){.posts-columns,.video-row{grid-template-columns:minmax(0,1fr) 160px;gap:16px}.posts-columns>span:last-child,.video-row>time{display:none}}@media(max-width:600px){.posts-columns{display:none}.video-row{grid-template-columns:1fr}.posts-toolbar{gap:8px}.language-tabs{gap:16px}}
+.statistics-controls{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}.statistics-refresh{display:flex;gap:12px;align-items:center}.statistics-refresh>span{font-size:var(--text-xs);color:var(--secondary)}@media(max-width:600px){.statistics-refresh{width:100%;justify-content:space-between}}
 </style>

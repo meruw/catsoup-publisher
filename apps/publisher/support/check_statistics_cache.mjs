@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
+import vm from 'node:vm';
+import ts from '../frontend/node_modules/typescript/lib/typescript.js';
+const source=await readFile(new URL('../frontend/src/services/statistics.ts',import.meta.url),'utf8');
+const code=ts.transpileModule(source.replace(/^import .*;$/gm,'').replace(/export /g,'')+'\nglobalThis.read=readStatistics;',{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText;
+let now=0,calls=0,finish,fail;
+const context={Date:{now:()=>now},uploads:{statistics:()=>{calls++;return new Promise((resolve,reject)=>{finish=resolve;fail=reject})}}};vm.createContext(context);vm.runInContext(code,context);
+const post={key:{episode:'test',platform:'youtube',account:'account:1',language:'es'},reference:'abcdefghijk',videoId:'es_final',state:'published',connected:true};
+const first=context.read(post),duplicate=context.read(post,true);assert.equal(calls,1);finish({items:[{label:'Views',value:'5'}]});await Promise.all([first,duplicate]);
+now=299999;await context.read(post);assert.equal(calls,1);
+now=300001;const expired=context.read(post);assert.equal(calls,2);finish({items:[]});await expired;
+const refresh=context.read(post,true);assert.equal(calls,3);fail(Error('temporary'));await assert.rejects(refresh);
+await context.read(post);assert.equal(calls,3,'failed refresh retains last successful cache');
+const changed=context.read({...post,reference:'other'});assert.equal(calls,4);finish({items:[]});await changed;
+console.log('PASS: concurrent deduplication, five-minute expiry, forced refresh, failed refresh and receipt isolation.');
