@@ -106,4 +106,6 @@ Individual sends, batches and TikTok browser preparation require a final languag
 
 The isolated confirmation fixture covers no send before acknowledgment, Back/reset, EN destination routing, changed video, revoked approval, changes during draft flush, individual sends and browser preparation. The full browser regression suite and strict frontend production build pass. Go tests pass. Browser fixtures use synthetic media and mock providers; they do not publish or prove native interaction. The general harness now stubs the browser close guard and explicitly selects the TikTok API transport. No runtime dependency, database schema or remote polling is added. The main app chunk is 34.22 kB gzip; the executable is 19,836,928 bytes, 5,632 bytes more than the preceding build.
 
-Next action: install the staged build while Publisher is closed, then check the final language review in the desktop app without sending. No release is created.
+The tested executable was installed while Publisher was closed; its SHA-256 matches the staged build and the desktop process responds. Native interaction with the final confirmation remains for owner review.
+
+Next action: check the final language review in the desktop app without sending. No release is created.
