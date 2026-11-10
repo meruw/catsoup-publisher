@@ -98,4 +98,12 @@ The episode sidebar omits completed current deliveries while Posts retains the f
 
 Go tests cover missing destination drafts, both languages, X exclusion, receipt states, changed hashes, account replacement, no connected destinations and mixed versions. Chrome fixtures cover bilingual filtering, version/invalid-delivery preservation, search and updates after completion. Go tests/vet and strict frontend production build pass. The main app chunk is 33.23 kB gzip (0.28 kB growth); the executable is 19,831,296 bytes (4,608 bytes growth). A read-only check against local receipts identifies seven completed episodes; it does not change approvals or upload state.
 
-Next action: verify the pending list in the installed app and open a completed episode through Posts. The PoC remains in progress; no release is created.
+The PoC remains in progress; no release is created.
+
+## Final language confirmation
+
+Individual sends, batches and TikTok browser preparation require a final language acknowledgment before any transfer is queued. The review displays Spanish/ES or English/EN, the exact linked video with audio controls, account destinations and delivery modes. Back clears the acknowledgment without sending. Changes to language, video or destination invalidate the review; existing approval, receipt, revision and account checks still run before sending. The language label comes from delivery metadata, not speech detection. Batch draft selection also explicitly matches the selected language.
+
+The isolated confirmation fixture covers no send before acknowledgment, Back/reset, EN destination routing, changed video, revoked approval, changes during draft flush, individual sends and browser preparation. The full browser regression suite and strict frontend production build pass. Go tests pass. Browser fixtures use synthetic media and mock providers; they do not publish or prove native interaction. The general harness now stubs the browser close guard and explicitly selects the TikTok API transport. No runtime dependency, database schema or remote polling is added. The main app chunk is 34.22 kB gzip; the executable is 19,836,928 bytes, 5,632 bytes more than the preceding build.
+
+Next action: install the staged build while Publisher is closed, then check the final language review in the desktop app without sending. No release is created.

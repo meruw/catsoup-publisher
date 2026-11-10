@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import SendConfirmation from './SendConfirmation.vue';
 import TikTokWebPrepare from './TikTokWebPrepare.vue';
 import UiSegmented from './UiSegmented.vue';
 import {computed,nextTick,onMounted,ref,watch} from 'vue';
@@ -13,7 +14,8 @@ const props=defineProps<{draft:Draft;hint:string;flush:()=>Promise<void>}>();
 const emit=defineEmits<{busy:[value:boolean];accounts:[];queued:[]}>();
 const account=ref<Profile>({id:'',name:'',api:false,directPost:false,platform:'',language:''});
 const receipt=ref({state:'',reference:'',retryAllowed:false});
-const loading=ref(true);
+const loading=ref(true),finalReview=ref(false);
+watch(()=>JSON.stringify([props.draft,account.value]),()=>{finalReview.value=false;confirmed.value=false});
 const transport=ref('browser');
 const creator=ref<TikTokCreator|null>(null),creatorError=ref('');
 const options=ref<TikTokOptions>({privacy:'',comments:false,duet:false,stitch:false,commercial:false,ownBrand:false,branded:false,synthetic:false,consent:false});
@@ -51,12 +53,13 @@ const note=computed(()=>{
 const blocked=computed(()=>transferPending(props.draft)||tikTokBlocked.value||!!props.hint || !confirmed.value || (platform.value==='youtube' && !audience.value) || (platform.value==='x' && !browserX.value && !paidAccepted.value));
 const receiptLabel=computed(()=>receipt.value.state==='failed'?'Failed':receipt.value.state==='restricted'?'Posted with limited visibility':receipt.value.state==='private'&&platform.value==='tiktok'?'Posted · Only me':receipt.value.state==='published'?'Published':receipt.value.state==='inbox'?'Sent to inbox':privateVideo.value?(receipt.value.state==='check_publish'?'Check visibility in YouTube Studio':'Private video uploaded'):receipt.value.state==='sent'?(platform.value==='tiktok'?'Sent to inbox':'Published'):'Check the platform');
 watch([mode,audience,synthetic,()=>props.draft.revision,()=>props.hint],()=>{confirmed.value=false;paidAccepted.value=false});
-async function run(task:()=>Promise<void>){if(busy.value)return;busy.value=true;emit('busy',true);error.value='';try{await task()}catch(e){error.value=String(e)}finally{busy.value=false;emit('busy',false)}}
+async function run(task:()=>Promise<void>){if(busy.value)return;busy.value=true;emit('busy',true);error.value='';try{await task()}catch(e){finalReview.value=false;error.value=String(e)}finally{busy.value=false;emit('busy',false)}}
 function openPolicy(policy:string){void run(async()=>{await uploads.tikTokPolicy(policy)})}
 async function refreshReceipt(){if(account.value.id && !browserX.value)receipt.value=await uploads.receipt(props.draft.key,account.value.id);}
 onMounted(async()=>{try{const p=(await uploads.accounts()||[]).find(p=>p.platform===platform.value && p.language===props.draft.key.language);if(p && accountKey(p)===props.draft.key.account){account.value=p;await refreshReceipt();if(directTikTok.value)await loadCreator()}}catch(e){error.value=String(e)}finally{loading.value=false}});
-function send(){void run(async()=>{
+function send(){if(!finalReview.value||blocked.value)return;void run(async()=>{
  await props.flush();await nextTick();
+ if(!finalReview.value||blocked.value)throw new Error('The language, video or destination changed. Confirm again.');
  const d:Draft=JSON.parse(JSON.stringify(props.draft));
  const p:Profile=JSON.parse(JSON.stringify(account.value));
  const r=JSON.parse(JSON.stringify(receipt.value));
@@ -75,6 +78,8 @@ function clearAttempt(){void run(async()=>{await uploads.clear(props.draft.key,a
 <template>
  <section class="send-panel" aria-label="Platform upload">
   <p v-if="loading" role="status">Checking connection...</p>
+  <template v-else>
+  <SendConfirmation v-if="finalReview" :language="draft.key.language" :episode="draft.key.episode" :video-id="draft.videoId" :title="draft.title" :destinations="[{platform,name:account.name,mode:directTikTok ? 'Direct Post · '+privacyNames[options.privacy] : modeLabel(platform,mode,account)}]" :busy="busy" :disabled="blocked" @back="finalReview=false" @confirm="send"/>
   <template v-else>
   <div v-if="account.id" class="send-account"><strong :title="account.id">{{account.name}}</strong><span>{{draft.key.language==='es'?'Spanish':'English'}}</span></div>
   <UiSegmented v-if="platform==='tiktok'" v-model="transport" label="TikTok upload method" :options="[{value:'browser',label:'Browser'},{value:'api',label:'Inbox / API'}]"/>
@@ -113,13 +118,14 @@ function clearAttempt(){void run(async()=>{await uploads.clear(props.draft.key,a
     </template>
     <label><input v-model="confirmed" type="checkbox"> {{directTikTok?`I confirm ${account.name} and ${privacyNames[options.privacy]||'the selected visibility'}.`:browserX?'I checked the active account in X.':`I confirm ${account.name} and this ${mode==='draft'?'private / inbox transfer':'public post'}.`}}</label>
     <label v-if="platform==='x' && !browserX"><input v-model="paidAccepted" type="checkbox"> I accept X API usage charges for this attempt.</label>
-    <div class="send-action"><UiTooltip :disabled="!!blocked" :text="directTikTok && tikTokBlocked ? 'Choose visibility, complete any commercial disclosure and accept the posting terms.' : ''"><UiButton variant="primary" :busy="busy" :disabled="blocked" @click="send">{{busy?'Sending...':action}}</UiButton></UiTooltip></div>
+    <div class="send-action"><UiTooltip :disabled="!!blocked" :text="directTikTok && tikTokBlocked ? 'Choose visibility, complete any commercial disclosure and accept the posting terms.' : ''"><UiButton variant="primary" :busy="busy" :disabled="blocked" @click="finalReview=true">{{busy?'Sending...':action}}</UiButton></UiTooltip></div>
    </fieldset>
    </template>
   </template>
   <template v-else-if="receipt.state && !completed">
    <UiButton :disabled="busy" @click="run(refreshReceipt)">Refresh receipt</UiButton>
    <div v-if="receipt.retryAllowed" class="retry-confirmation"><label><input v-model="reconciled" type="checkbox"> I checked this account and the upload is absent.</label><UiButton :disabled="!reconciled || busy" @click="clearAttempt">Allow another attempt</UiButton></div>
+  </template>
   </template>
   </template>
   </template>

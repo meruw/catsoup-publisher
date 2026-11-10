@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {enqueueTransfers,transferPending,type TransferRequest} from '../services/transfers';
-import {computed,onMounted,ref} from 'vue';
+import {computed,onMounted,ref,watch} from 'vue';
+import SendConfirmation from './SendConfirmation.vue';
 import UiButton from './UiButton.vue';
 import {drafts,type Draft} from '../services/drafts';
 import {uploads,type Profile} from '../services/uploads';
@@ -10,6 +11,7 @@ const props=defineProps<{episode:Episode;language:string;video:Video;profiles:Pr
 const emit=defineEmits<{busy:[value:boolean];queued:[]}>();
 type Row={profile:Profile;draft?:Draft;selected:boolean;reason:string;result:string;receipt:TransferReceipt};
 const rows=ref<Row[]>([]),loading=ref(true),busy=ref(false),finished=ref(false),error=ref('');
+const finalReview=ref(false);
 const confirmed=ref(false),paid=ref(false),audience=ref(''),synthetic=ref(false);
 const selected=computed(()=>rows.value.filter(r=>r.selected));
 const needsAudience=computed(()=>selected.value.some(r=>r.profile.platform==='youtube'));
@@ -18,7 +20,7 @@ const ready=computed(()=>!loading.value&&!busy.value&&!finished.value&&selected.
 onMounted(async()=>{
  try{
   for(const profile of props.profiles.filter(p=>p.language===props.language && batchAccount(p))){
-   const draft=props.saved.find(d=>d.key.platform===profile.platform&&d.key.account===accountKey(profile));
+   const draft=props.saved.find(d=>d.key.language===props.language&&d.key.platform===profile.platform&&d.key.account===accountKey(profile));
    let reason=draftBlocker(draft,profile,props.episode,props.video);
    const receipt=draft&&!localDraft(draft)&&!(profile.platform==='x'&&!profile.api)?await uploads.receipt(draft.key,profile.id):{state:'',reference:'',retryAllowed:false};
    if(!reason&&draft)reason=transferPending(draft)?'Already in Uploads':receiptBlocker(draft,receipt);
@@ -28,8 +30,9 @@ onMounted(async()=>{
   }
  }catch(e){error.value=String(e);}finally{loading.value=false;}
 });
+watch(()=>JSON.stringify([props.language,props.episode.fingerprint,props.video,selected.value.map(r=>[r.profile,r.draft])]),()=>{finalReview.value=false});
 async function sendAll(){
- if(!ready.value||error.value)return;
+ if(!finalReview.value||!ready.value||error.value)return;
  busy.value=true;emit('busy',true);
  try{
   // Check every selected snapshot before making the first external request.
@@ -50,6 +53,7 @@ async function sendAll(){
     const reason=receiptBlocker(d,row.receipt);if(reason)throw new Error(`${profile.name}: ${reason}`);
    }
   }
+  if(!finalReview.value)throw new Error('The language, video or destinations changed. Confirm again.');
   const batchPaid=paid.value,batchAudience=audience.value,batchSynthetic=synthetic.value;
   const requests:TransferRequest[]=[];
   // Browser handoff changes the clipboard: keep it tied to this explicit interaction.
@@ -64,11 +68,13 @@ async function sendAll(){
   enqueueTransfers(requests);finished.value=true;
   busy.value=false;emit('busy',false);
   if(requests.length)emit('queued');
- }catch(e){error.value=String(e);for(const row of selected.value){if(!row.result)row.result='Not sent';}}
+ }catch(e){finalReview.value=false;error.value=String(e);for(const row of selected.value){if(!row.result)row.result='Not sent';}}
  finally{busy.value=false;emit('busy',false);}
 }
 </script>
 <template>
+ <SendConfirmation v-if="finalReview && !finished" :language="language" :episode="episode.id" :video-id="video.id" :title="episode.title" :destinations="selected.map(r=>({platform:r.profile.platform,name:r.profile.name,mode:modeLabel(r.profile.platform,r.draft?.deliveryMode||'draft',r.profile)}))" :busy="busy" :disabled="!!error" @back="finalReview=false" @confirm="sendAll"/>
+ <template v-else>
  <p v-if="profiles.some(p=>p.language===language && !batchAccount(p))" class="muted">X is handled separately in the browser.</p>
  <p class="batch-language">{{language==='es'?'Spanish':'English'}} accounts</p>
  <p v-if="loading" role="status">Checking destinations…</p>
@@ -83,8 +89,9 @@ async function sendAll(){
   <label v-if="needsAudience"><input v-model="synthetic" type="checkbox" @change="confirmed=false"> Contains realistic altered or synthetic content</label>
   <label v-if="needsPaid"><input v-model="paid" type="checkbox"> I accept X API usage charges for this attempt.</label>
   <label><input v-model="confirmed" type="checkbox"> I confirm the selected accounts and delivery modes.</label>
-  <UiButton variant="primary" :busy="busy" :disabled="!ready||!!error" @click="sendAll">Send to {{selected.length}} destinations</UiButton>
+  <UiButton variant="primary" :busy="busy" :disabled="!ready||!!error" @click="finalReview=true">Send to {{selected.length}} destinations</UiButton>
  </fieldset>
+ </template>
  <p v-if="error" class="notice error" role="alert">{{error}}</p>
 </template>
 <style scoped>

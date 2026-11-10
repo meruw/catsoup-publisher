@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import {computed,nextTick,ref} from 'vue';
+import SendConfirmation from './SendConfirmation.vue';
+import {computed,nextTick,ref,watch} from 'vue';
 import type {Draft} from '../services/drafts';
 import type {Profile} from '../services/uploads';
 import {prepareTikTokWeb} from '../services/tiktokWeb';
@@ -8,24 +9,28 @@ import TikTokBrowserSession from './TikTokBrowserSession.vue';
 import UiButton from './UiButton.vue';
 const props=defineProps<{draft:Draft;account:Profile;receipt:string;hint:string;flush:()=>Promise<void>}>();
 const emit=defineEmits<{queued:[]}>();
-const username=ref(''),error=ref(''),busy=ref(false);
+const username=ref(''),error=ref(''),busy=ref(false),finalReview=ref(false);
+watch(()=>JSON.stringify([props.draft,props.account,username.value,props.receipt]),()=>{finalReview.value=false});
 const blocker=computed(()=>props.receipt?'This video already has a TikTok receipt. Check its result in Posts; another upload is blocked.':props.hint.startsWith('Enable Direct Post')?'':props.hint);
 async function prepare(){
+ if(!finalReview.value||blocker.value||!username.value||transferPending(props.draft))return;
  busy.value=true;error.value='';
  try{
   await props.flush();await nextTick();
+  if(!finalReview.value||blocker.value||!username.value)throw new Error('The video or destination changed. Confirm again.');
   const d:Draft=JSON.parse(JSON.stringify(props.draft)),p:Profile=JSON.parse(JSON.stringify(props.account));
   enqueueTransfers([{draft:d,profile:p,mode:'Prepare in browser',send:()=>prepareTikTokWeb(d,p.id)}]);emit('queued');
- }catch(e){error.value=String(e)}finally{busy.value=false}
+ }catch(e){finalReview.value=false;error.value=String(e)}finally{busy.value=false}
 }
 </script>
 <template>
- <div class="web-preparation">
+ <SendConfirmation v-if="finalReview" :language="draft.key.language" :episode="draft.key.episode" :video-id="draft.videoId" :title="draft.title" :destinations="[{platform:'tiktok',name:username,mode:'Prepare in browser · publish manually'}]" :busy="busy" :prepare="true" @back="finalReview=false" @confirm="prepare"/>
+ <div v-else class="web-preparation">
   <p>Attach the video and fill its caption in your {{draft.key.language==='es'?'Spanish':'English'}} browser session. You review visibility and click Publish in TikTok.</p>
   <TikTokBrowserSession v-if="account.id" :key="account.id" :language="draft.key.language" :account="account.id" @verified="username=$event"/>
   <p v-if="blocker" class="notice" role="status">{{blocker}}</p>
   <p v-if="receipt.startsWith('web_')" role="status">{{receipt==='web_ready'?'Ready in TikTok. Publishing has not been confirmed.':'Check the open TikTok browser. Publisher will not attach this video again.'}}</p>
-  <UiButton variant="primary" :busy="busy" :disabled="!!blocker || !username || transferPending(draft)" @click="prepare">Prepare in TikTok</UiButton>
+  <UiButton variant="primary" :busy="busy" :disabled="!!blocker || !username || transferPending(draft)" @click="finalReview=true">Prepare in TikTok</UiButton>
   <small>Keep Publisher open until you finish in TikTok</small>
   <p v-if="error" role="alert" class="notice error">{{error}}</p>
  </div>

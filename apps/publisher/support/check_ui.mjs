@@ -35,6 +35,7 @@ const server = await createServer({
   plugins: [{ name: 'test-only-bridge', enforce: 'pre', load(id) {
     if (id.replaceAll('\\', '/').endsWith('/src/services/drafts.ts')) return draftFixture;
     if (id.replaceAll('\\', '/').endsWith('/src/services/diagnostics.ts')) return diagnosticsFixture;
+    if (id.replaceAll('\\', '/').endsWith('/src/services/tiktokWeb.ts')) return `export const tikTokWeb={hasPreparedBrowser:async()=>false,username:async()=>'',open:async()=>{},verify:async()=>''};export const prepareTikTokWeb=async()=>{throw Error('Unexpected browser preparation in API fixture')};`;
     if (id.replaceAll('\\', '/').endsWith('/src/services/uploads.ts')) return `
       const none = {state:'',reference:'',retryAllowed:false};
       const receipts = new Map(); window.__clearReceipts=()=>receipts.clear();window.__setReceipt=(id,r)=>receipts.set(id,r);window.__sendCalls=[]; const profiles = () => JSON.parse(localStorage.getItem('account-fixture') || '[]');
@@ -137,6 +138,7 @@ try {
     }
   });
   const waitUploads=async()=>{await page.getByRole('dialog').waitFor({state:'detached'});await page.waitForFunction(()=>!document.querySelector('#uploads-launcher')?.textContent?.includes('active'));};
+  const confirmFinal=async()=>{await page.getByLabel('I confirm this is the Spanish version for these accounts.').check();await page.getByRole('button',{name:'Send Spanish video',exact:true}).click();};
   const closePublishing=async()=>{const button=page.getByRole('button',{name:'Close publishing options',exact:true});if(await button.isVisible())await button.click();};
   const moreTools=async()=>{if(!await page.locator('.post-tools-menu').evaluate(el=>el.open))await page.locator('.post-tools-menu>summary').click();};
   const step=async value=>{
@@ -486,12 +488,12 @@ try {
     if(['instagram','x'].includes(platform))await page.getByLabel((platform==='instagram'?'Instagram':'X')+' delivery mode',{exact:true}).selectOption('publish');
     await review();
     await step('Publish');
-    if(platform==='tiktok'){assert.equal(await page.getByRole('dialog').getByRole('radio').count(),0);await page.screenshot({path:path.join(output,'publish-tiktok.png')});}
+    if(platform==='tiktok'){await page.getByRole('button',{name:'Inbox / API',exact:true}).click();await page.screenshot({path:path.join(output,'publish-tiktok.png')});}
     if(platform==='youtube')await page.getByLabel('Audience',{exact:true}).selectOption('general');
     if (platform === 'x') {
       assert(await page.getByRole('button', {name:action,exact:true}).isDisabled());
       await page.getByLabel('I checked the active account in X.').check();
-      await page.getByRole('button', {name:action,exact:true}).click();
+      await page.getByRole('button', {name:action,exact:true}).click();await confirmFinal();
       assert.equal(await page.evaluate(()=>window.__xComposer),'x');
       assert.equal(await page.evaluate(()=>window.__uploadPathRequest.key.platform),'x');
       continue;
@@ -501,9 +503,9 @@ try {
     assert(await send.isDisabled());
     await page.getByRole('checkbox',{name:/I confirm Fixture es and/}).check();
     if(platform==='youtube')await page.evaluate(()=>window.__sendDelay=300);
-    await send.click();
+    await send.click();await confirmFinal();
     await waitUploads();
-    if(platform==='youtube'){await closePublishing();await page.getByLabel('YouTube delivery mode',{exact:true}).selectOption('publish');await review();await step('Publish');await page.getByLabel('Audience',{exact:true}).selectOption('general');await page.getByLabel('I confirm Fixture es and this public post.').check();await page.getByRole('button',{name:'Publish existing YouTube video'}).click();await waitUploads();assert.equal((await page.evaluate(()=>window.__promotion)).reference,'fixture-post');}
+    if(platform==='youtube'){await closePublishing();await page.getByLabel('YouTube delivery mode',{exact:true}).selectOption('publish');await review();await step('Publish');await page.getByLabel('Audience',{exact:true}).selectOption('general');await page.getByLabel('I confirm Fixture es and this public post.').check();await page.getByRole('button',{name:'Publish existing YouTube video'}).click();await confirmFinal();await waitUploads();assert.equal((await page.evaluate(()=>window.__promotion)).reference,'fixture-post');}
   }
   // X stays free until the user explicitly connects API mode. All calls below
   // are local fixture adapters, including paid consent and the post receipt.
@@ -551,7 +553,7 @@ try {
   await page.getByLabel('I accept X API usage charges for this attempt.').check();
   await paidSend.scrollIntoViewIfNeeded();
   await page.screenshot({path:path.join(output,'x-publish-paid.png')});
-  await paidSend.click();
+  await paidSend.click();await confirmFinal();
   await waitUploads();
   assert.equal(await page.evaluate(()=>window.__xPaidRequest.key.language),'es');
   assert.equal(await paidSend.count(),0,'successful receipt prevents another post');
@@ -651,7 +653,7 @@ try {
   await batch.getByLabel('YouTube audience').selectOption('general');
   await batch.getByLabel('I confirm the selected accounts and delivery modes.').check();
   await page.screenshot({path:path.join(output,'publish-all.png')});
-  await batch.getByRole('button',{name:'Send to 4 destinations',exact:true}).click();
+  await batch.getByRole('button',{name:'Send to 4 destinations',exact:true}).click();await confirmFinal();
   await waitUploads();
   assert.deepEqual((await page.evaluate(()=>window.__sendCalls)).map(c=>[c.key.platform,c.mode]),[['youtube','draft'],['tiktok','draft'],['instagram','publish']]);
   assert((await page.evaluate(()=>window.__sendCalls)).every(c=>c.key.language==='es'));
@@ -667,7 +669,7 @@ try {
   await batch.getByLabel('YouTube audience').selectOption('general');
   await batch.getByLabel('I confirm the selected accounts and delivery modes.').check();
   await page.evaluate(()=>{const all=JSON.parse(localStorage.getItem('draft-fixture'));const d=Object.values(all).find(d=>d.key.episode==='catsoup-handoff-fixture'&&d.key.platform==='x'&&d.key.language==='es');d.approvedRevision=0;localStorage.setItem('draft-fixture',JSON.stringify(all));});
-  await batch.getByRole('button',{name:'Send to 4 destinations',exact:true}).click();
+  await batch.getByRole('button',{name:'Send to 4 destinations',exact:true}).click();await confirmFinal();
   await batch.getByText('Every connected account needs a current approval.').waitFor();
   assert.equal((await page.evaluate(()=>window.__sendCalls)).length,0);
   await closePublishing();
@@ -678,7 +680,7 @@ try {
   await page.getByRole('button',{name:'Publish all…',exact:true}).click();
   await batch.getByLabel('YouTube audience').selectOption('general');
   await batch.getByLabel('I confirm the selected accounts and delivery modes.').check();
-  await batch.getByRole('button',{name:'Send to 4 destinations',exact:true}).click();
+  await batch.getByRole('button',{name:'Send to 4 destinations',exact:true}).click();await confirmFinal();
   await waitUploads();
   assert.deepEqual((await page.evaluate(()=>window.__sendCalls)).map(c=>c.key.platform),['youtube','tiktok','instagram']);
   assert(await page.locator('#uploads-launcher').getByText('Needs attention').isVisible());
@@ -693,7 +695,7 @@ try {
     rows.find(p=>p.platform==='instagram'&&p.language==='es').id='changed-during-confirmation';
     localStorage.setItem('account-fixture',JSON.stringify(rows));
   });
-  await batch.getByRole('button',{name:'Send to 4 destinations',exact:true}).click();
+  await batch.getByRole('button',{name:'Send to 4 destinations',exact:true}).click();await confirmFinal();
   await batch.getByText(/Every connected account needs a current approval|A draft or account changed/).waitFor();
   assert.equal((await page.evaluate(()=>window.__sendCalls)).length,0);
   await closePublishing();
@@ -709,6 +711,7 @@ try {
   await page.getByLabel('TikTok delivery mode',{exact:true}).selectOption('publish');
   await review();await step('Publish');
   const direct=page.getByRole('dialog');
+  await direct.getByRole('button',{name:'Inbox / API',exact:true}).click();
   await direct.getByLabel('Who can watch').waitFor();
   assert.equal(await direct.getByLabel('Who can watch').inputValue(),'');
   for(const name of ['Allow comments','Allow Stitch'])assert.equal(await direct.getByLabel(name,{exact:true}).isChecked(),false);
@@ -729,7 +732,7 @@ try {
   await direct.getByRole('checkbox',{name:/By posting/}).check();
   await direct.getByRole('checkbox',{name:/I confirm Fixture es and/}).check();
   await page.screenshot({path:path.join(output,'publish-tiktok-direct.png')});
-  await direct.getByRole('button',{name:'Post on TikTok',exact:true}).click();
+  await direct.getByRole('button',{name:'Post on TikTok',exact:true}).click();await confirmFinal();
   await waitUploads();
   const directCall=(await page.evaluate(()=>window.__sendCalls)).at(-1);
   assert.equal(directCall.options.privacy,'SELF_ONLY');assert.equal(directCall.options.branded,false);
