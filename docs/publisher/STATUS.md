@@ -57,7 +57,7 @@ The operator's three present developer configurations (Google, TikTok and Meta) 
 
 ## Next action
 
-Install the processing-wait correction after active transfers finish and Publisher closes, then verify its native behavior during the next approved Instagram send. The pending Instagram ES Reel was published and verified; TikTok Inbox remains API-acknowledged without confirmed mobile delivery. The PoC remains in progress; no release is planned.
+Verify the installed processing-wait correction during the next approved Instagram send. The pending Instagram ES Reel was published and verified; TikTok Inbox remains API-acknowledged without confirmed mobile delivery. The PoC remains in progress; no release is planned.
 
 ## Publishing reliability and workspace update
 
@@ -138,4 +138,4 @@ Live validation resolved the pending Instagram ES publication through a separate
 
 If a same-container retransmission returns an HTTP error but Meta still reports `IN_PROGRESS`, Publisher continues bounded read-only status polling instead of immediately returning Needs attention. A retained phase error `1363008` is tolerated only while the overall container is pending. Once ready, the caller publishes that same container; terminal errors, cancellation and uncertain publication retain their existing safeguards. No additional container or byte transfer is introduced by this wait.
 
-Tests cover pending processing with and without a stale phase error, successful same-container publication, terminal failure, cancellation, and a bounded timeout. Full Go tests, vet and the production Windows build pass. This build is staged for installation; native behavior has not yet been verified. No frontend, dependency or schema change was made.
+Tests cover pending processing with and without a stale phase error, successful same-container publication, terminal failure, cancellation, and a bounded timeout. Full Go tests, vet and the production Windows build pass. The build was installed after the owner closed Publisher and a read-only database check found no active sending/publishing receipts. A residual windowless process was stopped before replacement. The installed SHA-256 matches the staged build (`d6be2b78a35c3954a186b27c0bdc6f358d708438eca2fe58293531148bd83140`); Publisher was restarted. Native upload behavior has not yet been verified. Installation did not initiate any upload. No frontend, dependency or schema change was made.
