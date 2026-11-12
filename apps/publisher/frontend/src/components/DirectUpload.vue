@@ -13,9 +13,10 @@ import {type Draft} from '../services/drafts';
 const props=defineProps<{draft:Draft;hint:string;flush:()=>Promise<void>}>();
 const emit=defineEmits<{busy:[value:boolean];accounts:[];queued:[]}>();
 const account=ref<Profile>({id:'',name:'',api:false,directPost:false,platform:'',language:''});
-const receipt=ref({state:'',reference:'',retryAllowed:false});
+const receipt=ref<{state:string;reference:string;retryAllowed:boolean;inboxHistory?:{reference:string;confirmedAt:number;archivedAt:number}[]|null}>({state:'',reference:'',retryAllowed:false});
+const resendOpen=ref(false),resendConfirmed=ref(false),resendReady=ref(false);
 const loading=ref(true),finalReview=ref(false);
-watch(()=>JSON.stringify([props.draft,account.value]),()=>{finalReview.value=false;confirmed.value=false});
+watch(()=>JSON.stringify([props.draft,account.value]),()=>{finalReview.value=false;confirmed.value=false;resendConfirmed.value=false;resendOpen.value=false});
 const transport=ref('browser');
 const creator=ref<TikTokCreator|null>(null),creatorError=ref('');
 const options=ref<TikTokOptions>({privacy:'',comments:false,duet:false,stitch:false,commercial:false,ownBrand:false,branded:false,synthetic:false,consent:false});
@@ -55,7 +56,7 @@ const receiptLabel=computed(()=>receipt.value.state==='failed'?'Failed':receipt.
 watch([mode,audience,synthetic,()=>props.draft.revision,()=>props.hint],()=>{confirmed.value=false;paidAccepted.value=false});
 async function run(task:()=>Promise<void>){if(busy.value)return;busy.value=true;emit('busy',true);error.value='';try{await task()}catch(e){finalReview.value=false;error.value=String(e)}finally{busy.value=false;emit('busy',false)}}
 function openPolicy(policy:string){void run(async()=>{await uploads.tikTokPolicy(policy)})}
-async function refreshReceipt(){if(account.value.id && !browserX.value)receipt.value=await uploads.receipt(props.draft.key,account.value.id);}
+async function refreshReceipt(){if(account.value.id && !browserX.value){receipt.value=await uploads.receipt(props.draft.key,account.value.id);if(platform.value==='tiktok'&&receipt.value.state==='inbox')transport.value='api';}}
 onMounted(async()=>{try{const p=(await uploads.accounts()||[]).find(p=>p.platform===platform.value && p.language===props.draft.key.language);if(p && accountKey(p)===props.draft.key.account){account.value=p;await refreshReceipt();if(directTikTok.value)await loadCreator()}}catch(e){error.value=String(e)}finally{loading.value=false}});
 function send(){if(!finalReview.value||blocked.value)return;void run(async()=>{
  await props.flush();await nextTick();
@@ -73,6 +74,11 @@ function send(){if(!finalReview.value||blocked.value)return;void run(async()=>{
  confirmed.value=false;paidAccepted.value=false;
  busy.value=false;emit('busy',false);emit('queued');
 })}
+function allowInboxResend(){void run(async()=>{
+ if(transferPending(props.draft))throw new Error('Wait for the active transfer to finish.');
+ await uploads.allowInboxResend(props.draft.key,account.value.id,props.draft.videoHash,receipt.value.reference,resendConfirmed.value);
+ resendOpen.value=false;resendConfirmed.value=false;confirmed.value=false;resendReady.value=true;await refreshReceipt();
+})}
 function clearAttempt(){void run(async()=>{await uploads.clear(props.draft.key,account.value.id,props.draft.videoHash,reconciled.value);reconciled.value=false;await refreshReceipt()})}
 </script>
 <template>
@@ -86,6 +92,18 @@ function clearAttempt(){void run(async()=>{await uploads.clear(props.draft.key,a
   <TikTokWebPrepare v-if="platform==='tiktok' && transport==='browser'" :draft="draft" :account="account" :receipt="receipt.state" :hint="hint" :flush="flush" @queued="emit('queued')"/>
   <template v-else>
   <div v-if="receipt.state" class="send-receipt" role="status"><strong>{{receiptLabel}}</strong><span class="mono">{{receipt.reference}}</span><small v-if="failedInstagram">Finish the saved upload. If Meta lost its file, Publisher can resend the same bytes to the same container before publishing.</small><small v-else-if="!completed && !privateVideo">Check the destination before retrying.</small></div>
+  <template v-if="platform==='tiktok'">
+   <div v-if="receipt.state==='inbox'" class="inbox-resend">
+    <UiButton v-if="!resendOpen" :disabled="busy||transferPending(draft)" @click="resendOpen=true">Resend to inbox…</UiButton>
+    <div v-else class="retry-confirmation">
+     <p>The earlier transfer may still arrive. Its receipt will be kept. This enables one new send; it does not send yet.</p>
+     <label><input v-model="resendConfirmed" type="checkbox"> I want to resend to {{account.name}} ({{draft.key.language==='es'?'Spanish':'English'}}), even if both copies arrive.</label>
+     <div class="resend-actions"><UiButton :disabled="busy||!resendConfirmed||transferPending(draft)" @click="allowInboxResend">Enable another send</UiButton><UiButton variant="quiet" :disabled="busy" @click="resendOpen=false;resendConfirmed=false">Cancel</UiButton></div>
+    </div>
+   </div>
+   <p v-if="resendReady" role="status">Ready for another send. Confirm the account and language below.</p>
+   <details v-if="receipt.inboxHistory?.length" class="inbox-history"><summary>Previous inbox receipts ({{receipt.inboxHistory.length}})</summary><ul><li v-for="item in receipt.inboxHistory" :key="item.reference"><time>{{new Date((item.confirmedAt||item.archivedAt)*1000).toLocaleString()}}</time><span class="mono">{{item.reference}}</span></li></ul></details>
+  </template>
   <template v-if="!completed && (!receipt.state || privateVideo || failedInstagram)">
    <template v-if="hint">
     <p class="send-blocker" role="status">{{hint}}</p>
@@ -141,6 +159,7 @@ function clearAttempt(){void run(async()=>{await uploads.clear(props.draft.key,a
 .send-confirmation{display:grid;gap:20px}.send-confirmation>label{display:flex;gap:8px;align-items:flex-start}.send-confirmation .field-group{margin:0}.send-action{display:flex;justify-content:flex-end;margin-top:4px}
 .send-receipt{display:grid;gap:8px;margin-bottom:24px;overflow-wrap:anywhere}.send-receipt strong{font-weight:500}.send-receipt span,.send-receipt small{font-size:var(--text-xs);color:var(--secondary)}
 .retry-confirmation{display:grid;gap:16px;margin-top:20px}
+.inbox-resend{margin:16px 0}.resend-actions{display:flex;gap:12px;flex-wrap:wrap}.retry-confirmation p{margin:0;font-size:var(--text-sm);color:var(--secondary);line-height:1.5}.retry-confirmation label{display:flex;gap:8px;align-items:flex-start}.inbox-history{margin:20px 0;font-size:var(--text-sm)}.inbox-history ul{padding:0;list-style:none}.inbox-history li{display:grid;gap:6px;padding:12px 0;overflow-wrap:anywhere}.inbox-history .mono{font-size:var(--text-xs)}
 .policy-link{border:0;background:none;padding:0;font:inherit;color:var(--accent-ink);text-decoration:underline;cursor:pointer}
 .tiktok-preview{display:block;width:100%;max-height:200px;background:#171717;border-radius:8px}.tiktok-caption{white-space:pre-wrap;overflow-wrap:anywhere;margin:12px 0}.tiktok-interactions,.tiktok-disclosures{display:grid;gap:12px}.tiktok-interactions label,.tiktok-disclosures label{display:flex;gap:8px;align-items:flex-start}
 </style>

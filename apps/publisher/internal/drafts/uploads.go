@@ -7,10 +7,17 @@ import (
 	"time"
 )
 
+type InboxReceipt struct {
+	Reference   string `json:"reference"`
+	ConfirmedAt int64  `json:"confirmedAt"`
+	ArchivedAt  int64  `json:"archivedAt"`
+}
+
 type Receipt struct {
-	State        string `json:"state"`
-	Reference    string `json:"reference"`
-	RetryAllowed bool   `json:"retryAllowed"`
+	InboxHistory []InboxReceipt `json:"inboxHistory,omitempty"`
+	State        string         `json:"state"`
+	Reference    string         `json:"reference"`
+	RetryAllowed bool           `json:"retryAllowed"`
 }
 
 // A send has a fifteen-minute deadline. Retain a stale Instagram container for
@@ -25,7 +32,10 @@ func (s *Store) Receipt(platform, account, hash string) (Receipt, error) {
 	var started int64
 	err := s.db.QueryRow("SELECT state,reference,started FROM upload_attempts WHERE platform=? AND account_id=? AND video_hash=?", platform, account, hash).Scan(&r.State, &r.Reference, &started)
 	if errors.Is(err, sql.ErrNoRows) {
-		return Receipt{}, nil
+		err = nil
+	}
+	if err == nil && platform == "tiktok" {
+		r.InboxHistory, err = s.InboxHistory(account, hash)
 	}
 	r.RetryAllowed = r.State == "check" || (r.State == "sending" && time.Since(time.Unix(started, 0)) > 30*time.Minute)
 	if r.State == "publishing" && time.Since(time.Unix(started, 0)) > 30*time.Minute {
@@ -228,4 +238,66 @@ func (s *Store) InstagramLegacyPreparation(account, hash, reference string) (boo
 	default:
 		return false, errors.New("saved Instagram preparation is unknown; retain its receipt")
 	}
+}
+
+// Preserve acknowledged inbox receipts before an explicitly requested resend.
+// Active, uncertain, direct-post and other-platform receipts stay locked.
+func (s *Store) AllowInboxResend(d Draft, account, reference string) error {
+	if d.Key.Platform != "tiktok" || reference == "" {
+		return errors.New("select an acknowledged TikTok inbox transfer")
+	}
+	if err := CheckDestination(d.Key, account); err != nil {
+		return err
+	}
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	res, err := tx.Exec(`INSERT INTO inbox_receipt_history(account_id,video_hash,reference,started,confirmed_at,archived_at)
+ SELECT u.account_id,u.video_hash,u.reference,u.started,COALESCE(t.confirmed_at,0),?
+ FROM upload_attempts u LEFT JOIN receipt_times t USING(platform,account_id,video_hash)
+ WHERE u.platform='tiktok' AND u.account_id=? AND u.video_hash=? AND u.reference=? AND u.state='inbox'
+ AND EXISTS(SELECT 1 FROM accounts WHERE platform='tiktok' AND language=? AND account_id=?)
+ AND EXISTS(SELECT 1 FROM drafts WHERE episode=? AND language=? AND platform='tiktok' AND account=? AND video_hash=? AND revision=?)`,
+		time.Now().Unix(), account, d.VideoHash, reference, d.Key.Language, account, d.Key.Episode, d.Key.Language, d.Key.Account, d.VideoHash, d.Revision)
+	if err != nil {
+		return err
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n != 1 {
+		return errors.New("inbox receipt or destination changed; refresh before retrying")
+	}
+	res, err = tx.Exec(`DELETE FROM upload_attempts WHERE platform='tiktok' AND account_id=? AND video_hash=? AND reference=? AND state='inbox'`, account, d.VideoHash, reference)
+	if err != nil {
+		return err
+	}
+	n, err = res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n != 1 {
+		return errors.New("inbox receipt changed")
+	}
+	return tx.Commit()
+}
+
+func (s *Store) InboxHistory(account, hash string) ([]InboxReceipt, error) {
+	rows, err := s.db.Query(`SELECT reference,confirmed_at,archived_at FROM inbox_receipt_history WHERE account_id=? AND video_hash=? ORDER BY archived_at DESC,reference`, account, hash)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []InboxReceipt
+	for rows.Next() {
+		var item InboxReceipt
+		if err = rows.Scan(&item.Reference, &item.ConfirmedAt, &item.ArchivedAt); err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	return items, rows.Err()
 }

@@ -90,7 +90,7 @@ func TestStatisticsMigrationFromSeven(t *testing.T) {
 		t.Fatal("migration lost draft", err)
 	}
 	var version int
-	if err = s.db.QueryRow("SELECT version FROM schema_version").Scan(&version); err != nil || version != 11 {
+	if err = s.db.QueryRow("SELECT version FROM schema_version").Scan(&version); err != nil || version != 12 {
 		t.Fatal(version, err)
 	}
 }

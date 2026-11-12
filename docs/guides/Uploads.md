@@ -142,3 +142,10 @@ Protocol and interface tests use local fixtures. A live transfer with an operato
 If Meta rejects the `video_status` field with `100/2207065`, Publisher reads the supported container status separately. A terminal `ERROR` or `EXPIRED` is shown as a processing failure, with its numeric code when available; it is not left as an unexplained pending upload. Removing edit lists improves format compliance but does not guarantee that Meta will accept a transfer.
 
 An inbox receipt confirms TikTok's API acknowledgment, not that a mobile notification was observed. Notifications can be delayed. Repeated sends can produce delayed duplicates, so keep the receipt and avoid resending an acknowledged transfer solely because its notification has not appeared.
+
+
+### Resend a TikTok inbox transfer
+
+For any Spanish or English video with an acknowledged inbox transfer, open its TikTok post and choose **Inbox / API → Resend to inbox…**. Confirm the account and language and acknowledge that the earlier copy may still arrive. **Enable another send** archives that exact receipt and unlocks one new attempt; it does not upload anything. Continue through the normal approval and final language confirmation to send.
+
+**Previous inbox receipts** keeps the earlier references and confirmation times on this PC, including after restarting Publisher. An active transfer, Direct Post or another platform cannot be unlocked by this action. A resend does not cancel the original transfer or guarantee faster notification. If both copies arrive, publish only the intended one.

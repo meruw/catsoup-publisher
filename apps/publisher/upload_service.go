@@ -379,3 +379,27 @@ func (s *UploadService) sendMode(key drafts.Key, revision int64, id, mode string
 	}
 	return s.store.Receipt(key.Platform, id, d.VideoHash)
 }
+
+// Authorizes one new attempt without sending bytes or changing post approval.
+func (s *UploadService) AllowTikTokInboxResend(key drafts.Key, id, expectedHash, expectedReference string, confirmed bool) error {
+	if !confirmed {
+		return errors.New("confirm that the earlier inbox transfer may still arrive")
+	}
+	if key.Platform != "tiktok" {
+		return errors.New("select a TikTok inbox transfer")
+	}
+	if err := drafts.CheckDestination(key, id); err != nil {
+		return err
+	}
+	if _, err := s.store.Credential(key.Platform, key.Language, id); err != nil {
+		return err
+	}
+	d, err := s.store.Get(context.Background(), key)
+	if err != nil {
+		return err
+	}
+	if d.Revision == 0 || d.VideoHash != expectedHash {
+		return errors.New("linked video changed; reopen the draft")
+	}
+	return s.store.AllowInboxResend(d, id, expectedReference)
+}

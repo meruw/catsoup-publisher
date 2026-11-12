@@ -5,6 +5,7 @@ export type {
     Completion,
     Cover,
     Draft,
+    InboxReceipt,
     Key,
     PostFilter,
     PostGroup,

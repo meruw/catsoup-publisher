@@ -35,6 +35,12 @@ export interface Draft {
     "updatedAt": string;
 }
 
+export interface InboxReceipt {
+    "reference": string;
+    "confirmedAt": number;
+    "archivedAt": number;
+}
+
 export interface Key {
     "episode": string;
     "language": string;
@@ -106,6 +112,7 @@ export interface PublishingDefault {
 }
 
 export interface Receipt {
+    "inboxHistory"?: InboxReceipt[] | null;
     "state": string;
     "reference": string;
     "retryAllowed": boolean;

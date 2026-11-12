@@ -57,7 +57,7 @@ The operator's three present developer configurations (Google, TikTok and Meta) 
 
 ## Next action
 
-Verify the installed processing-wait correction during the next approved Instagram send. The pending Instagram ES Reel was published and verified; TikTok Inbox remains API-acknowledged without confirmed mobile delivery. The PoC remains in progress; no release is planned.
+Verify the next owner-requested TikTok inbox resend and its new receipt; notification delivery still depends on TikTok. The pending Instagram ES Reel was published and verified; TikTok Inbox remains API-acknowledged without confirmed mobile delivery. The PoC remains in progress; no release is planned.
 
 ## Publishing reliability and workspace update
 
@@ -139,3 +139,10 @@ Live validation resolved the pending Instagram ES publication through a separate
 If a same-container retransmission returns an HTTP error but Meta still reports `IN_PROGRESS`, Publisher continues bounded read-only status polling instead of immediately returning Needs attention. A retained phase error `1363008` is tolerated only while the overall container is pending. Once ready, the caller publishes that same container; terminal errors, cancellation and uncertain publication retain their existing safeguards. No additional container or byte transfer is introduced by this wait.
 
 Tests cover pending processing with and without a stale phase error, successful same-container publication, terminal failure, cancellation, and a bounded timeout. Full Go tests, vet and the production Windows build pass. The build was installed after the owner closed Publisher and a read-only database check found no active sending/publishing receipts. A residual windowless process was stopped before replacement. The installed SHA-256 matches the staged build (`d6be2b78a35c3954a186b27c0bdc6f358d708438eca2fe58293531148bd83140`); Publisher was restarted. Native upload behavior has not yet been verified. Installation did not initiate any upload. No frontend, dependency or schema change was made.
+
+
+## TikTok inbox resends
+
+Every account-specific acknowledged TikTok inbox receipt can be explicitly archived to enable another attempt. The action requires the exact current account, language, file hash, draft revision and receipt reference, plus explicit duplicate-arrival consent. It never sends bytes itself. Existing review, approval and final language confirmation remain required for the subsequent upload. Active transfers, uncertain results, Direct Post and other platforms remain locked.
+
+Schema v12 adds durable inbox receipt history; archiving and unlocking are atomic, including confirmation timestamps. The send dialog opens Inbox / API for an existing inbox receipt and offers a collapsed history list. Tests cover reference/revision conflicts, language and account isolation, blocked states, repeated resets, persistence, consent, cancellation and no send before final confirmation. Go tests, vet, strict frontend build, browser resend and existing final-confirmation fixtures pass. Browser fixtures do not establish live TikTok notification delivery. Installed after Publisher closed and no active receipts remained. A SQLite backup precedes migration; schema v12 and executable SHA-256 `70d22a2cfcfeff89b75d1eb9e2059f934727996fb660a90d8c93dabd7b6a2f5f` were verified. Native window inspection confirmed that the app loaded. The prior manually archived inbox receipt was imported into the new history. No resend was performed during installation; native resend interaction remains owner-driven.

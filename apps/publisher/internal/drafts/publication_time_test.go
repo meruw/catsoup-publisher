@@ -3,6 +3,7 @@ package drafts
 import (
 	"context"
 	"path/filepath"
+	"reflect"
 	"testing"
 	"time"
 )
@@ -55,7 +56,7 @@ func TestPublicationDatesMigrationAndIsolation(t *testing.T) {
 		t.Fatal(page, err)
 	}
 	after, err := s.Receipt(d.Key.Platform, "channel", d.VideoHash)
-	if err != nil || before != after {
+	if err != nil || !reflect.DeepEqual(before, after) {
 		t.Fatal("metadata changed upload receipt", err)
 	}
 	for _, bad := range []string{"bad", time.Now().Add(time.Hour).Format(time.RFC3339)} {

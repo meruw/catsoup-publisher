@@ -17,6 +17,13 @@ export function Accounts(): $CancellablePromise<drafts$0.Profile[] | null> {
 }
 
 /**
+ * Authorizes one new attempt without sending bytes or changing post approval.
+ */
+export function AllowTikTokInboxResend(key: drafts$0.Key, id: string, expectedHash: string, expectedReference: string, confirmed: boolean): $CancellablePromise<void> {
+    return $Call.ByID(3518606842, key, id, expectedHash, expectedReference, confirmed);
+}
+
+/**
  * This action retries only the cover of a confirmed YouTube video, never its bytes.
  */
 export function ApplyYouTubeCover(key: drafts$0.Key, revision: number): $CancellablePromise<string> {

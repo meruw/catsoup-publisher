@@ -155,7 +155,7 @@ func (s *Store) migrate() error {
 	if err = tx.QueryRowContext(ctx, "SELECT version FROM schema_version WHERE id=1").Scan(&version); err != nil {
 		return err
 	}
-	if version > 11 || version < 0 {
+	if version > 12 || version < 0 {
 		return errors.New("unsupported schema version; use a compatible Publisher build")
 	}
 	if version == 0 {
@@ -246,6 +246,15 @@ func (s *Store) migrate() error {
 CREATE TABLE cover_assets(hash TEXT PRIMARY KEY,mime TEXT NOT NULL,image BLOB NOT NULL);
 CREATE TABLE cover_results(platform TEXT NOT NULL,account TEXT NOT NULL,video_hash TEXT NOT NULL,cover_hash TEXT NOT NULL,state TEXT NOT NULL,PRIMARY KEY(platform,account,video_hash));
 UPDATE schema_version SET version=11 WHERE id=1;`); err != nil {
+			return err
+		}
+	}
+	if version < 12 {
+		if _, err = tx.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS inbox_receipt_history (
+ account_id TEXT NOT NULL, video_hash TEXT NOT NULL, reference TEXT NOT NULL,
+ started INTEGER NOT NULL, confirmed_at INTEGER NOT NULL, archived_at INTEGER NOT NULL,
+ PRIMARY KEY(account_id,video_hash,reference));
+ UPDATE schema_version SET version=12 WHERE id=1;`); err != nil {
 			return err
 		}
 	}
