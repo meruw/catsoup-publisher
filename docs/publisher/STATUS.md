@@ -116,4 +116,6 @@ Google OAuth token endpoint failures expose allowlisted identifiers and actionab
 
 Tests cover known and unknown errors, malformed bodies, one request without retry, UI-error redaction and the persisted diagnostic identifier/status. The full Go suite and strict frontend build pass. An initial sandbox-only temporary-workspace permission failure was resolved by running the same suite with filesystem access. A live authorization-only check confirmed `invalid_grant` for the affected connection without uploading, changing receipts or writing credentials. The YouTube guide documents reconnection and Google's seven-day Testing authorization limit. No dependency or schema changes.
 
-Next action: install the staged build with Publisher closed; reconnect the affected YouTube channel before retrying its intended post. No release is created.
+The tested Windows executable was installed with Publisher closed; the installed SHA-256 matches the staged build and the opened desktop process responds. The owner confirmed reconnecting YouTube before installation. No uploads were started during installation.
+
+Next action: verify the corrected Uploads labels in the desktop app during normal use. No release is created.
