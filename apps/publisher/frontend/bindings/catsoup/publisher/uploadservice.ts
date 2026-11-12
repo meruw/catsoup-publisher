@@ -16,6 +16,13 @@ export function Accounts(): $CancellablePromise<drafts$0.Profile[] | null> {
     return $Call.ByID(1307383184);
 }
 
+/**
+ * This action retries only the cover of a confirmed YouTube video, never its bytes.
+ */
+export function ApplyYouTubeCover(key: drafts$0.Key, revision: number): $CancellablePromise<string> {
+    return $Call.ByID(756512252, key, revision);
+}
+
 export function ClearUncertain(key: drafts$0.Key, id: string, expectedHash: string, checked: boolean): $CancellablePromise<void> {
     return $Call.ByID(2058715088, key, id, expectedHash, checked);
 }
@@ -26,6 +33,10 @@ export function ClientReady(platform: string): $CancellablePromise<boolean> {
 
 export function ConfigureClient(platform: string, raw: string): $CancellablePromise<void> {
     return $Call.ByID(693010183, platform, raw);
+}
+
+export function CoverStatus(key: drafts$0.Key): $CancellablePromise<string> {
+    return $Call.ByID(1452599777, key);
 }
 
 export function CredentialStatuses(): $CancellablePromise<{ [_ in string]?: string } | null> {

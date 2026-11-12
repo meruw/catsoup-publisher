@@ -82,7 +82,7 @@ func TestInstagramRetryReservation(t *testing.T) {
 func TestUploadPreparationMigrationPreservesReceipt(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "drafts.sqlite")
 	s := openTest(t, path)
-	if _, err := s.db.Exec("INSERT INTO upload_attempts(platform,account_id,video_hash,state,reference,started) VALUES('instagram','ig','hash','published','reel',123); ALTER TABLE upload_attempts DROP COLUMN upload_hash; ALTER TABLE upload_attempts DROP COLUMN preparation; UPDATE schema_version SET version=8"); err != nil {
+	if _, err := s.db.Exec("INSERT INTO upload_attempts(platform,account_id,video_hash,state,reference,started) VALUES('instagram','ig','hash','published','reel',123); DROP TABLE cover_assets; DROP TABLE cover_results; ALTER TABLE drafts DROP COLUMN cover; ALTER TABLE upload_attempts DROP COLUMN upload_hash; ALTER TABLE upload_attempts DROP COLUMN preparation; UPDATE schema_version SET version=8"); err != nil {
 		t.Fatal(err)
 	}
 	s.Close()

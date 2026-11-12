@@ -11,7 +11,17 @@ export interface Completion {
     "language": string;
 }
 
+/**
+ * Cover contains only a content address; list views never load image bytes.
+ */
+export interface Cover {
+    "kind": string;
+    "hash": string;
+    "timeMs": number;
+}
+
 export interface Draft {
+    "cover"?: Cover | null;
     "key": Key;
     "title": string;
     "description": string;

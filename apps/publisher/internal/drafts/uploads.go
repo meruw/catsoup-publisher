@@ -13,6 +13,13 @@ type Receipt struct {
 	RetryAllowed bool   `json:"retryAllowed"`
 }
 
+// A send has a fifteen-minute deadline. Retain a stale Instagram container for
+// reconciliation instead of offering a deletion that could create duplicates.
+func (s *Store) RecoverStaleInstagram(account, videoHash string) error {
+	_, err := s.db.Exec(`UPDATE upload_attempts SET state='check' WHERE platform='instagram' AND account_id=? AND video_hash=? AND state='sending' AND reference<>'' AND started<?`, account, videoHash, time.Now().Add(-30*time.Minute).Unix())
+	return err
+}
+
 func (s *Store) Receipt(platform, account, hash string) (Receipt, error) {
 	var r Receipt
 	var started int64

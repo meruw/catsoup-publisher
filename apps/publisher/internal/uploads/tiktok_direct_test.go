@@ -129,7 +129,7 @@ func TestTikTokDirectTransferAndDefinitiveFailure(t *testing.T) {
 					if json.NewDecoder(r.Body).Decode(&body) != nil {
 						t.Fatal("invalid body")
 					}
-					for k, want := range map[string]any{"title": "caption", "privacy_level": "SELF_ONLY", "disable_comment": false, "disable_duet": true, "disable_stitch": true, "brand_content_toggle": false, "brand_organic_toggle": false, "is_aigc": true} {
+					for k, want := range map[string]any{"title": "caption", "privacy_level": "SELF_ONLY", "disable_comment": false, "disable_duet": true, "disable_stitch": true, "brand_content_toggle": false, "brand_organic_toggle": false, "is_aigc": true, "video_cover_timestamp_ms": float64(1200)} {
 						if body.Post[k] != want {
 							t.Fatalf("%s: got %v", k, body.Post[k])
 						}
@@ -149,7 +149,8 @@ func TestTikTokDirectTransferAndDefinitiveFailure(t *testing.T) {
 					return nil, nil
 				}
 			})
-			m := Media{File: f, Size: 7, Mode: "publish", Duration: 12, Caption: "caption", TikTok: &TikTokOptions{Privacy: "SELF_ONLY", Consent: true, Comments: true, Synthetic: true}}
+			coverTime := int64(1200)
+			m := Media{CoverTimeMS: &coverTime, File: f, Size: 7, Mode: "publish", Duration: 12, Caption: "caption", TikTok: &TikTokOptions{Privacy: "SELF_ONLY", Consent: true, Comments: true, Synthetic: true}}
 			ref, err := c.Send(context.Background(), "tiktok", "fixture-token", Account{ID: "creator"}, m, func(s string) error { recorded = s; return nil })
 			if status == "PUBLISH_COMPLETE" && (err != nil || ref != "direct1" || !sent) {
 				t.Fatal(ref, err, sent)

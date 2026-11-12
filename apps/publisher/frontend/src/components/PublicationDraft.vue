@@ -2,6 +2,7 @@
 import {transferPending} from '../services/transfers';
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import UiButton from './UiButton.vue';
+import CoverPicker from './CoverPicker.vue';
 import UiTooltip from './UiTooltip.vue';
 import UiDialog from './UiDialog.vue';
 import {uploads,type Profile} from '../services/uploads';
@@ -114,7 +115,7 @@ function flush(): Promise<void> {
         const result = await drafts.save({
           key: snapshot.key, title: snapshot.title, description: snapshot.description,
           hashtags: snapshot.hashtags, deliveryMode:snapshot.deliveryMode || 'draft', revision: snapshot.revision,
-          videoId: attachVideo ? props.video.id : snapshot.videoId, attachVideo,
+          videoId: attachVideo ? props.video.id : snapshot.videoId, attachVideo, cover:snapshot.cover || null, setCover:true,
         });
         form.value = { ...form.value, revision: result.revision, updatedAt: result.updatedAt, approvedRevision: result.approvedRevision,
           videoId: result.videoId, videoHash: result.videoHash, deliveryFingerprint: result.deliveryFingerprint };
@@ -162,7 +163,7 @@ async function changeMode(value:string, mode:DeliveryMode) {
     const key={episode:props.episode.id,language:props.language,platform:value,account:accountKey(profile)};
     const d=await drafts.get(key);
     const result=await drafts.save({key,title:d.title,description:d.description,hashtags:d.hashtags,deliveryMode:mode,
-      revision:d.revision,videoId:d.revision?d.videoId:props.video.id,attachVideo:!d.revision});
+      cover:null,setCover:false,revision:d.revision,videoId:d.revision?d.videoId:props.video.id,attachVideo:!d.revision});
     updateList(result);
     if(form.value?.key.platform===value) form.value=result;
   } catch(e) {error.value=String(e);}
@@ -172,7 +173,7 @@ async function recoverDraft() {
   const old=recoverable.value.find(d=>d.key.account===recovery.value);
   if(!old || !form.value) return;
   form.value.title=old.title;form.value.description=old.description;form.value.hashtags=old.hashtags;
-  form.value.deliveryMode='draft';edited();await saveNow();recovery.value='';if(!error.value)restoreOpen.value=false;
+  form.value.cover=null;form.value.deliveryMode='draft';edited();await saveNow();recovery.value='';if(!error.value)restoreOpen.value=false;
 }
 async function publishAll() {
   await saveNow();
@@ -195,7 +196,7 @@ async function saveNow() {
   try { await flush(); feedback.value='Draft saved · '+new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'}); } catch { /* Keep edits on failure. */ }
 }
 async function useSelectedVideo() {
-  attachVideo = true; edited(); await saveNow();
+  if(form.value)form.value.cover=null;attachVideo = true; edited(); await saveNow();
 }
 async function copy(part: string) {
   if (!form.value) return;
@@ -277,6 +278,7 @@ defineExpose({ flush: beforeLeaving, focusEditor, publishAll, batchBlocker });
         <div class="field-group"><div class="title-tools"><label for="draft-title">Title</label><UiButton id="copy-from" variant="quiet" size="compact" :disabled="!textSources.length || saving" title="Copy title, description and hashtags from another platform for this video and language" @click="openCopy">Copy from…</UiButton></div><input id="draft-title" v-model="form.title" class="ui-field" maxlength="500" @input="edited"></div>
         <div class="field-group"><label for="draft-description">Description</label><textarea id="draft-description" v-model="form.description" class="ui-field" rows="4" maxlength="10000" @input="edited"></textarea></div>
         <div class="field-group"><label for="draft-hashtags">Hashtags</label><input id="draft-hashtags" v-model="form.hashtags" class="ui-field" maxlength="2000" placeholder="#catsoup" @input="edited"></div>
+        <CoverPicker :key="JSON.stringify(form.key)" :draft="form" :disabled="locked || loading || saving || platformBusy" @change="form.cover=$event;edited()" @busy="copying=$event;emit('busy',$event)"/>
         <div class="post-edit-actions">
           <div class="save-actions"><UiButton :busy="saving" @click="saveNow">Save draft</UiButton><UiButton id="restore-draft" variant="quiet" :disabled="saving || (!form.revision && !recoverable.length)" @click="restoreOpen=true">Restore draft</UiButton></div>
           <UiTooltip v-if="!approved" class="approval-control" :disabled="!!approvalHint || saving" :text="approvalHint || 'Approve after watching the video and checking the text, account and mode. Changes remove this account’s approval. Nothing is sent until you confirm publishing.'"><UiButton :disabled="!!approvalHint || saving" :busy="approving" @click="setApproval(true)">Approve post</UiButton></UiTooltip>

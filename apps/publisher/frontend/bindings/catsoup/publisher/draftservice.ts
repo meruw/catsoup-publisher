@@ -35,6 +35,10 @@ export function CopyUploadPath(key: drafts$0.Key, revision: number, accountConfi
     return $Call.ByID(4215872553, key, revision, accountConfirmed);
 }
 
+export function CoverPreview(id: string): $CancellablePromise<string> {
+    return $Call.ByID(4217239155, id);
+}
+
 export function EnableCloseGuard(): $CancellablePromise<void> {
     return $Call.ByID(1686982004);
 }
@@ -49,6 +53,10 @@ export function GetPublishingDefaults(): $CancellablePromise<drafts$0.Publishing
 
 export function GetReview(episode: string, language: string, video: string): $CancellablePromise<drafts$0.Review> {
     return $Call.ByID(2133563182, episode, language, video);
+}
+
+export function ImportCover(data: string): $CancellablePromise<string> {
+    return $Call.ByID(4042138302, data);
 }
 
 export function ListDrafts(episode: string, language: string): $CancellablePromise<drafts$0.Draft[] | null> {

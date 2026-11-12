@@ -6,6 +6,8 @@
 import * as drafts$0 from "./internal/drafts/models.js";
 
 export interface SaveDraftInput {
+    "cover": drafts$0.Cover | null;
+    "setCover": boolean;
     "key": drafts$0.Key;
     "title": string;
     "description": string;

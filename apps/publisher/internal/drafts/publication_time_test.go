@@ -19,7 +19,7 @@ func TestPublicationDatesMigrationAndIsolation(t *testing.T) {
 	if _, err := s.db.Exec("INSERT INTO upload_attempts(platform,account_id,video_hash,state,reference,started) VALUES(?,?,?,?,?,?)", d.Key.Platform, "channel", d.VideoHash, "published", "remote", 1700000000); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.db.Exec("DROP TABLE receipt_times;UPDATE schema_version SET version=9"); err != nil {
+	if _, err := s.db.Exec("DROP TABLE cover_assets; DROP TABLE cover_results; ALTER TABLE drafts DROP COLUMN cover; DROP TABLE receipt_times;UPDATE schema_version SET version=9"); err != nil {
 		t.Fatal(err)
 	}
 	before, err := s.Receipt(d.Key.Platform, "channel", d.VideoHash)

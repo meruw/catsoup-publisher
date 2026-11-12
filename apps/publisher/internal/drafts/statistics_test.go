@@ -80,7 +80,7 @@ func TestStatisticsMigrationFromSeven(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = s.db.Exec("DROP TABLE statistics_samples; ALTER TABLE upload_attempts DROP COLUMN upload_hash; ALTER TABLE upload_attempts DROP COLUMN preparation;UPDATE schema_version SET version=7"); err != nil {
+	if _, err = s.db.Exec("DROP TABLE cover_assets; DROP TABLE cover_results; ALTER TABLE drafts DROP COLUMN cover; DROP TABLE statistics_samples; ALTER TABLE upload_attempts DROP COLUMN upload_hash; ALTER TABLE upload_attempts DROP COLUMN preparation;UPDATE schema_version SET version=7"); err != nil {
 		t.Fatal(err)
 	}
 	s.Close()
@@ -90,7 +90,7 @@ func TestStatisticsMigrationFromSeven(t *testing.T) {
 		t.Fatal("migration lost draft", err)
 	}
 	var version int
-	if err = s.db.QueryRow("SELECT version FROM schema_version").Scan(&version); err != nil || version != 10 {
+	if err = s.db.QueryRow("SELECT version FROM schema_version").Scan(&version); err != nil || version != 11 {
 		t.Fatal(version, err)
 	}
 }

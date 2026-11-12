@@ -64,6 +64,22 @@ Each destination in **Posts → video → Posts** shows its recorded date and ti
 
 Dates survive app restarts. Re-reading a receipt does not reset its confirmation time. Older receipts without a recorded confirmation remain undated unless a supported provider returns their publication date. Facebook video creation dates are not substituted for publication; manual TikTok/X publishing cannot be dated from an inbox or browser handoff. **Publication time unavailable** states that limit explicitly. Refreshing statistics does not send or republish videos.
 
+## Choose a thumbnail
+
+Open **Thumbnail** in the selected account's editor before approving the post. The selection belongs to that account and language, saves with the draft, and changing it revokes approval. Changing the linked video clears its cover. Images stay in the local database; previews load only when needed.
+
+| Destination | Options in Publisher |
+| --- | --- |
+| YouTube | Choose a video frame or import PNG/JPG, up to 2 MiB and 4096 pixels per dimension |
+| Instagram Reels | Choose a video frame before the upload starts |
+| TikTok Direct Post | Choose a video frame before the upload starts |
+| TikTok Inbox | Choose the cover in TikTok's mobile editor; the inbox API does not accept it |
+| Facebook / X | Custom covers are not implemented in these connectors |
+
+For **Choose frame**, pause the preview and select **Use this frame**. For **Choose image**, use the app button to select a PNG/JPG. YouTube receives the selected image after processing the video. If that step fails or times out, the video stays published/private and **Apply thumbnail** retries only the image. A changed thumbnail must be saved and approved again. The channel must be eligible for custom thumbnails. Provider surfaces may display thumbnails differently.
+
+Instagram and TikTok Direct Post receive a frame timestamp. Their existing uploads cannot change cover through Publisher. Local image files are not uploaded to an external hosting service for Instagram.
+
 ## Read post statistics
 
 Open **Posts**, choose a video, then **Statistics**. Counts are grouped by platform and separated by account and language. They load automatically when this view or an individual post detail opens. Successful results are reused for five minutes within the app session; **Refresh statistics** requests fresh values for one account. **Refresh all** updates the eligible accounts displayed for the current video and language filter, with two requests at a time. Its progress reports individual failures without stopping the remaining accounts; failed reads keep the last successful counts and timestamp. There is no continuous background polling or paid statistics API. Click outside a detail dialog, press Escape or use Close to dismiss it. Dialogs cannot be dismissed during a blocking operation.
@@ -93,7 +109,7 @@ Confirm an individual send or a batch to add its API transfers to **Uploads**, a
 
 The queue keeps the confirmed account and draft revision. Editing or revoking a queued post's approval causes the backend's checks to reject that changed revision before sending. Duplicate active transfers for the same account and file are blocked. Free X browser handoff remains an immediate clipboard/browser action.
 
-Keep Publisher running; minimizing is supported. Closing the window during an active or waiting transfer opens Uploads instead. This is a session queue, not a Windows background service: quitting forcibly, rebooting or a crash stops work. Unsent queue entries are not restored; existing transfer receipts remain available for manual reconciliation. No automatic retry is performed.
+Keep Publisher running; minimizing is supported. Closing the window during an active or waiting transfer opens Uploads instead. This is a session queue, not a Windows background service: quitting forcibly, rebooting or a crash stops work. Unsent queue entries are not restored; existing transfer receipts remain available for manual reconciliation. The queue does not automatically repeat failed jobs. The Instagram connector has the bounded recovery described below.
 
 **History** lists the latest saved transfer results by video, including previous sessions. Search by saved title or account, and use 20-video pagination. Select a row to open its destinations in Posts. This reads existing local receipts; it neither queries platforms nor restarts uploads. It is not a permanent journal of every attempt: cancelled, unsent queue entries are not recorded, and the current draft/file determines the displayed receipt.
 
@@ -119,6 +135,6 @@ If Meta reports a missing file (error `1363008`, zero transferred bytes and zero
 
 Instagram sends use a temporary compatibility copy: the video stream is copied unchanged and audio is encoded as AAC, 48 kHz stereo, targeting 128 kb/s. The original delivery is never overwritten. Publisher verifies the approved source hash, checks that the video stream is identical, verifies the prepared file hash and records both hashes with the upload container. The temporary copy is removed when the send ends. This uses the local FFmpeg dependency already installed with Publisher, without a hosting service or paid conversion API.
 
-Meta can retain error `1363008` in its upload details while the container continues processing. Publisher polls that pending container for up to ten minutes; a final `FINISHED` status takes precedence over stale phase errors. If it stays pending, its reference is retained for **Check and finish on Instagram**. For an explicitly failed, empty upload, Publisher waits five minutes and checks again before making at most one replacement per send. Keep Publisher open during processing. A network error or interrupted publication never triggers an automatic replacement. Details appear in Console.
+For error `1363008` with explicit zero transferred bytes and zero source size, Publisher waits 15 seconds and checks again. If the same container still reports that empty-transfer failure, it retransmits once to that container. Only a terminal failed, empty container permits one replacement. Other pending containers are polled; a final `FINISHED` status takes precedence over stale phase errors. A saved Instagram transfer left in Sending for more than 30 minutes becomes Check result when its receipt opens, retaining its container and hashes. An ambiguous publishing result stays locked. Keep Publisher open during processing. A network error or interrupted publication never triggers an automatic replacement. Details appear in Console.
 
 Protocol and interface tests use local fixtures. A live transfer with an operator-owned account and an approved episode is still required to verify each provider end to end.

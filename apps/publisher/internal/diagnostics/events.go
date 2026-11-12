@@ -11,6 +11,7 @@ import (
 )
 
 var messages = map[string]string{
+	"cover_pending":             "Video saved; thumbnail needs attention",
 	"web_attaching":             "TikTok browser account verified; attaching approved video",
 	"web_attention":             "TikTok browser preparation needs attention; no automatic retry",
 	"web_ready":                 "TikTok browser is ready for manual publishing",
@@ -29,8 +30,8 @@ var messages = map[string]string{
 	"upload_status_check":       "Checking the saved upload container",
 	"upload_preparing":          "Preparing Instagram-compatible audio; keeping the video stream unchanged",
 	"upload_prepared":           "Instagram upload copy prepared and verified",
-	"upload_retry_wait":         "Meta could not receive the video; waiting five minutes before one recovery attempt",
-	"upload_retry_started":      "Meta confirmed the empty upload failed; starting one replacement upload",
+	"upload_retry_wait":         "Meta could not receive the video; waiting briefly before one recovery attempt",
+	"upload_retry_started":      "Meta confirmed the empty upload failed; attempting recovery",
 	"publish_started":           "Publishing the processed video",
 	"connection_started":        "Account connection started",
 	"browser_opening":           "Opening the provider in your browser",

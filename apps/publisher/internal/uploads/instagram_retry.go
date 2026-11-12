@@ -105,6 +105,13 @@ func (c *Client) instagramWithRetry(ctx context.Context, token string, a Account
 	}
 	// Re-read after the delay: a late success must reuse the original container.
 	state, checkErr := c.instagramContainerStatus(ctx, "Bearer "+token, failed.container)
+	if CanResumeInstagramBytes(state, checkErr) {
+		diagnostics.Record(ctx, slog.LevelWarn, "upload_retry_started", diagnostics.Details{ProviderCode: 1363008})
+		if e := c.ResumeInstagramBytes(ctx, token, failed.container, m); e != nil {
+			return "", e
+		}
+		return c.PublishReadyInstagram(ctx, token, a.ID, failed.container)
+	}
 	if pendingInstagramFailure(state, checkErr) {
 		checkErr = nil
 	}

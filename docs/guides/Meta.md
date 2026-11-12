@@ -47,3 +47,7 @@ Review the approved video and edit its **Instagram** post. Set the Instagram row
 A browser session is needed for authorization, not for each upload. App roles and Meta's access-level/review requirements still apply. The local connector does not bypass Meta approval for third-party users.
 
 Reference: [Meta's official Reels publishing collection](https://www.postman.com/meta/facebook/request/juhnm3q/4-publish-reel).
+
+## Reel cover
+
+In the Instagram account editor, open **Thumbnail → Choose frame**, pause the preview and choose **Use this frame** before approving and uploading. Publisher sends that frame's timestamp with the Reel container. The cover cannot be changed here once its upload exists. This connector does not host local PNG/JPG images for custom covers. Facebook cover selection is not implemented.

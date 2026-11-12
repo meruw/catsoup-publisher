@@ -26,6 +26,7 @@ type Account struct {
 type Media struct {
 	Title, Caption, Language string
 	Mode, Audience           string
+	CoverTimeMS              *int64
 	Synthetic                bool
 	TikTok                   *TikTokOptions
 	Duration                 float64

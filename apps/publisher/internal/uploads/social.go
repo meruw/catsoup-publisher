@@ -43,6 +43,9 @@ func (c *Client) tiktok(ctx context.Context, token string, m Media, record func(
 		o := m.TikTok
 		endpoint = tik + "post/publish/video/init/"
 		body["post_info"] = map[string]any{"title": m.Caption, "privacy_level": o.Privacy, "disable_comment": !o.Comments, "disable_duet": !o.Duet, "disable_stitch": !o.Stitch, "brand_content_toggle": o.Branded, "brand_organic_toggle": o.OwnBrand, "is_aigc": o.Synthetic}
+		if m.CoverTimeMS != nil {
+			body["post_info"].(map[string]any)["video_cover_timestamp_ms"] = *m.CoverTimeMS
+		}
 	}
 	diagnostics.Record(ctx, slog.LevelInfo, "upload_init_started", diagnostics.Details{})
 	_, err := c.request(ctx, "POST", endpoint, auth, jsonHeaders, jsonBody(body), -1, &out)
@@ -91,14 +94,18 @@ func (c *Client) tiktok(ctx context.Context, token string, m Media, record func(
 }
 
 func (c *Client) instagram(ctx context.Context, token string, a Account, m Media, record func(string) error) (string, error) {
-	return c.instagramWithRetry(ctx, token, a, m, record, 5*time.Minute)
+	return c.instagramWithRetry(ctx, token, a, m, record, 15*time.Second)
 }
 
 func (c *Client) instagramAttempt(ctx context.Context, token string, a Account, m Media, record func(string) error) (string, error) {
 	auth := "Bearer " + token
 	var container struct{ ID, URI string }
 	diagnostics.Record(ctx, slog.LevelInfo, "upload_init_started", diagnostics.Details{})
-	_, err := c.request(ctx, "POST", graph+a.ID+"/media", auth, jsonHeaders, jsonBody(map[string]string{"media_type": "REELS", "upload_type": "resumable", "caption": m.Caption}), -1, &container)
+	body := map[string]any{"media_type": "REELS", "upload_type": "resumable", "caption": m.Caption}
+	if m.CoverTimeMS != nil {
+		body["thumb_offset"] = *m.CoverTimeMS
+	}
+	_, err := c.request(ctx, "POST", graph+a.ID+"/media", auth, jsonHeaders, jsonBody(body), -1, &container)
 	if err != nil {
 		return "", err
 	}
@@ -121,6 +128,9 @@ func (c *Client) instagramAttempt(ctx context.Context, token string, a Account, 
 		// and processed this exact container. Reconcile with a read, never resend.
 		diagnostics.Record(ctx, slog.LevelInfo, "upload_status_check", diagnostics.Details{})
 		state, statusErr := c.instagramContainerStatus(ctx, auth, container.ID)
+		if CanResumeInstagramBytes(state, statusErr) {
+			return "", statusErr
+		}
 		if pendingInstagramFailure(state, statusErr) {
 			// Meta may retain a phase error while the container later succeeds.
 			statusErr = nil

@@ -57,7 +57,7 @@ The operator's three present developer configurations (Google, TikTok and Meta) 
 
 ## Next action
 
-The owner confirmed both TikTok accounts have inbox and Direct Post access. Confirm saved ES/EN account identities in the updated app. Validate Direct Post with explicitly approved content and the visibility permitted by TikTok. The PoC remains in progress; no release until the owner declares it complete.
+Install the staged build after Publisher closes, then verify native cover selection and reconcile the existing Spanish Instagram container without duplicating it. TikTok Inbox delivery is API-confirmed; no resend is scheduled. The PoC remains in progress; no release until the owner declares it complete.
 
 ## Publishing reliability and workspace update
 
@@ -119,3 +119,9 @@ Tests cover known and unknown errors, malformed bodies, one request without retr
 The tested Windows executable was installed with Publisher closed; the installed SHA-256 matches the staged build and the opened desktop process responds. The owner confirmed reconnecting YouTube before installation. No uploads were started during installation.
 
 Next action: verify the corrected Uploads labels in the desktop app during normal use. No release is created.
+
+## Account-specific covers and Instagram recovery
+
+Schema 11 stores content-addressed PNG/JPEG assets and per-video YouTube cover results. Draft selections are scoped by account/language; cover edits invalidate approval and changing videos clears the cover. The compact Thumbnail disclosure supports local image import or frame capture for YouTube, frame timestamps for Instagram and TikTok Direct Post, and explicit limitations for other connectors. No new runtime dependency or hosted-media service is required. The frontend main chunk is 36.04 kB gzip (about 1.8 kB growth); the staged Windows executable is 19,936,256 bytes. YouTube thumbnail failures retain the confirmed video receipt and can be retried independently.
+
+Instagram's specific pending FILE_NOT_FOUND result with explicit zero bytes now permits one delayed retransmission to the same container. A stale Sending receipt can become Check result after 30 minutes without clearing its reference, prepared hash or history; publishing and confirmed receipts remain locked. Unit tests cover those boundaries, cover validation/persistence/approval, processing-before-thumbnail ordering and same-container recovery. Browser fixtures cover image import, real video-frame capture, account controls, approval invalidation and unsupported options. Full Go tests, vet, frontend build and existing UI/confirmation checks pass. Native review remains pending installation.

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"reflect"
 	"strings"
 	"time"
 
@@ -11,14 +12,16 @@ import (
 )
 
 type SaveDraftInput struct {
-	Key          drafts.Key `json:"key"`
-	Title        string     `json:"title"`
-	Description  string     `json:"description"`
-	Hashtags     string     `json:"hashtags"`
-	DeliveryMode string     `json:"deliveryMode"`
-	Revision     int64      `json:"revision"`
-	VideoID      string     `json:"videoId"`
-	AttachVideo  bool       `json:"attachVideo"`
+	Cover        *drafts.Cover `json:"cover"`
+	SetCover     bool          `json:"setCover"`
+	Key          drafts.Key    `json:"key"`
+	Title        string        `json:"title"`
+	Description  string        `json:"description"`
+	Hashtags     string        `json:"hashtags"`
+	DeliveryMode string        `json:"deliveryMode"`
+	Revision     int64         `json:"revision"`
+	VideoID      string        `json:"videoId"`
+	AttachVideo  bool          `json:"attachVideo"`
 }
 type DraftService struct {
 	store            *drafts.Store
@@ -49,6 +52,19 @@ func (s *DraftService) SaveDraft(input SaveDraftInput) (drafts.Draft, error) {
 	if d.Revision != input.Revision {
 		return drafts.Draft{}, drafts.ErrConflict
 	}
+	coverChanged := input.SetCover && !reflect.DeepEqual(d.Cover, input.Cover)
+	if input.SetCover {
+		if input.Key.Platform != "youtube" && !reflect.DeepEqual(d.Cover, input.Cover) && strings.HasPrefix(input.Key.Account, "account:") {
+			receipt, e := s.store.Receipt(input.Key.Platform, strings.TrimPrefix(input.Key.Account, "account:"), d.VideoHash)
+			if e != nil {
+				return drafts.Draft{}, e
+			}
+			if receipt.State != "" {
+				return drafts.Draft{}, errors.New("the upload already exists; its cover cannot be changed here")
+			}
+		}
+		d.Cover = input.Cover
+	}
 	d.Title = input.Title
 	d.Description = input.Description
 	d.Hashtags = input.Hashtags
@@ -63,6 +79,9 @@ func (s *DraftService) SaveDraft(input SaveDraftInput) (drafts.Draft, error) {
 		found := false
 		for _, video := range episode.Videos {
 			if video.ID == input.VideoID && (video.Lang == nil || *video.Lang == input.Key.Language) {
+				if d.VideoHash != "" && d.VideoHash != video.SHA256 {
+					d.Cover = nil
+				}
 				d.VideoID = video.ID
 				d.VideoHash = video.SHA256
 				d.DeliveryFingerprint = episode.Fingerprint
@@ -72,6 +91,17 @@ func (s *DraftService) SaveDraft(input SaveDraftInput) (drafts.Draft, error) {
 		}
 		if !found {
 			return drafts.Draft{}, errors.New("choose a video matching the draft language")
+		}
+	}
+	if d.Cover != nil && (coverChanged || input.AttachVideo) {
+		ep, e := s.reader.Inspect(input.Key.Episode)
+		if e != nil {
+			return drafts.Draft{}, e
+		}
+		for _, v := range ep.Videos {
+			if v.ID == d.VideoID && d.Cover.Kind == "frame" && float64(d.Cover.TimeMS) >= v.Measured.Duration*1000 {
+				return drafts.Draft{}, errors.New("choose a frame within the selected video")
+			}
 		}
 	}
 	return s.store.Save(ctx, d)

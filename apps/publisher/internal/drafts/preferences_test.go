@@ -82,7 +82,7 @@ func TestV6PublishingDefaultsMigration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = s.db.Exec("DROP TABLE statistics_samples; ALTER TABLE upload_attempts DROP COLUMN upload_hash; ALTER TABLE upload_attempts DROP COLUMN preparation; DROP TABLE publishing_defaults; UPDATE schema_version SET version=6"); err != nil {
+	if _, err = s.db.Exec("DROP TABLE cover_assets; DROP TABLE cover_results; ALTER TABLE drafts DROP COLUMN cover; DROP TABLE statistics_samples; ALTER TABLE upload_attempts DROP COLUMN upload_hash; ALTER TABLE upload_attempts DROP COLUMN preparation; DROP TABLE publishing_defaults; UPDATE schema_version SET version=6"); err != nil {
 		t.Fatal(err)
 	}
 	s.Close()

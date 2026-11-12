@@ -4,6 +4,7 @@ package drafts
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
@@ -40,6 +41,7 @@ type Key struct {
 }
 
 type Draft struct {
+	Cover               *Cover `json:"cover,omitempty"`
 	Key                 Key    `json:"key"`
 	Title               string `json:"title"`
 	Description         string `json:"description"`
@@ -153,7 +155,7 @@ func (s *Store) migrate() error {
 	if err = tx.QueryRowContext(ctx, "SELECT version FROM schema_version WHERE id=1").Scan(&version); err != nil {
 		return err
 	}
-	if version > 10 || version < 0 {
+	if version > 11 || version < 0 {
 		return errors.New("unsupported schema version; use a compatible Publisher build")
 	}
 	if version == 0 {
@@ -239,13 +241,25 @@ func (s *Store) migrate() error {
 			return err
 		}
 	}
+	if version < 11 {
+		if _, err = tx.ExecContext(ctx, `ALTER TABLE drafts ADD COLUMN cover TEXT NOT NULL DEFAULT '';
+CREATE TABLE cover_assets(hash TEXT PRIMARY KEY,mime TEXT NOT NULL,image BLOB NOT NULL);
+CREATE TABLE cover_results(platform TEXT NOT NULL,account TEXT NOT NULL,video_hash TEXT NOT NULL,cover_hash TEXT NOT NULL,state TEXT NOT NULL,PRIMARY KEY(platform,account,video_hash));
+UPDATE schema_version SET version=11 WHERE id=1;`); err != nil {
+			return err
+		}
+	}
 	return tx.Commit()
 }
 
-const columns = "episode,language,platform,account,title,description,hashtags,video_id,video_hash,delivery_fingerprint,revision,updated_at,delivery_mode,approved_revision"
+const columns = "episode,language,platform,account,title,description,hashtags,video_id,video_hash,delivery_fingerprint,revision,updated_at,delivery_mode,approved_revision,cover"
 
 func scan(row interface{ Scan(...any) error }) (d Draft, err error) {
-	err = row.Scan(&d.Key.Episode, &d.Key.Language, &d.Key.Platform, &d.Key.Account, &d.Title, &d.Description, &d.Hashtags, &d.VideoID, &d.VideoHash, &d.DeliveryFingerprint, &d.Revision, &d.UpdatedAt, &d.DeliveryMode, &d.ApprovedRevision)
+	var cover string
+	err = row.Scan(&d.Key.Episode, &d.Key.Language, &d.Key.Platform, &d.Key.Account, &d.Title, &d.Description, &d.Hashtags, &d.VideoID, &d.VideoHash, &d.DeliveryFingerprint, &d.Revision, &d.UpdatedAt, &d.DeliveryMode, &d.ApprovedRevision, &cover)
+	if err == nil && cover != "" {
+		err = json.Unmarshal([]byte(cover), &d.Cover)
+	}
 	return
 }
 func (s *Store) Get(ctx context.Context, k Key) (Draft, error) {
@@ -285,6 +299,19 @@ func (s *Store) Save(ctx context.Context, d Draft) (Draft, error) {
 	if err := Validate(d); err != nil {
 		return Draft{}, err
 	}
+	if d.Cover != nil {
+		if err := ValidateCover(d.Key.Platform, d.Cover); err != nil {
+			return Draft{}, err
+		}
+		if _, _, err := s.CoverImage(ctx, d.Cover.Hash); err != nil {
+			return Draft{}, err
+		}
+	}
+	cover := ""
+	if d.Cover != nil {
+		raw, _ := json.Marshal(d.Cover)
+		cover = string(raw)
+	}
 	previous := d.Revision
 	// Text, mode or file changes revoke this account's approval.
 	d.ApprovedRevision = 0
@@ -293,9 +320,9 @@ func (s *Store) Save(ctx context.Context, d Draft) (Draft, error) {
 	var result sql.Result
 	var err error
 	if previous == 0 {
-		result, err = s.db.ExecContext(ctx, "INSERT INTO drafts ("+columns+") VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT DO NOTHING", d.Key.Episode, d.Key.Language, d.Key.Platform, d.Key.Account, d.Title, d.Description, d.Hashtags, d.VideoID, d.VideoHash, d.DeliveryFingerprint, d.Revision, d.UpdatedAt, d.DeliveryMode, d.ApprovedRevision)
+		result, err = s.db.ExecContext(ctx, "INSERT INTO drafts ("+columns+") VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT DO NOTHING", d.Key.Episode, d.Key.Language, d.Key.Platform, d.Key.Account, d.Title, d.Description, d.Hashtags, d.VideoID, d.VideoHash, d.DeliveryFingerprint, d.Revision, d.UpdatedAt, d.DeliveryMode, d.ApprovedRevision, cover)
 	} else {
-		result, err = s.db.ExecContext(ctx, `UPDATE drafts SET title=?,description=?,hashtags=?,video_id=?,video_hash=?,delivery_fingerprint=?,revision=?,updated_at=?,delivery_mode=?,approved_revision=0 WHERE episode=? AND language=? AND platform=? AND account=? AND revision=?`, d.Title, d.Description, d.Hashtags, d.VideoID, d.VideoHash, d.DeliveryFingerprint, d.Revision, d.UpdatedAt, d.DeliveryMode, d.Key.Episode, d.Key.Language, d.Key.Platform, d.Key.Account, previous)
+		result, err = s.db.ExecContext(ctx, `UPDATE drafts SET title=?,description=?,hashtags=?,video_id=?,video_hash=?,delivery_fingerprint=?,revision=?,updated_at=?,delivery_mode=?,cover=?,approved_revision=0 WHERE episode=? AND language=? AND platform=? AND account=? AND revision=?`, d.Title, d.Description, d.Hashtags, d.VideoID, d.VideoHash, d.DeliveryFingerprint, d.Revision, d.UpdatedAt, d.DeliveryMode, cover, d.Key.Episode, d.Key.Language, d.Key.Platform, d.Key.Account, previous)
 	}
 	if err != nil {
 		return Draft{}, err

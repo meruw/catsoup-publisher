@@ -62,6 +62,12 @@ func (s *UploadService) Receipt(key drafts.Key, id string) (drafts.Receipt, erro
 	if err != nil {
 		return drafts.Receipt{}, err
 	}
+
+	if key.Platform == "instagram" {
+		if err = s.store.RecoverStaleInstagram(id, d.VideoHash); err != nil {
+			return drafts.Receipt{}, err
+		}
+	}
 	return s.store.Receipt(key.Platform, id, d.VideoHash)
 }
 func (s *UploadService) ClearUncertain(key drafts.Key, id, expectedHash string, checked bool) error {
@@ -188,6 +194,18 @@ func (s *UploadService) sendMode(key drafts.Key, revision int64, id, mode string
 		caption = strings.TrimSpace(d.Title + "\n\n" + caption)
 	}
 	m := uploads.Media{Title: d.Title, Caption: caption, Language: key.Language, File: file, Size: size, Mode: mode, Audience: audience, Synthetic: synthetic}
+	if d.Cover != nil {
+		if e := drafts.ValidateCover(key.Platform, d.Cover); e != nil {
+			return drafts.Receipt{}, e
+		}
+		if _, _, e := s.store.CoverImage(ctx, d.Cover.Hash); e != nil {
+			return drafts.Receipt{}, e
+		}
+		if d.Cover.Kind == "frame" {
+			value := d.Cover.TimeMS
+			m.CoverTimeMS = &value
+		}
+	}
 	if err = uploads.Validate(key.Platform, m); err != nil {
 		return drafts.Receipt{}, err
 	}
@@ -226,6 +244,11 @@ func (s *UploadService) sendMode(key drafts.Key, revision int64, id, mode string
 	}
 	if current.ID != id {
 		return drafts.Receipt{}, errors.New("the authorized account changed; reconnect before sending")
+	}
+	if key.Platform == "instagram" {
+		if err = s.store.RecoverStaleInstagram(id, d.VideoHash); err != nil {
+			return drafts.Receipt{}, err
+		}
 	}
 	previous, err := s.store.Receipt(key.Platform, id, d.VideoHash)
 	if err != nil {
@@ -341,6 +364,11 @@ func (s *UploadService) sendMode(key drafts.Key, revision int64, id, mode string
 	}
 	if sendErr != nil {
 		return drafts.Receipt{}, sendErr
+	}
+	if key.Platform == "youtube" && d.Cover != nil {
+		if e := s.applyYouTubeCover(ctx, d, token, ref); e != nil {
+			diagnostics.Record(ctx, slog.LevelWarn, "cover_pending", diagnostics.Details{Reason: "thumbnail_not_confirmed"})
+		}
 	}
 	return s.store.Receipt(key.Platform, id, d.VideoHash)
 }

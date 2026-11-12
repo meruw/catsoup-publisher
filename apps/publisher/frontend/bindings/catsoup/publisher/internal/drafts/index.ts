@@ -3,6 +3,7 @@
 
 export type {
     Completion,
+    Cover,
     Draft,
     Key,
     PostFilter,

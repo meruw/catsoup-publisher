@@ -82,3 +82,7 @@ Publisher currently uses the developer credentials configured by each operator. 
 For a review demonstration, use the exact submitted build and a separately approved original test clip. Show account sign-in, editing and approval, the Direct Post confirmation controls, the provider-confirmed outcome and inbox completion if requesting `video.upload`. Do not resend an existing public episode to create a demonstration. Keep the recording consistent with the product's actual state; fixture tests are not evidence of a successful live post.
 
 See the [App Review Guidelines](https://developers.tiktok.com/docs/en/app-review-guidelines) and [Content Sharing Guidelines](https://developers.tiktok.com/docs/en/content-sharing-guidelines).
+
+## Cover selection
+
+For Direct Post, choose a frame under **Thumbnail** before approval. Publisher sends its timestamp as `video_cover_timestamp_ms`. Inbox transfers do not accept a cover or caption; complete those in TikTok's mobile editor. A successful inbox receipt confirms TikTok's API response, not the time its mobile notification appears. Do not resend an accepted transfer solely because the notification is delayed. [Direct Post reference](https://developers.tiktok.com/doc/content-posting-api-reference-direct-post)
