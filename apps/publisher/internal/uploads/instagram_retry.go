@@ -19,6 +19,10 @@ func CanResumeInstagramBytes(state string, err error) bool {
 }
 
 func (c *Client) ResumeInstagramBytes(ctx context.Context, token, container string, m Media) error {
+	return c.resumeInstagramBytes(ctx, token, container, m, time.Minute)
+}
+
+func (c *Client) resumeInstagramBytes(ctx context.Context, token, container string, m Media, interval time.Duration) error {
 	state, err := c.InstagramContainerState(ctx, token, container)
 	if err == nil && state == "FINISHED" {
 		return nil
@@ -38,6 +42,13 @@ func (c *Client) ResumeInstagramBytes(ctx context.Context, token, container stri
 		if checkErr == nil && state == "FINISHED" {
 			return nil
 		}
+		// A transfer error is not a terminal processing result. Meta can keep
+		// the old phase error while it processes the same recovered bytes.
+		// Continue read-only polling instead of requiring another user send.
+		if state == "IN_PROGRESS" && (checkErr == nil || pendingInstagramFailure(state, checkErr)) {
+			diagnostics.Record(ctx, slog.LevelInfo, "upload_processing", diagnostics.Details{})
+			return c.waitInstagramContainer(ctx, "Bearer "+token, container, interval)
+		}
 		if checkErr != nil {
 			return checkErr
 		}
@@ -47,7 +58,7 @@ func (c *Client) ResumeInstagramBytes(ctx context.Context, token, container stri
 		return errors.New("Meta did not confirm the recovered transfer; its container was retained")
 	}
 	diagnostics.Record(ctx, slog.LevelInfo, "upload_bytes_finished", diagnostics.Details{})
-	return c.waitInstagramContainer(ctx, "Bearer "+token, container, time.Minute)
+	return c.waitInstagramContainer(ctx, "Bearer "+token, container, interval)
 }
 
 type instagramProcessingError struct {

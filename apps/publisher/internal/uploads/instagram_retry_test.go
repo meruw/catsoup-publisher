@@ -191,3 +191,83 @@ func TestInstagramResumeRequiresReadyContainer(t *testing.T) {
 		})
 	}
 }
+
+func TestInstagramRetransferWaitsForProcessing(t *testing.T) {
+	for _, scenario := range []string{"retained_phase", "plain_pending", "terminal", "cancelled"} {
+		t.Run(scenario, func(t *testing.T) {
+			f, err := os.CreateTemp(t.TempDir(), "approved")
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer f.Close()
+			if _, err = f.WriteString("approved bytes"); err != nil {
+				t.Fatal(err)
+			}
+			c := New()
+			reads, sends, publishes := 0, 0, 0
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			c.HTTP.Transport = transport(func(r *http.Request) (*http.Response, error) {
+				if r.Method == "GET" {
+					reads++
+					if reads == 1 {
+						return response(strings.Replace(emptyInstagramUpload, `"ERROR"`, `"IN_PROGRESS"`, 1)), nil
+					}
+					if scenario == "terminal" {
+						return response(emptyInstagramUpload), nil
+					}
+					if scenario == "cancelled" {
+						cancel()
+					}
+					if reads <= 3 {
+						if scenario == "plain_pending" {
+							return response(`{"status_code":"IN_PROGRESS"}`), nil
+						}
+						return response(strings.Replace(emptyInstagramUpload, `"ERROR"`, `"IN_PROGRESS"`, 1)), nil
+					}
+					return response(`{"status_code":"FINISHED"}`), nil
+				}
+				if r.URL.Host == "rupload.facebook.com" {
+					sends++
+					if sends > 1 {
+						t.Fatal("duplicate bytes")
+					}
+					body, _ := io.ReadAll(r.Body)
+					if string(body) != "approved bytes" {
+						t.Fatal("changed bytes")
+					}
+					res := response(`{"debug_info":{"type":"ProcessingFailedError"}}`)
+					res.StatusCode = 400
+					return res, nil
+				}
+				if strings.HasSuffix(r.URL.Path, "/media_publish") {
+					publishes++
+					var body map[string]string
+					json.NewDecoder(r.Body).Decode(&body)
+					if body["creation_id"] != "original" {
+						t.Fatal("wrong container")
+					}
+					return response(`{"id":"reel"}`), nil
+				}
+				t.Fatal("unexpected mutation", r.Method, r.URL.Path)
+				return nil, nil
+			})
+			err = c.resumeInstagramBytes(ctx, "fixture", "original", Media{File: f, Size: 14}, time.Millisecond)
+			success := scenario == "retained_phase" || scenario == "plain_pending"
+			if (err == nil) != success || sends != 1 {
+				t.Fatal(err, sends)
+			}
+			if success {
+				id, e := c.PublishReadyInstagram(ctx, "fixture", "account", "original")
+				if e != nil || id != "reel" || publishes != 1 {
+					t.Fatal(id, e, publishes)
+				}
+			} else if publishes != 0 {
+				t.Fatal("published incomplete container")
+			}
+			if scenario == "cancelled" && errors.Is(err, ErrProcessingFailed) {
+				t.Fatal("pending processing marked failed")
+			}
+		})
+	}
+}

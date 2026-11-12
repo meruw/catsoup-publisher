@@ -57,7 +57,7 @@ The operator's three present developer configurations (Google, TikTok and Meta) 
 
 ## Next action
 
-Investigate the unresolved Instagram ingest failure using the retained receipt; do not resend or claim a successful recovery without provider confirmation. TikTok Inbox remains API-acknowledged with no resend scheduled. The PoC remains in progress; no release is planned.
+Install the processing-wait correction after active transfers finish and Publisher closes, then verify its native behavior during the next approved Instagram send. The pending Instagram ES Reel was published and verified; TikTok Inbox remains API-acknowledged without confirmed mobile delivery. The PoC remains in progress; no release is planned.
 
 ## Publishing reliability and workspace update
 
@@ -132,4 +132,10 @@ New Instagram transport copies omit edit lists and use nonnegative timestamps wi
 
 Container queries handle Meta's `100/2207065` rejection of `video_status` by requesting only supported status fields. Terminal `ERROR`/`EXPIRED` results return a processing failure with a sanitized numeric code; arbitrary status text and provider bodies are not logged. Regression checks cover legacy preparation, audio/silent clips, MP4 atom layout, hashes, full decoding, field fallback and preservation of unrelated authorization errors. Full Go tests, vet and the production Windows build pass.
 
-Live validation did not resolve the pending Instagram publication. The complete prepared file was transmitted with the expected byte count and SHA-256, but Meta returned `1363008` with zero received bytes. A bounded URL-ingestion experiment using the matching already-published Facebook copy also failed with `2207076`; this experimental fallback is not part of the application. The latest provider failure was read back and recorded locally without clearing its reference. No duplicate publication was confirmed and no TikTok resend was performed. The tested executable was installed after the owner closed Publisher and the local database confirmed no sending/publishing attempts. A residual windowless process was stopped before replacement. The installed SHA-256 matches the staged build (3042d9ff9d1bc03ee1be995a39f901eb61d940f169c73a7ebe62d7133c2b5f39); size is 19,939,840 bytes. The new process remains running. Native window interaction was not verified. No uploads were started during installation.
+Live validation resolved the pending Instagram ES publication through a separately authorized temporary HTTPS-ingestion experiment. Direct file transfer still failed with code `1363008` and zero reported received bytes, including a fully recoded compatibility copy and an HTTP/1.1 retransmission. The same compatible MP4 was then served through a temporary, single-file Cloudflare tunnel. Meta processed it successfully and the Reel was published, independently read back through the API, and saved as published in the local receipt. The tunnel was closed afterward. This does not establish the root cause of direct-ingest failures or add automatic external hosting to Publisher. The original delivery remained unchanged. No TikTok resend was performed by this recovery.
+
+## Instagram processing after a recovered transfer
+
+If a same-container retransmission returns an HTTP error but Meta still reports `IN_PROGRESS`, Publisher continues bounded read-only status polling instead of immediately returning Needs attention. A retained phase error `1363008` is tolerated only while the overall container is pending. Once ready, the caller publishes that same container; terminal errors, cancellation and uncertain publication retain their existing safeguards. No additional container or byte transfer is introduced by this wait.
+
+Tests cover pending processing with and without a stale phase error, successful same-container publication, terminal failure, cancellation, and a bounded timeout. Full Go tests, vet and the production Windows build pass. This build is staged for installation; native behavior has not yet been verified. No frontend, dependency or schema change was made.

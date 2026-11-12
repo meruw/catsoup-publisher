@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestResumeInstagramBytesUsesOnlyOriginalContainer(t *testing.T) {
@@ -61,7 +62,9 @@ func TestResumeInstagramBytesUsesOnlyOriginalContainer(t *testing.T) {
 				}
 				return response(body), nil
 			})
-			e = c.ResumeInstagramBytes(context.Background(), "fixture", "original", Media{File: f, Size: 8})
+			ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+			defer cancel()
+			e = c.resumeInstagramBytes(ctx, "fixture", "original", Media{File: f, Size: 8}, time.Millisecond)
 			if (e == nil) != (scenario == "empty" || scenario == "ready") {
 				t.Fatal(e)
 			}
