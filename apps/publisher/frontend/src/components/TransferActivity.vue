@@ -22,7 +22,7 @@ watch(()=>groups.value.length,n=>activePage.value=Math.min(activePage.value,Math
 const pending=(jobs:typeof transferJobs)=>jobs.filter(j=>j.state==='queued'||j.state==='sending').length;
 const elapsed=(start:number,end:number)=>{const s=Math.max(0,Math.floor(((end||now.value)-start)/1000));return Math.floor(s/60)+':'+String(s%60).padStart(2,'0')};
 const date=(value:string)=>new Date(value).toLocaleString([], {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
-function summary(g:PostGroup){const n=g.counts||{},attention=(n.check||0)+(n.failed||0)+(n.sending||0);return attention?attention+' to check Â· '+g.total+' destinations':g.total+' sent'}
+function summary(g:PostGroup){const n=g.counts||{},attention=(n.check||0)+(n.failed||0)+(n.sending||0);return attention?attention+' to check · '+g.total+' destinations':g.total+' sent'}
 async function load(){
  const run=++request;busy.value=true;error.value='';
  try{const result=await drafts.groups({episodeMatches:[],episode:'',search:search.value.trim(),platform:'',language:'',state:'transfers',offset:offset.value});if(run===request){history.value=result.items||[];more.value=result.more;}}
@@ -46,8 +46,8 @@ onUnmounted(()=>{clearInterval(timer);clearTimeout(debounce);++request});
      <summary><span class="group-title">{{group.title}}</span><span class="group-count">{{pending(group.jobs)}} active</span><UiIcon name="chevron"/></summary>
      <ul>
       <li v-for="job in group.jobs" :key="job.id">
-       <div class="upload-heading"><strong>{{names[job.platform]}} Â· {{job.language.toUpperCase()}}</strong><span v-if="job.started" class="upload-time">{{elapsed(job.started,job.finished)}}</span></div>
-       <p class="upload-account">{{job.account}} Â· {{job.mode}}</p>
+       <div class="upload-heading"><strong>{{names[job.platform]}} · {{job.language.toUpperCase()}}</strong><span v-if="job.started" class="upload-time">{{elapsed(job.started,job.finished)}}</span></div>
+       <p class="upload-account">{{job.account}} · {{job.mode}}</p>
        <div class="upload-result" :class="job.state" role="status"><span>{{job.state==='queued'?'Waiting for '+names[job.platform]:job.state==='sending'?(job.result||'Sending / awaiting platform confirmation'):job.state==='attention'?'Needs attention':job.result}}</span><UiButton v-if="job.state==='queued'" variant="quiet" size="compact" @click="cancelQueued(job.id)">Cancel</UiButton></div>
        <p v-if="job.state==='sending'&&now-job.started>=60000" class="upload-note">Still waiting for {{names[job.platform]}}. Other platforms can continue. Do not resend this video while this attempt is active.</p>
        <details v-if="job.state==='attention'" class="upload-error"><summary>Details</summary><p>{{job.result}}</p></details>
@@ -61,11 +61,11 @@ onUnmounted(()=>{clearInterval(timer);clearTimeout(debounce);++request});
   </template>
   <template v-else>
    <div class="history-search"><input v-model="search" type="search" class="ui-field" aria-label="Search upload history" placeholder="Search videos or accounts" maxlength="200"><UiButton variant="quiet" :disabled="busy" aria-label="Refresh upload history" @click="load"><UiIcon name="refresh"/></UiButton></div>
-   <p class="upload-note">Latest saved results by video Â· kept on this PC</p>
+   <p class="upload-note">Latest saved results by video · kept on this PC</p>
    <p v-if="error" role="alert" class="notice error">{{error}}</p>
    <div class="history-list" :aria-busy="busy"><button v-for="group in history" :key="group.episode" class="history-row" @click="emit('posts',group.episode)"><span class="group-title">{{group.title||group.episode}}</span><span>{{summary(group)}}</span><time>{{date(group.updatedAt)}}</time></button></div>
-   <p v-if="busy" class="upload-empty" role="status">Loading historyâ€¦</p><p v-else-if="!history.length&&!error" class="upload-empty">{{search?'No matching uploads':'No saved uploads'}}</p>
-   <footer v-if="offset||more"><UiButton variant="quiet" :disabled="busy||!offset" @click="page(-20)">Previous</UiButton><span>{{offset+1}}â€“{{offset+history.length}}</span><UiButton variant="quiet" :disabled="busy||!more" @click="page(20)">Next</UiButton></footer>
+   <p v-if="busy" class="upload-empty" role="status">Loading history…</p><p v-else-if="!history.length&&!error" class="upload-empty">{{search?'No matching uploads':'No saved uploads'}}</p>
+   <footer v-if="offset||more"><UiButton variant="quiet" :disabled="busy||!offset" @click="page(-20)">Previous</UiButton><span>{{offset+1}}–{{offset+history.length}}</span><UiButton variant="quiet" :disabled="busy||!more" @click="page(20)">Next</UiButton></footer>
   </template>
  </UiDialog>
 </template>

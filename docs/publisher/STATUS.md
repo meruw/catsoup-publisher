@@ -108,4 +108,12 @@ The isolated confirmation fixture covers no send before acknowledgment, Back/res
 
 The tested executable was installed while Publisher was closed; its SHA-256 matches the staged build and the desktop process responds. Native interaction with the final confirmation remains for owner review.
 
-Next action: check the final language review in the desktop app without sending. No release is created.
+Native review of the final language confirmation remains with the owner. No release is created.
+
+## Google authorization diagnostics
+
+Google OAuth token endpoint failures expose allowlisted identifiers and actionable local guidance. `invalid_grant` directs the user to reconnect the affected YouTube account; client configuration errors point to Settings. Unknown and malformed bodies remain generic. Raw OAuth descriptions, request bodies and credentials never enter diagnostics. The Uploads activity panel uses correctly encoded separators and punctuation.
+
+Tests cover known and unknown errors, malformed bodies, one request without retry, UI-error redaction and the persisted diagnostic identifier/status. The full Go suite and strict frontend build pass. An initial sandbox-only temporary-workspace permission failure was resolved by running the same suite with filesystem access. A live authorization-only check confirmed `invalid_grant` for the affected connection without uploading, changing receipts or writing credentials. The YouTube guide documents reconnection and Google's seven-day Testing authorization limit. No dependency or schema changes.
+
+Next action: install the staged build with Publisher closed; reconnect the affected YouTube channel before retrying its intended post. No release is created.

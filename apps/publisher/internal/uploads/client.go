@@ -62,6 +62,12 @@ func (c *Client) request(ctx context.Context, method, endpoint, auth string, hea
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		if req.URL.Host == "oauth2.googleapis.com" && req.URL.Path == "/token" {
+			raw, _ := io.ReadAll(io.LimitReader(resp.Body, 16*1024))
+			code, guidance := googleAuthorizationError(raw)
+			diagnostics.Record(ctx, slog.LevelError, "provider_failed", diagnostics.Details{Reason: "provider_rejected", HTTPStatus: resp.StatusCode, ProviderErrorCode: code})
+			return nil, fmt.Errorf("Google authorization failed (HTTP %d, %s): %s", resp.StatusCode, code, guidance)
+		}
 		if req.URL.Host == "open.tiktokapis.com" {
 			raw, _ := io.ReadAll(io.LimitReader(resp.Body, 16*1024))
 			return nil, fmt.Errorf("TikTok returned HTTP %d: %w", resp.StatusCode, tikTokRejectionStatus(ctx, tikTokResponseCode(raw), resp.StatusCode))

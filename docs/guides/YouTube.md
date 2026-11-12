@@ -25,3 +25,11 @@ After a private upload, **Publish now → Publish existing YouTube video** appli
 Google sign-in requests upload, channel reading and `youtube.force-ssl` permissions. Updating an existing video's visibility needs the management permission; reconnect in **Accounts** if the saved authorization does not include it. [Video update authorization](https://developers.google.com/youtube/v3/docs/videos/update)
 
 Google returns the authorization to an available local port on your computer. [Desktop OAuth reference](https://developers.google.com/identity/protocols/oauth2/native-app) · [Video uploads](https://developers.google.com/youtube/data/guides/uploading_a_video)
+
+## Expired authorization
+
+If Google returns `invalid_grant`, reconnect the affected channel through **Accounts → ES or EN → YouTube → Change**. Verify the returned channel before retrying the intended post. A token-renewal failure happens before a new video transfer; it does not require deleting an earlier receipt or uploading to another account. Do not remove existing published receipts.
+
+For external OAuth apps in **Testing**, Google normally expires refresh tokens after seven days when YouTube permissions are requested. Reconnecting restores access, but Testing can require another authorization later. Review the project's publishing status and Google's production requirements before moving out of Testing. `invalid_grant` can also mean revoked or otherwise invalid authorization; it does not establish the cause by itself. [Google refresh-token expiration](https://developers.google.com/identity/protocols/oauth2#expiration)
+
+Errors such as `invalid_client` instead point to the Google Desktop app configuration in Settings. Publisher records only known OAuth error identifiers and its own guidance; raw provider descriptions and tokens are excluded from diagnostics.
