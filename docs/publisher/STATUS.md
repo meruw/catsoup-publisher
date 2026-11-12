@@ -57,7 +57,7 @@ The operator's three present developer configurations (Google, TikTok and Meta) 
 
 ## Next action
 
-Verify the next owner-requested TikTok inbox resend and its new receipt; notification delivery still depends on TikTok. The pending Instagram ES Reel was published and verified; TikTok Inbox remains API-acknowledged without confirmed mobile delivery. The PoC remains in progress; no release is planned.
+Review the automatic TikTok observations in Posts during normal use. Monitoring resumes saved receipts without sending media. The PoC remains in progress; no release is planned.
 
 ## Publishing reliability and workspace update
 
@@ -156,6 +156,6 @@ Posts details and the send dialog show provider status, last check, check failur
 
 Migration preserves existing accounts, approvals, upload locks and receipts. Back up the SQLite database before installation; older builds reject schema 13. Downgrading requires restoring its matching backup while Publisher is closed.
 
-Validation: provider status-only fixtures, migration/restart persistence, backoff, terminal stop, archive isolation, active-send protection and shutdown tests. Frontend fixtures exercise updates, failures and narrow layout. Native installation verification remains pending.
+Validation: provider status-only fixtures, migration/restart persistence, backoff, terminal stop, archive isolation, active-send protection and shutdown tests. Frontend fixtures exercise updates, failures and narrow layout. Native installation verified on November 12, 2026: the installed executable matches SHA-256 `290d6f5706c5640d5d234bb2b9698ec50a13d5166d5800522f5bcbd72f859bc8`, the window loaded, and the local database migrated to schema 13 after a SQLite backup. The worker saved 16 live provider observations without check errors during initial verification. Drafts, reviews, archived inbox receipts and upload identities/start times match the pre-installation backup. Installation and verification did not upload media. Provider inbox acknowledgment does not independently confirm notification visibility on the phone.
 
-Next action: install the tracking build after Publisher closes, then verify saved observations against existing TikTok receipts without uploading media.
+Next action: review TikTok account details in Posts during normal use. Keep Publisher open for automatic checks; closing it pauses the worker and reopening resumes the durable schedule.
