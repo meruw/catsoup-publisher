@@ -286,7 +286,14 @@ func (s *UploadService) sendMode(key drafts.Key, revision int64, id, mode string
 			return drafts.Receipt{}, errors.New("an Instagram upload already exists; check its receipt")
 		}
 		diagnostics.Record(ctx, slog.LevelInfo, "upload_preparing", diagnostics.Details{})
-		prepared, preparedSize, hash, cleanup, prepareErr := s.reader.PrepareInstagramAudio(ctx, file.Name())
+		legacy := false
+		if resumeBytes {
+			legacy, err = s.store.InstagramLegacyPreparation(id, d.VideoHash, previous.Reference)
+			if err != nil {
+				return drafts.Receipt{}, err
+			}
+		}
+		prepared, preparedSize, hash, cleanup, prepareErr := s.reader.PrepareInstagramAudio(ctx, file.Name(), legacy)
 		if prepareErr != nil {
 			return drafts.Receipt{}, prepareErr
 		}

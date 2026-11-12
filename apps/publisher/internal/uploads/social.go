@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"regexp"
+	"strconv"
 	"time"
 )
 
@@ -205,13 +207,21 @@ func (c *Client) instagramContainerStatus(ctx context.Context, auth, id string) 
 		} `json:"errors"`
 	}
 	var state struct {
-		Code  string `json:"status_code"`
-		Video struct {
+		Code   string `json:"status_code"`
+		Status string `json:"status"`
+		Video  struct {
 			Uploading  phase `json:"uploading_phase"`
 			Processing phase `json:"processing_phase"`
 		} `json:"video_status"`
 	}
 	_, err := c.request(ctx, "GET", graph+id+"?fields=status_code,video_status", auth, nil, nil, 0, &state)
+
+	// URL-ingested containers reject video_status (100/2207065). Ask only for
+	// their supported container fields; never treat a bad field as a bad upload.
+	var meta *metaResponseError
+	if errors.As(err, &meta) && meta.code == 100 && meta.subcode == 2207065 {
+		_, err = c.request(ctx, "GET", graph+id+"?fields=status_code,status", auth, nil, nil, 0, &state)
+	}
 	if err == nil && state.Code != "FINISHED" && state.Code != "PUBLISHED" {
 		for i, p := range []phase{state.Video.Uploading, state.Video.Processing} {
 			if p.Status != "error" {
@@ -229,8 +239,20 @@ func (c *Client) instagramContainerStatus(ctx context.Context, auth, id string) 
 			return state.Code, &instagramProcessingError{container: id, code: code, emptyUpload: i == 0 && p.Bytes != nil && p.Size != nil && *p.Bytes == 0 && *p.Size == 0}
 		}
 	}
+
+	if err == nil && (state.Code == "ERROR" || state.Code == "EXPIRED") {
+		code := 0
+		if match := instagramStatusCode.FindStringSubmatch(state.Status); len(match) == 2 {
+			code, _ = strconv.Atoi(match[1])
+		}
+		diagnostics.Record(ctx, slog.LevelError, "upload_processing_failed", diagnostics.Details{ProviderCode: code, ProviderErrorCode: "meta_processing_failed"})
+		return state.Code, &instagramProcessingError{container: id, code: code}
+	}
 	return state.Code, err
 }
+
+var instagramStatusCode = regexp.MustCompile(`(?i)\berror code ([0-9]{1,8})\b`)
+
 func waitFor(ctx context.Context, ready func() (bool, error), interval time.Duration) error {
 	for {
 		done, err := ready()

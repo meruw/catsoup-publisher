@@ -17,7 +17,7 @@ import (
 // PrepareInstagramAudio receives the already hash-checked temporary snapshot.
 // It preserves the delivery and checks both the produced file and video stream.
 // The caller owns cleanup, including on cancelled/failed external transfers.
-func (r *Reader) PrepareInstagramAudio(ctx context.Context, source string) (*os.File, int64, string, func(), error) {
+func (r *Reader) PrepareInstagramAudio(ctx context.Context, source string, legacy bool) (*os.File, int64, string, func(), error) {
 	noop := func() {}
 	dir, err := os.MkdirTemp("", "catsoup-instagram-*")
 	if err != nil {
@@ -27,7 +27,11 @@ func (r *Reader) PrepareInstagramAudio(ctx context.Context, source string) (*os.
 	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 	defer cancel()
 	path := filepath.Join(dir, "upload.mp4")
-	cmd := exec.CommandContext(ctx, filepath.Join(r.root, ".venv", "Scripts", "python.exe"), "-I", "-B", filepath.Join(r.root, "apps", "publisher", "support", "prepare_instagram.py"), source, path)
+	args := []string{"-I", "-B", filepath.Join(r.root, "apps", "publisher", "support", "prepare_instagram.py"), source, path}
+	if legacy {
+		args = append(args, "--legacy")
+	}
+	cmd := exec.CommandContext(ctx, filepath.Join(r.root, ".venv", "Scripts", "python.exe"), args...)
 	hideProcess(cmd)
 	var stdout bytes.Buffer
 	cmd.Stdout = &stdout

@@ -81,7 +81,7 @@ func (c *Client) request(ctx context.Context, method, endpoint, auth string, hea
 		}
 		diagnostics.Record(ctx, slog.LevelError, "provider_failed", diagnostics.Details{Reason: "provider_rejected", HTTPStatus: resp.StatusCode, ProviderCode: code, ProviderSubcode: subcode, ProviderErrorCode: kind})
 		if code != 0 || subcode != 0 || kind != "" {
-			return nil, fmt.Errorf("Meta returned HTTP %d (code %d, subcode %d, type %s); check the saved upload result", resp.StatusCode, code, subcode, kind)
+			return nil, &metaResponseError{status: resp.StatusCode, code: code, subcode: subcode, kind: kind}
 		}
 		if req.URL.Host == "api.x.com" && resp.StatusCode == http.StatusPaymentRequired {
 			return nil, errors.New("X returned HTTP 402; check your developer project's API credits and billing controls before retrying")

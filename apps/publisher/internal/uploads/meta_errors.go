@@ -1,6 +1,9 @@
 package uploads
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"fmt"
+)
 
 // Parse identifiers only. In particular, rupload can wrap a Graph response as
 // JSON inside debug_info.message; neither message is safe to store verbatim.
@@ -41,4 +44,14 @@ func metaErrorIdentifiers(raw []byte) (code, subcode int, kind string) {
 		kind = "meta_partial_request"
 	}
 	return
+}
+
+// Keep only provider identifiers; response text can contain secrets and URLs.
+type metaResponseError struct {
+	status, code, subcode int
+	kind                  string
+}
+
+func (e *metaResponseError) Error() string {
+	return fmt.Sprintf("Meta returned HTTP %d (code %d, subcode %d, type %s); check the saved upload result", e.status, e.code, e.subcode, e.kind)
 }

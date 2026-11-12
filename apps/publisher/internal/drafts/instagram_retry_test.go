@@ -64,7 +64,7 @@ func TestInstagramRetryReservation(t *testing.T) {
 					t.Fatal(err)
 				}
 				var source, uploaded, preparation string
-				if err = s.db.QueryRow("SELECT video_hash,upload_hash,preparation FROM upload_attempts WHERE platform='instagram' AND account_id='ig1'").Scan(&source, &uploaded, &preparation); err != nil || source != d.VideoHash || uploaded != strings.Repeat("b", 64) || preparation != "instagram-aac128-v1" {
+				if err = s.db.QueryRow("SELECT video_hash,upload_hash,preparation FROM upload_attempts WHERE platform='instagram' AND account_id='ig1'").Scan(&source, &uploaded, &preparation); err != nil || source != d.VideoHash || uploaded != strings.Repeat("b", 64) || preparation != "instagram-mp4-v2" {
 					t.Fatal(source, uploaded, preparation, err)
 				}
 				r, e := s.Receipt("instagram", "ig1", d.VideoHash)
@@ -138,5 +138,23 @@ func TestInstagramResumeReservation(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestInstagramPreparationVersion(t *testing.T) {
+	s := openTest(t, filepath.Join(t.TempDir(), "drafts.sqlite"))
+	for _, version := range []string{"instagram-aac128-v1", "instagram-mp4-v2", "", "unknown"} {
+		_, err := s.db.Exec("INSERT OR REPLACE INTO upload_attempts(platform,account_id,video_hash,state,reference,started,preparation) VALUES('instagram','ig','hash','check','container',123,?)", version)
+		if err != nil {
+			t.Fatal(err)
+		}
+		legacy, err := s.InstagramLegacyPreparation("ig", "hash", "container")
+		known := version == "instagram-aac128-v1" || version == "instagram-mp4-v2"
+		if (err == nil) != known || legacy != (version == "instagram-aac128-v1") {
+			t.Fatal(version, legacy, err)
+		}
+		if _, err = s.InstagramLegacyPreparation("ig", "hash", "other"); err == nil {
+			t.Fatal("accepted another container")
+		}
 	}
 }

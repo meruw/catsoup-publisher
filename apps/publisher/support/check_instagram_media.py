@@ -3,9 +3,29 @@ import hashlib
 import pathlib
 import subprocess
 import tempfile
+import struct
 
 import imageio_ffmpeg
 from prepare_instagram import prepare
+
+def atoms(path):
+    found = []
+    def visit(stream, end):
+        while stream.tell() < end:
+            start = stream.tell()
+            size, kind = struct.unpack(">I4s", stream.read(8))
+            if size == 1:
+                size = struct.unpack(">Q", stream.read(8))[0]
+            if size == 0:
+                size = end - start
+            assert size >= 8 and start + size <= end
+            found.append(kind)
+            if kind in (b"moov", b"trak", b"edts"):
+                visit(stream, start + size)
+            stream.seek(start + size)
+    with path.open("rb") as stream:
+        visit(stream, path.stat().st_size)
+    return found
 
 ffmpeg = imageio_ffmpeg.get_ffmpeg_exe()
 with tempfile.TemporaryDirectory(prefix="catsoup-media-check-") as folder:
@@ -22,6 +42,12 @@ with tempfile.TemporaryDirectory(prefix="catsoup-media-check-") as folder:
         result = prepare(source, target)
         assert result["sha256"] == hashlib.sha256(target.read_bytes()).hexdigest()
         assert result["size"] == target.stat().st_size
+        layout = atoms(target)
+        assert b"edts" not in layout and b"elst" not in layout
+        assert layout.index(b"moov") < layout.index(b"mdat")
+        legacy = root / f"legacy-{audio}.mp4"
+        prepare(source, legacy, legacy=True)
+        assert b"edts" in atoms(legacy)
         assert before == hashlib.sha256(source.read_bytes()).hexdigest()
         subprocess.run([ffmpeg, "-v", "error", "-i", str(target), "-f", "null", "-"], check=True, capture_output=True)
         # Existing output must never be overwritten, including an original.
@@ -30,4 +56,4 @@ with tempfile.TemporaryDirectory(prefix="catsoup-media-check-") as folder:
             raise AssertionError("source overwrite allowed")
         except RuntimeError:
             assert before == hashlib.sha256(source.read_bytes()).hexdigest()
-print("PASS: audio and silent media, unchanged video stream/source, output hash, decoding and overwrite protection")
+print("PASS: audio and silent media, unchanged video stream/source, output hash, MP4 atom layout, legacy preparation, decoding and overwrite protection")

@@ -97,7 +97,7 @@ func (s *Store) SaveInstagramCheckpoint(d Draft, account, reference, uploadHash 
 	if _, err := hex.DecodeString(uploadHash); err != nil {
 		return errors.New("invalid upload hash")
 	}
-	res, err := s.db.Exec(`UPDATE upload_attempts SET reference=?,upload_hash=?,preparation='instagram-aac128-v1' WHERE platform='instagram' AND account_id=? AND video_hash=? AND state='sending'`, reference, uploadHash, account, d.VideoHash)
+	res, err := s.db.Exec(`UPDATE upload_attempts SET reference=?,upload_hash=?,preparation='instagram-mp4-v2' WHERE platform='instagram' AND account_id=? AND video_hash=? AND state='sending'`, reference, uploadHash, account, d.VideoHash)
 	if err != nil {
 		return err
 	}
@@ -131,7 +131,7 @@ func (s *Store) ReserveInstagramRetransfer(d Draft, account, reference, uploadHa
 		return err
 	}
 	res, err := s.db.Exec(`UPDATE upload_attempts SET state='sending',started=?
- WHERE platform='instagram' AND account_id=? AND video_hash=? AND state IN ('failed','check') AND reference=? AND upload_hash=? AND preparation='instagram-aac128-v1'
+ WHERE platform='instagram' AND account_id=? AND video_hash=? AND state IN ('failed','check') AND reference=? AND upload_hash=? AND preparation IN ('instagram-aac128-v1','instagram-mp4-v2')
  AND EXISTS(SELECT 1 FROM drafts WHERE episode=? AND language=? AND platform='instagram' AND account=? AND revision=? AND video_hash=? AND `+approvalCondition+`)
  AND EXISTS(SELECT 1 FROM accounts WHERE platform='instagram' AND language=? AND account_id=?)`, time.Now().Unix(), account, d.VideoHash, reference, uploadHash, d.Key.Episode, d.Key.Language, d.Key.Account, d.Revision, d.VideoHash, d.Key.Language, account)
 	if err != nil {
@@ -210,4 +210,22 @@ func (s *Store) ReservePromotion(d Draft, account, reference string) error {
 		return errors.New("private upload or draft changed; refresh its receipt")
 	}
 	return nil
+}
+
+// Match the preparation used by this exact saved container. Never change bytes
+// in a resumed transfer merely because a newer media preparation is available.
+func (s *Store) InstagramLegacyPreparation(account, hash, reference string) (bool, error) {
+	var version string
+	err := s.db.QueryRow("SELECT preparation FROM upload_attempts WHERE platform='instagram' AND account_id=? AND video_hash=? AND reference=?", account, hash, reference).Scan(&version)
+	if err != nil {
+		return false, err
+	}
+	switch version {
+	case "instagram-aac128-v1":
+		return true, nil
+	case "instagram-mp4-v2":
+		return false, nil
+	default:
+		return false, errors.New("saved Instagram preparation is unknown; retain its receipt")
+	}
 }
