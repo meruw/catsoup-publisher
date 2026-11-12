@@ -86,3 +86,14 @@ See the [App Review Guidelines](https://developers.tiktok.com/docs/en/app-review
 ## Cover selection
 
 For Direct Post, choose a frame under **Thumbnail** before approval. Publisher sends its timestamp as `video_cover_timestamp_ms`. Inbox transfers do not accept a cover or caption; complete those in TikTok's mobile editor. A successful inbox receipt confirms TikTok's API response, not the time its mobile notification appears. Do not resend an accepted transfer solely because the notification is delayed. [Direct Post reference](https://developers.tiktok.com/doc/content-posting-api-reference-direct-post)
+
+
+## Automatic TikTok inbox tracking
+
+Publisher checks saved TikTok inbox receipts automatically while the app is open. The last provider status, check time, retry schedule and any check failure are stored locally and survive restarts. Opening Publisher resumes due checks; no Windows service runs while it is closed.
+
+Open **Posts → video → TikTok account** to see the latest observation and earlier attempts. The send dialog shows the same tracking details. **TikTok confirmed the inbox notification** means the API returned `SEND_TO_USER_INBOX`; it does not independently establish that the notification is visible on your phone. `PUBLISH_COMPLETE` confirms that the creator finished posting from TikTok. A processing failure shows TikTok's failure identifier. No observation sends, republishes or deletes a video.
+
+Processing receipts are normally checked every minute, reducing to 15 minutes after an hour. Inbox acknowledgments are checked every 15 minutes, reducing to six hours after a day. Checks are spaced at least five seconds apart and limited to eight receipts per pass. Network/authentication errors preserve the last known status and use increasing retry intervals. Published or definitively failed receipts stop polling. A disconnected account is not polled. An interrupted active transfer becomes eligible after its 15-minute send deadline plus a one-minute margin.
+
+Archived resend receipts are tracked separately. An older copy completing cannot overwrite the current copy's result. The monitor never enables or performs a resend, and never treats an inaccessible status as a failed upload. TikTok does not guarantee notification delivery time.

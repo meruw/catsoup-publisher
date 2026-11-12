@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import TikTokTracking from './TikTokTracking.vue';
+import {Events} from '@wailsio/runtime';
 import {postDate as date,postTime,localTimeZone} from '../services/postTime';
 import {transferUpdates} from '../services/transfers';
 import {computed,onMounted,onUnmounted,ref,watch} from 'vue';
@@ -15,7 +17,7 @@ const emit=defineEmits<{open:[post:PostStatus,reviewUpload?:boolean]}>();
 const platforms:Record<string,string>={youtube:'YouTube',tiktok:'TikTok',instagram:'Instagram',facebook:'Facebook',x:'X'};
 const states:Record<string,string>={draft:'Draft',approved:'Approved',published:'Published',restricted:'Limited visibility',private:'Private video',inbox:'TikTok inbox',sending:'Sending',check:'Check result',failed:'Failed'};
 const statusFilters:Record<string,string>={'':'All',unsent:'Not sent',active:'In progress',delivered:'Sent',attention:'Needs attention'};
-const hints:Record<string,string>={draft:'Saved on this PC; no completed transfer is recorded for this file.',approved:'Approved locally. Nothing has been sent yet.',published:'The provider confirmed publishing. Later changes on the platform are not monitored.',restricted:'Posted with friends or followers visibility, not public visibility.',private:'Uploaded with private visibility.',inbox:'Delivered to TikTok’s inbox. Finish posting in TikTok.',sending:'A transfer is in progress. Do not resend it.',processing:'The provider is processing this video.',check:'The result is uncertain. Check the destination before allowing another attempt.',failed:'The provider confirmed that processing failed.',browser:'Opened in the browser. Publisher cannot confirm whether you posted there.'};
+const hints:Record<string,string>={draft:'Saved on this PC; no completed transfer is recorded for this file.',approved:'Approved locally. Nothing has been sent yet.',published:'The provider confirmed publishing. Later changes on the platform are not monitored.',restricted:'Posted with friends or followers visibility, not public visibility.',private:'Uploaded with private visibility.',inbox:'TikTok confirmed the inbox notification; visibility on your phone is not independently verified.',sending:'A transfer is in progress. Do not resend it.',processing:'The provider is processing this video.',check:'The result is uncertain. Check the destination before allowing another attempt.',failed:'The provider confirmed that processing failed.',browser:'Opened in the browser. Publisher cannot confirm whether you posted there.'};
 
 const search=ref(''),platform=ref(''),language=ref(''),state=ref('');
 const offset=ref(0),groups=ref<PostGroup[]>([]),more=ref(false),busy=ref(false),error=ref('');
@@ -76,7 +78,7 @@ async function load(){
  try{
   if(group.value){
    const result=await drafts.statuses({...blankFilter(),episode:group.value.episode,language:detailLanguage.value,offset:detailOffset.value});
-   if(request===generation){rows.value=result.items||[];detailMore.value=result.more;}
+   if(request===generation){rows.value=result.items||[];detailMore.value=result.more;if(selected.value){selected.value=rows.value.find(p=>JSON.stringify(p.key)===JSON.stringify(selected.value!.key))||selected.value;}}
   }else{
    const result=await drafts.groups({...blankFilter(),search:search.value.trim(),episodeMatches:search.value.trim()?props.entries.filter(e=>e.title.toLowerCase().includes(search.value.trim().toLowerCase())).map(e=>e.id):[],platform:platform.value,language:language.value,state:state.value,offset:offset.value});
    if(request===generation){groups.value=result.items||[];more.value=result.more;}
@@ -94,7 +96,8 @@ function applyFilters(){platform.value=pendingFilters.value.platform;language.va
 function resetFilters(){platform.value='';language.value='';state.value='';}
 watch(transferUpdates,()=>{void load()});
 watch(()=>props.initialEpisode,openInitial);
-onMounted(openInitial);onUnmounted(()=>{clearTimeout(timer);++generation;++refreshRun});
+let offTracking:(()=>void)|undefined;
+onMounted(()=>{offTracking=Events.On('publisher:receipts-changed',()=>void load());void openInitial()});onUnmounted(()=>{offTracking?.();clearTimeout(timer);++generation;++refreshRun});
 </script>
 <template>
  <main class="publisher-main posts-main">
@@ -135,6 +138,7 @@ onMounted(openInitial);onUnmounted(()=>{clearTimeout(timer);++generation;++refre
    <VideoThumbnail :episode="selected.key.episode" :video="selected.videoId" :stamp="selected.updatedAt"/>
    <p class="post-detail-state" :class="'state-'+selected.state">{{states[selected.state]||'Check result'}}</p>
    <p class="muted">{{canReviewUpload?'Review the saved Instagram upload and confirm the next action. Nothing is sent just by opening it.':hints[selected.state]}}</p>
+   <TikTokTracking v-if="selected.key.platform==='tiktok' && selected.key.account.startsWith('account:')" :post-key="selected.key" :account-id="selected.key.account.slice(8)"/>
    <div class="post-detail-actions"><UiButton v-if="canReviewUpload" variant="primary" :disabled="!canOpen" @click="emit('open',selected,true)">Review Instagram upload</UiButton><UiButton :disabled="!canOpen" :variant="canReviewUpload?'quiet':'secondary'" @click="emit('open',selected)">Open post</UiButton></div>
    <p v-if="openError" class="notice error" role="alert">{{openError}}</p>
    <p v-if="!canOpen" class="muted">Reconnect this account and make the delivery available to edit this post.</p>

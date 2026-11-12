@@ -1,8 +1,10 @@
 <script setup lang="ts">
+import TikTokTracking from './TikTokTracking.vue';
+import {Events} from '@wailsio/runtime';
 import SendConfirmation from './SendConfirmation.vue';
 import TikTokWebPrepare from './TikTokWebPrepare.vue';
 import UiSegmented from './UiSegmented.vue';
-import {computed,nextTick,onMounted,ref,watch} from 'vue';
+import {computed,nextTick,onMounted,onUnmounted,ref,watch} from 'vue';
 import UiTooltip from './UiTooltip.vue';
 import UiButton from './UiButton.vue';
 import {mediaURL} from '../services/publisher';
@@ -52,11 +54,14 @@ const note=computed(()=>{
  return platform.value==='facebook'?'Publish a Reel on the connected Facebook Page.':'Publish a Reel on the connected Instagram profile. Audio is prepared at 128 kb/s; your original file and video stream stay unchanged.';
 });
 const blocked=computed(()=>transferPending(props.draft)||tikTokBlocked.value||!!props.hint || !confirmed.value || (platform.value==='youtube' && !audience.value) || (platform.value==='x' && !browserX.value && !paidAccepted.value));
-const receiptLabel=computed(()=>receipt.value.state==='failed'?'Failed':receipt.value.state==='restricted'?'Posted with limited visibility':receipt.value.state==='private'&&platform.value==='tiktok'?'Posted · Only me':receipt.value.state==='published'?'Published':receipt.value.state==='inbox'?'Sent to inbox':privateVideo.value?(receipt.value.state==='check_publish'?'Check visibility in YouTube Studio':'Private video uploaded'):receipt.value.state==='sent'?(platform.value==='tiktok'?'Sent to inbox':'Published'):'Check the platform');
+const receiptLabel=computed(()=>receipt.value.state==='failed'?'Failed':receipt.value.state==='restricted'?'Posted with limited visibility':receipt.value.state==='private'&&platform.value==='tiktok'?'Posted · Only me':receipt.value.state==='published'?'Published':receipt.value.state==='inbox'?'TikTok confirmed inbox':privateVideo.value?(receipt.value.state==='check_publish'?'Check visibility in YouTube Studio':'Private video uploaded'):receipt.value.state==='sent'?(platform.value==='tiktok'?'Sent to inbox':'Published'):'Check the platform');
 watch([mode,audience,synthetic,()=>props.draft.revision,()=>props.hint],()=>{confirmed.value=false;paidAccepted.value=false});
 async function run(task:()=>Promise<void>){if(busy.value)return;busy.value=true;emit('busy',true);error.value='';try{await task()}catch(e){finalReview.value=false;error.value=String(e)}finally{busy.value=false;emit('busy',false)}}
 function openPolicy(policy:string){void run(async()=>{await uploads.tikTokPolicy(policy)})}
 async function refreshReceipt(){if(account.value.id && !browserX.value){receipt.value=await uploads.receipt(props.draft.key,account.value.id);if(platform.value==='tiktok'&&receipt.value.state==='inbox')transport.value='api';}}
+let offTracking:(()=>void)|undefined;
+onMounted(()=>{offTracking=Events.On('publisher:receipts-changed',()=>{void refreshReceipt().catch(()=>{})})});
+onUnmounted(()=>offTracking?.());
 onMounted(async()=>{try{const p=(await uploads.accounts()||[]).find(p=>p.platform===platform.value && p.language===props.draft.key.language);if(p && accountKey(p)===props.draft.key.account){account.value=p;await refreshReceipt();if(directTikTok.value)await loadCreator()}}catch(e){error.value=String(e)}finally{loading.value=false}});
 function send(){if(!finalReview.value||blocked.value)return;void run(async()=>{
  await props.flush();await nextTick();
@@ -91,6 +96,7 @@ function clearAttempt(){void run(async()=>{await uploads.clear(props.draft.key,a
   <UiSegmented v-if="platform==='tiktok'" v-model="transport" label="TikTok upload method" :options="[{value:'browser',label:'Browser'},{value:'api',label:'Inbox / API'}]"/>
   <TikTokWebPrepare v-if="platform==='tiktok' && transport==='browser'" :draft="draft" :account="account" :receipt="receipt.state" :hint="hint" :flush="flush" @queued="emit('queued')"/>
   <template v-else>
+  <TikTokTracking :key="receipt.reference" v-if="platform==='tiktok' && account.id" :post-key="draft.key" :account-id="account.id"/>
   <div v-if="receipt.state" class="send-receipt" role="status"><strong>{{receiptLabel}}</strong><span class="mono">{{receipt.reference}}</span><small v-if="failedInstagram">Finish the saved upload. If Meta lost its file, Publisher can resend the same bytes to the same container before publishing.</small><small v-else-if="!completed && !privateVideo">Check the destination before retrying.</small></div>
   <template v-if="platform==='tiktok'">
    <div v-if="receipt.state==='inbox'" class="inbox-resend">
@@ -102,7 +108,6 @@ function clearAttempt(){void run(async()=>{await uploads.clear(props.draft.key,a
     </div>
    </div>
    <p v-if="resendReady" role="status">Ready for another send. Confirm the account and language below.</p>
-   <details v-if="receipt.inboxHistory?.length" class="inbox-history"><summary>Previous inbox receipts ({{receipt.inboxHistory.length}})</summary><ul><li v-for="item in receipt.inboxHistory" :key="item.reference"><time>{{new Date((item.confirmedAt||item.archivedAt)*1000).toLocaleString()}}</time><span class="mono">{{item.reference}}</span></li></ul></details>
   </template>
   <template v-if="!completed && (!receipt.state || privateVideo || failedInstagram)">
    <template v-if="hint">

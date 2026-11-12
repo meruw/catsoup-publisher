@@ -146,3 +146,16 @@ Tests cover pending processing with and without a stale phase error, successful 
 Every account-specific acknowledged TikTok inbox receipt can be explicitly archived to enable another attempt. The action requires the exact current account, language, file hash, draft revision and receipt reference, plus explicit duplicate-arrival consent. It never sends bytes itself. Existing review, approval and final language confirmation remain required for the subsequent upload. Active transfers, uncertain results, Direct Post and other platforms remain locked.
 
 Schema v12 adds durable inbox receipt history; archiving and unlocking are atomic, including confirmation timestamps. The send dialog opens Inbox / API for an existing inbox receipt and offers a collapsed history list. Tests cover reference/revision conflicts, language and account isolation, blocked states, repeated resets, persistence, consent, cancellation and no send before final confirmation. Go tests, vet, strict frontend build, browser resend and existing final-confirmation fixtures pass. Browser fixtures do not establish live TikTok notification delivery. Installed after Publisher closed and no active receipts remained. A SQLite backup precedes migration; schema v12 and executable SHA-256 `70d22a2cfcfeff89b75d1eb9e2059f934727996fb660a90d8c93dabd7b6a2f5f` were verified. Native window inspection confirmed that the app loaded. The prior manually archived inbox receipt was imported into the new history. No resend was performed during installation; native resend interaction remains owner-driven.
+
+
+## Persistent TikTok inbox observations
+
+Schema 13 adds account/reference-scoped provider observations and a durable polling schedule. A single cancellable worker resumes current and archived inbox receipts on startup, queries only the status endpoint, and preserves the latest known status on errors. Account identity joins, exact-reference reconciliation and a live-transfer grace period protect replacements, resends and concurrent completion writes. No dependencies, media upload, background Windows service or new publication permissions are added.
+
+Posts details and the send dialog show provider status, last check, check failures and archived attempt results. Inbox acknowledgment explicitly differs from observed mobile receipt. Event-driven UI updates do not require frontend polling.
+
+Migration preserves existing accounts, approvals, upload locks and receipts. Back up the SQLite database before installation; older builds reject schema 13. Downgrading requires restoring its matching backup while Publisher is closed.
+
+Validation: provider status-only fixtures, migration/restart persistence, backoff, terminal stop, archive isolation, active-send protection and shutdown tests. Frontend fixtures exercise updates, failures and narrow layout. Native installation verification remains pending.
+
+Next action: install the tracking build after Publisher closes, then verify saved observations against existing TikTok receipts without uploading media.

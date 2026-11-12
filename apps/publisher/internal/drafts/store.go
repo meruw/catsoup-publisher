@@ -155,7 +155,7 @@ func (s *Store) migrate() error {
 	if err = tx.QueryRowContext(ctx, "SELECT version FROM schema_version WHERE id=1").Scan(&version); err != nil {
 		return err
 	}
-	if version > 12 || version < 0 {
+	if version > 13 || version < 0 {
 		return errors.New("unsupported schema version; use a compatible Publisher build")
 	}
 	if version == 0 {
@@ -255,6 +255,16 @@ UPDATE schema_version SET version=11 WHERE id=1;`); err != nil {
  started INTEGER NOT NULL, confirmed_at INTEGER NOT NULL, archived_at INTEGER NOT NULL,
  PRIMARY KEY(account_id,video_hash,reference));
  UPDATE schema_version SET version=12 WHERE id=1;`); err != nil {
+			return err
+		}
+	}
+	if version < 13 {
+		if _, err = tx.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS tiktok_tracking (
+ account_id TEXT NOT NULL, reference TEXT NOT NULL, status TEXT NOT NULL DEFAULT '',
+ reason TEXT NOT NULL DEFAULT '', checked_at INTEGER NOT NULL DEFAULT 0,
+ next_check INTEGER NOT NULL DEFAULT 0, failures INTEGER NOT NULL DEFAULT 0,
+ problem TEXT NOT NULL DEFAULT '', PRIMARY KEY(account_id,reference));
+ UPDATE schema_version SET version=13 WHERE id=1;`); err != nil {
 			return err
 		}
 	}

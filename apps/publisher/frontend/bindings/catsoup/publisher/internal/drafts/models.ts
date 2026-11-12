@@ -36,6 +36,7 @@ export interface Draft {
 }
 
 export interface InboxReceipt {
+    "tracking"?: TikTokTracking | null;
     "reference": string;
     "confirmedAt": number;
     "archivedAt": number;
@@ -112,6 +113,7 @@ export interface PublishingDefault {
 }
 
 export interface Receipt {
+    "tracking"?: TikTokTracking | null;
     "inboxHistory"?: InboxReceipt[] | null;
     "state": string;
     "reference": string;
@@ -131,4 +133,12 @@ export interface Review {
     "notes": string;
     "revision": number;
     "updatedAt": string;
+}
+
+export interface TikTokTracking {
+    "status": string;
+    "reason": string;
+    "checkedAt": number;
+    "nextCheck": number;
+    "problem": string;
 }

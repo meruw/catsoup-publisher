@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"embed"
 	"errors"
 	"flag"
@@ -164,6 +165,16 @@ func main() {
 		}
 	}()
 	uploadService.openBrowser = app.Browser.OpenURL
+	monitorContext, stopMonitor := context.WithCancel(context.Background())
+	monitorDone := drafts.StartTikTokMonitor(monitorContext, store, func(ctx context.Context, w drafts.TikTokWatch) (string, string, error) {
+		token, err := uploadService.access(ctx, "tiktok", w.Language, w.Account)
+		if err != nil {
+			return "", "", err
+		}
+		result, err := uploadService.client.TikTokInboxStatus(ctx, token, w.Reference)
+		return result.Status, result.FailReason, err
+	}, func() { app.Event.Emit("publisher:receipts-changed") })
+	defer func() { stopMonitor(); <-monitorDone }()
 	draftService.reveal = func(path string) error { return app.Env.OpenFileManager(path, true) }
 	var guarded, closing atomic.Bool
 	draftService.enableCloseGuard = func() { guarded.Store(true) }

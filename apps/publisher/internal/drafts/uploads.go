@@ -8,16 +8,18 @@ import (
 )
 
 type InboxReceipt struct {
-	Reference   string `json:"reference"`
-	ConfirmedAt int64  `json:"confirmedAt"`
-	ArchivedAt  int64  `json:"archivedAt"`
+	Tracking    *TikTokTracking `json:"tracking,omitempty"`
+	Reference   string          `json:"reference"`
+	ConfirmedAt int64           `json:"confirmedAt"`
+	ArchivedAt  int64           `json:"archivedAt"`
 }
 
 type Receipt struct {
-	InboxHistory []InboxReceipt `json:"inboxHistory,omitempty"`
-	State        string         `json:"state"`
-	Reference    string         `json:"reference"`
-	RetryAllowed bool           `json:"retryAllowed"`
+	Tracking     *TikTokTracking `json:"tracking,omitempty"`
+	InboxHistory []InboxReceipt  `json:"inboxHistory,omitempty"`
+	State        string          `json:"state"`
+	Reference    string          `json:"reference"`
+	RetryAllowed bool            `json:"retryAllowed"`
 }
 
 // A send has a fifteen-minute deadline. Retain a stale Instagram container for
@@ -36,6 +38,17 @@ func (s *Store) Receipt(platform, account, hash string) (Receipt, error) {
 	}
 	if err == nil && platform == "tiktok" {
 		r.InboxHistory, err = s.InboxHistory(account, hash)
+		if err == nil {
+			r.Tracking, err = s.TikTokTracking(account, r.Reference)
+		}
+		if err == nil {
+			for i := range r.InboxHistory {
+				r.InboxHistory[i].Tracking, err = s.TikTokTracking(account, r.InboxHistory[i].Reference)
+				if err != nil {
+					break
+				}
+			}
+		}
 	}
 	r.RetryAllowed = r.State == "check" || (r.State == "sending" && time.Since(time.Unix(started, 0)) > 30*time.Minute)
 	if r.State == "publishing" && time.Since(time.Unix(started, 0)) > 30*time.Minute {

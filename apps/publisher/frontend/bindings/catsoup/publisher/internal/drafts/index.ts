@@ -15,5 +15,6 @@ export type {
     Profile,
     PublishingDefault,
     Receipt,
-    Review
+    Review,
+    TikTokTracking
 } from "./models.js";

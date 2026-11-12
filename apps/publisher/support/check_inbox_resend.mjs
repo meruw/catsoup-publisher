@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 const root=fileURLToPath(new URL('../frontend/',import.meta.url));
 const out=fileURLToPath(new URL('../../../work/inbox-resend/',import.meta.url));
 await mkdir(out,{recursive:true});
-const fixture={name:'send-confirmation-fixture',enforce:'pre',load(id){
+const fixture={name:'send-confirmation-fixture',enforce:'pre',resolveId(id){if(id==='@wailsio/runtime')return '\0fixture-runtime'},load(id){if(id==='\0fixture-runtime')return 'export const Events={On:()=>()=>{}};';
  const name=id.replaceAll('\\','/');
  if(name.endsWith('/services/publisher.ts'))return `export const mediaURL=(episode,video)=>'/media?video='+video;`;
  if(name.endsWith('/services/drafts.ts'))return `export const drafts={get:async key=>{if(window.rejectApproval)return {...window.data.saved.find(d=>d.key.platform===key.platform),approvedRevision:0};return window.data.saved.find(d=>d.key.platform===key.platform)},copyUploadPath:async()=>{},openX:async()=>{}};`;
@@ -43,7 +43,7 @@ try{
  await page.getByText('Ready for another send. Confirm the account and language below.').waitFor();
  assert.equal(await page.evaluate(()=>window.resets.length),1);assert.equal(await page.evaluate(()=>window.sends.length),0);
  const args=await page.evaluate(()=>window.resets[0]);assert.equal(args[0].language,'en');assert.equal(args[1],'tiktok-en');assert.equal(args[3],'old-inbox');assert.equal(args[4],true);
- await page.getByText('Previous inbox receipts (1)').click();await page.getByText('old-inbox',{exact:true}).waitFor();
+ await page.getByText(/Previous attempts/).click();await page.getByText('old-inbox',{exact:true}).waitFor();
  const send=page.getByRole('button',{name:'Send to TikTok inbox',exact:true});assert(await send.isDisabled());
  await page.getByLabel('I confirm tiktok EN and this private / inbox transfer.').check();await send.click();
  const final=page.getByRole('button',{name:'Send English video',exact:true});assert(await final.isDisabled());
