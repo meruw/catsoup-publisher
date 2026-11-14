@@ -40,6 +40,7 @@ const server = await createServer({
       const none = {state:'',reference:'',retryAllowed:false};
       const receipts = new Map(); window.__clearReceipts=()=>receipts.clear();window.__setReceipt=(id,r)=>receipts.set(id,r);window.__sendCalls=[]; const profiles = () => JSON.parse(localStorage.getItem('account-fixture') || '[]');
       export const uploads = {
+        instagramHosting:async()=>({enabled:false,available:false}),setInstagramHosting:async()=>{},
         statistics:async key=>{window.__statisticsReads=(window.__statisticsReads||0)+1;if(window.__statisticsDelay){window.__statisticsActive=(window.__statisticsActive||0)+1;window.__statisticsPeak=Math.max(window.__statisticsPeak||0,window.__statisticsActive);await new Promise(r=>setTimeout(r,50));window.__statisticsActive--;}if(key.account===window.__statisticsFail)throw Error('Fixture read failed');return {items:[{label:'Likes',value:key.language==='es'?'42':'18'},{label:'Comments',value:'3'}],updatedAt:new Date().toISOString(),note:''}},
         tikTokDirectEnabled:async()=>!!window.__tikTokDirect,
         setTikTokDirectEnabled:async enabled=>{window.__tikTokDirect=enabled},

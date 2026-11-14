@@ -15,5 +15,6 @@ export {
 };
 
 export type {
+    InstagramHosting,
     SaveDraftInput
 } from "./models.js";

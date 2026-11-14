@@ -5,6 +5,11 @@
 // @ts-ignore: Unused imports
 import * as drafts$0 from "./internal/drafts/models.js";
 
+export interface InstagramHosting {
+    "enabled": boolean;
+    "available": boolean;
+}
+
 export interface SaveDraftInput {
     "cover": drafts$0.Cover | null;
     "setCover": boolean;

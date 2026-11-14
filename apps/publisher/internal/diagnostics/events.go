@@ -11,6 +11,9 @@ import (
 )
 
 var messages = map[string]string{
+	"upload_host_starting":      "Opening temporary HTTPS for the approved video",
+	"upload_host_ready":         "Temporary HTTPS verified; only the approved video is available",
+	"upload_host_closed":        "Temporary HTTPS closed",
 	"cover_pending":             "Video saved; thumbnail needs attention",
 	"web_attaching":             "TikTok browser account verified; attaching approved video",
 	"web_attention":             "TikTok browser preparation needs attention; no automatic retry",

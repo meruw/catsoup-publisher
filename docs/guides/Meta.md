@@ -51,3 +51,13 @@ Reference: [Meta's official Reels publishing collection](https://www.postman.com
 ## Reel cover
 
 In the Instagram account editor, open **Thumbnail → Choose frame**, pause the preview and choose **Use this frame** before approving and uploading. Publisher sends that frame's timestamp with the Reel container. The cover cannot be changed here once its upload exists. This connector does not host local PNG/JPG images for custom covers. Facebook cover selection is not implemented.
+
+## Optional temporary HTTPS uploads
+
+Under **Settings → Publishing defaults**, enable **Use temporary HTTPS for Instagram** to let Meta download the approved video instead of sending its bytes to Meta's resumable-upload endpoint. This setting applies to both languages and is off by default. It is separate from OAuth callback hosting.
+
+Install the Windows x64 `cloudflared.exe` helper from [Cloudflare's official releases](https://github.com/cloudflare/cloudflared/releases/tag/2026.11.0) at `.tools/cloudflared.exe` in your Publisher workspace. Version `2026.11.0` is tested; automatic updates are disabled. Its SHA-256 is `d5c1d82031da6253dcdcff64c944cd0fe063016edeb2e4fd088075fc9bd52d0a`. Publisher does not download the helper automatically.
+
+Enabling this option consents to sharing the prepared MP4 through Cloudflare for approved Instagram sends. Anyone with its random temporary URL can read that video while the link is active. No directory, credentials or application API is exposed. Publisher checks HTTPS and a byte range before requesting a container, saves that container before processing, and closes the link on completion, error or cancellation, with a maximum lifetime of 15 minutes. Keep Publisher open during the transfer. The URL is not saved in receipts or diagnostic logs.
+
+There is no account or hosting subscription to configure. [Cloudflare Quick Tunnels](https://developers.cloudflare.com/tunnel/get-started/quick-tunnels/) are intended for testing and have no uptime guarantee. An unavailable tunnel fails before creating an Instagram upload. A pending container or uncertain publication keeps its receipt and blocks a replacement; use **Check and finish on Instagram** to reconcile it. Publisher never creates a replacement merely because a request timed out.

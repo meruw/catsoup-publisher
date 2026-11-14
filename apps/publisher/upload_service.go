@@ -9,16 +9,19 @@ import (
 	"log/slog"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
 	"catsoup/publisher/internal/delivery"
 	"catsoup/publisher/internal/diagnostics"
 	"catsoup/publisher/internal/drafts"
+	"catsoup/publisher/internal/mediahost"
 	"catsoup/publisher/internal/uploads"
 )
 
 type UploadService struct {
+	root        string
 	diagnostics *diagnostics.Store
 	store       *drafts.Store
 	reader      *delivery.Reader
@@ -254,6 +257,7 @@ func (s *UploadService) sendMode(key drafts.Key, revision int64, id, mode string
 	if err != nil {
 		return drafts.Receipt{}, err
 	}
+	hostedMode := key.Platform == "instagram" && s.InstagramHosting().Enabled
 	resumeBytes := false
 	if key.Platform == "instagram" && (previous.State == "failed" || previous.State == "check") {
 		state, stateErr := s.client.InstagramContainerState(ctx, token, previous.Reference)
@@ -275,6 +279,9 @@ func (s *UploadService) sendMode(key drafts.Key, revision int64, id, mode string
 			return s.store.Receipt(key.Platform, id, d.VideoHash)
 		}
 		resumeBytes = uploads.CanResumeInstagramBytes(state, stateErr)
+		if resumeBytes && hostedMode {
+			return drafts.Receipt{}, errors.New("Instagram is still processing the saved container; check it again before creating a replacement")
+		}
 		if !resumeBytes {
 			if err = s.client.ConfirmInstagramFailure(ctx, token, previous.Reference); err != nil {
 				return drafts.Receipt{}, err
@@ -328,6 +335,20 @@ func (s *UploadService) sendMode(key drafts.Key, revision int64, id, mode string
 		}
 		return s.store.Receipt(key.Platform, id, d.VideoHash)
 	}
+	var hostedURL string
+	if hostedMode {
+		var closeHost func()
+		diagnostics.Record(ctx, slog.LevelInfo, "upload_host_starting", diagnostics.Details{})
+		hostedURL, closeHost, err = mediahost.Start(ctx, filepath.Join(s.root, ".tools", "cloudflared.exe"), m.File, m.Size)
+		if err != nil {
+			return drafts.Receipt{}, err
+		}
+		defer func() {
+			closeHost()
+			diagnostics.Record(ctx, slog.LevelInfo, "upload_host_closed", diagnostics.Details{})
+		}()
+		diagnostics.Record(ctx, slog.LevelInfo, "upload_host_ready", diagnostics.Details{})
+	}
 	if key.Platform == "instagram" && (previous.State == "failed" || previous.State == "check") {
 		if err = s.client.ConfirmInstagramFailure(ctx, token, previous.Reference); err != nil {
 			return drafts.Receipt{}, err
@@ -339,12 +360,26 @@ func (s *UploadService) sendMode(key drafts.Key, revision int64, id, mode string
 	if err != nil {
 		return drafts.Receipt{}, err
 	}
-	ref, sendErr := s.client.Send(ctx, key.Platform, token, current, m, func(ref string) error {
+	record := func(ref string) error {
 		if key.Platform == "instagram" {
 			return s.store.SaveInstagramCheckpoint(d, id, ref, uploadHash)
 		}
 		return s.store.SaveReceipt(d, id, "sending", ref)
-	})
+	}
+	var ref string
+	var sendErr error
+	publishStarted := false
+	if hostedMode {
+		ref, sendErr = s.client.InstagramHosted(ctx, token, current, m, hostedURL, record, func() error {
+			if err := s.store.SaveReceipt(d, id, "publishing", ""); err != nil {
+				return err
+			}
+			publishStarted = true
+			return nil
+		})
+	} else {
+		ref, sendErr = s.client.Send(ctx, key.Platform, token, current, m, record)
+	}
 	state := "published"
 	if key.Platform == "youtube" && mode == "draft" {
 		state = "private"
@@ -362,7 +397,9 @@ func (s *UploadService) sendMode(key drafts.Key, revision int64, id, mode string
 	}
 	if sendErr != nil {
 		state = "check"
-		if errors.Is(sendErr, uploads.ErrProcessingFailed) {
+		if publishStarted {
+			state = "check_publish"
+		} else if errors.Is(sendErr, uploads.ErrProcessingFailed) {
 			state = "failed"
 		}
 	}

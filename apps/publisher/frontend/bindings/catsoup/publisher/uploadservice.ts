@@ -12,6 +12,10 @@ import * as drafts$0 from "./internal/drafts/models.js";
 // @ts-ignore: Unused imports
 import * as uploads$0 from "./internal/uploads/models.js";
 
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import * as $models from "./models.js";
+
 export function Accounts(): $CancellablePromise<drafts$0.Profile[] | null> {
     return $Call.ByID(1307383184);
 }
@@ -56,6 +60,10 @@ export function EnableHostedMetaCallback(): $CancellablePromise<string> {
 
 export function GoogleClientReady(): $CancellablePromise<boolean> {
     return $Call.ByID(456363275);
+}
+
+export function InstagramHosting(): $CancellablePromise<$models.InstagramHosting> {
+    return $Call.ByID(49365718);
 }
 
 export function LinkAccount(platform: string, language: string, expectedID: string, handle: string, pageToken: string): $CancellablePromise<drafts$0.Profile> {
@@ -125,6 +133,10 @@ export function SendTikTok(key: drafts$0.Key, revision: number, id: string, conf
 
 export function SendX(key: drafts$0.Key, revision: number, id: string, confirmed: boolean, paidAccepted: boolean): $CancellablePromise<drafts$0.Receipt> {
     return $Call.ByID(4019459102, key, revision, id, confirmed, paidAccepted);
+}
+
+export function SetInstagramHosting(enabled: boolean, consent: boolean): $CancellablePromise<void> {
+    return $Call.ByID(828696478, enabled, consent);
 }
 
 export function SetMetaCallbackURL(raw: string): $CancellablePromise<string> {

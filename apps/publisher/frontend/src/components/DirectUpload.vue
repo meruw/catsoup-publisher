@@ -97,7 +97,7 @@ function clearAttempt(){void run(async()=>{await uploads.clear(props.draft.key,a
   <TikTokWebPrepare v-if="platform==='tiktok' && transport==='browser'" :draft="draft" :account="account" :receipt="receipt.state" :hint="hint" :flush="flush" @queued="emit('queued')"/>
   <template v-else>
   <TikTokTracking :key="receipt.reference" v-if="platform==='tiktok' && account.id" :post-key="draft.key" :account-id="account.id"/>
-  <div v-if="receipt.state" class="send-receipt" role="status"><strong>{{receiptLabel}}</strong><span class="mono">{{receipt.reference}}</span><small v-if="failedInstagram">Finish the saved upload. If Meta lost its file, Publisher can resend the same bytes to the same container before publishing.</small><small v-else-if="!completed && !privateVideo">Check the destination before retrying.</small></div>
+  <div v-if="receipt.state" class="send-receipt" role="status"><strong>{{receiptLabel}}</strong><span class="mono">{{receipt.reference}}</span><small v-if="failedInstagram">Check the saved result before publishing. A replacement is created only after Meta confirms the container failed.</small><small v-else-if="!completed && !privateVideo">Check the destination before retrying.</small></div>
   <template v-if="platform==='tiktok'">
    <div v-if="receipt.state==='inbox'" class="inbox-resend">
     <UiButton v-if="!resendOpen" :disabled="busy||transferPending(draft)" @click="resendOpen=true">Resend to inbox…</UiButton>

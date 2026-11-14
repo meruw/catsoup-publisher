@@ -57,7 +57,7 @@ The operator's three present developer configurations (Google, TikTok and Meta) 
 
 ## Next action
 
-Review the automatic TikTok observations in Posts during normal use. Monitoring resumes saved receipts without sending media. The PoC remains in progress; no release is planned.
+Verify the next approved Instagram upload through the installed HTTPS option, including its saved receipt and publication time. Do not resend the chapter already recovered. The PoC remains in progress; no release is planned.
 
 ## Publishing reliability and workspace update
 
@@ -168,3 +168,12 @@ On November 13, 2026, a new approved Spanish Reel failed during direct file inge
 The owner authorized temporary HTTPS ingestion of this specific approved file and required exactly one publication. Recovery preserved a SQLite backup and the failed receipt, verified the approved source hash/review/account, prepared the existing compatibility copy, served only that file behind a random temporary URL, and reserved one replacement with an exclusive one-time marker. The replacement was published only after FINISHED. A separate account-media read verified exactly one matching Reel, and its provider timestamp was saved in Publisher. The temporary server and Cloudflare process were closed. No TikTok or other destination was sent.
 
 This verifies recovery for this video, not a permanent fix to direct file ingestion. No app binary or automatic external hosting setting was changed. Next action: implement a deliberate, consented HTTPS transport option with durable recovery and duplicate prevention before claiming first-attempt Instagram reliability.
+
+
+## Consented Instagram HTTPS transport
+
+Publisher provides an opt-in temporary HTTPS transport under Settings → Publishing defaults. It uses the approved compatibility snapshot, a single-file loopback server, a 192-bit random route, and the optional cloudflared 2026.11.0 helper. It verifies public HTTPS range bytes before creating one container. The container and prepared hash are persisted before polling; a publishing checkpoint is saved before media_publish. Ambiguous results remain locked, and ready existing containers are completed without a new upload. Cleanup runs on success, error and cancellation, with a 15-minute maximum lifetime. URLs and helper output are not logged. The setting is shared by ES/EN, defaults off, and requires explicit sharing consent. Cloudflare Quick Tunnels are experimental and have no availability guarantee.
+
+The owner authorized this transport for the current chapter and future approved Instagram sends. The current chapter was recovered once after Meta confirmed a terminal, zero-byte ingestion failure. A separate media-list read confirmed exactly one publication and saved its provider timestamp; the failed receipt and SQLite backup were preserved. No other destination was sent.
+
+Validation: full Go tests and vet, strict frontend build, Windows production build, hosted protocol fixtures (checkpoint failure, processing failure and ambiguous publish), range/path/method isolation, setting consent/persistence and browser fixtures for opt-in, save failure and narrow layout. A real synthetic HTTPS test verified byte delivery and helper cleanup. This is evidence for the transport, not a guarantee of provider availability or an end-to-end test of the installed UI's next real upload.

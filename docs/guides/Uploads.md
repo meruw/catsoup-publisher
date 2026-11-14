@@ -151,6 +151,8 @@ For any Spanish or English video with an acknowledged inbox transfer, open its T
 **Previous inbox receipts** keeps the earlier references and confirmation times on this PC, including after restarting Publisher. An active transfer, Direct Post or another platform cannot be unlocked by this action. A resend does not cancel the original transfer or guarantee faster notification. If both copies arrive, publish only the intended one.
 
 
+For Instagram, **Settings → Publishing defaults → Use temporary HTTPS for Instagram** provides an optional download-based transport. See [Meta setup](https://publisher.meruw.dev/guides/meta/#optional-temporary-https-uploads) for the helper, consent and availability limits. It uses the same approved source, compatibility preparation and account-specific receipt protections. A failed container must be confirmed before replacement; a ready saved container is published without a new upload.
+
 ## Automatic TikTok inbox tracking
 
 Publisher checks saved TikTok inbox receipts automatically while the app is open. The last provider status, check time, retry schedule and any check failure are stored locally and survive restarts. Opening Publisher resumes due checks; no Windows service runs while it is closed.

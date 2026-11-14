@@ -102,7 +102,7 @@ func main() {
 	diagnosticStore := diagnostics.Open(filepath.Join(logRoot, "CATsoup Publisher", "logs"))
 	defer diagnosticStore.Close()
 	diagnosticService := &DiagnosticsService{store: diagnosticStore}
-	uploadService := &UploadService{store: store, reader: reader, client: uploads.New()}
+	uploadService := &UploadService{root: root, store: store, reader: reader, client: uploads.New()}
 	uploadService.diagnostics = diagnosticStore
 	uploadService.client.BrowserIcon = appIcon
 	browser := tiktokweb.New(filepath.Join(logRoot, "CATsoup Publisher", "browser-profiles", "tiktok"))
